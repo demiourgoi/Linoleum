@@ -3,6 +3,7 @@
  */
 package org.example
 
+import es.ucm.fdi.linoleum.tools.simreplayer.App
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 

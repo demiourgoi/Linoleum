@@ -29,6 +29,10 @@ dependencies {
 
     // This dependency is used by the application.
     implementation(libs.guava)
+
+    // https://opentelemetry.io/docs/languages/java/
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.43.0"))
+    implementation("io.opentelemetry:opentelemetry-api")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -40,7 +44,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "org.example.AppKt"
+    mainClass = "es.ucm.fdi.linoleum.tools.simreplayer.AppKt"
 }
 
 tasks.named<Test>("test") {
