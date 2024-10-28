@@ -3,13 +3,50 @@
  */
 package es.ucm.fdi.linoleum.tools.simreplayer
 
-class App {
-    val greeting: String
-        get() {
-            return "Hello World!"
-        }
+import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
+import io.opentelemetry.api.common.AttributeKey
+import io.opentelemetry.context.Context
+import io.opentelemetry.context.ContextKey
+import io.opentelemetry.api.trace.SpanKind
+import io.opentelemetry.api.trace.StatusCode
+
+private const val SCOPE_NAME = "es.ucm.fdi.linoleum.tools.simreplayer"
+private const val SCOPE_VERSION = "0.1.0"
+private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
+
+/**
+ * @return a suitable open telemetry API implementation, typically a configured
+ * OTEL SDK instance
+ * */
+fun provideOtel(): OpenTelemetry {
+    // https://opentelemetry.io/docs/languages/java/configuration/#zero-code-sdk-autoconfigure
+    return AutoConfiguredOpenTelemetrySdk.initialize().openTelemetrySdk
+}
+
+fun sendSomeArbitraryTraces(): Unit {
+    // TODO otelSdk creation in separate fun
+    val otel = provideOtel()
+    val tracer = otel.tracerProvider
+        .tracerBuilder(SCOPE_NAME)
+        .setInstrumentationVersion(SCOPE_VERSION)
+        .setSchemaUrl(SCOPE_SCHEMA_URL)
+        .build()
+    val context = Context.current().with(
+        ContextKey.named<String>("fooCtxKey"), "barCtxKey")
+    val span = tracer.spanBuilder("Hello-span")
+        .setSpanKind(SpanKind.INTERNAL)
+        .setAttribute(AttributeKey.stringKey("${SCOPE_NAME}.foo"),"bar")
+        .setParent(context)
+        .startSpan()
+    if (span.isRecording) {
+        span.addEvent("foo event")
+        span.setStatus(StatusCode.OK, "all good man")
+    }
+    span.end()
 }
 
 fun main() {
-    println(App().greeting)
+    sendSomeArbitraryTraces()
+    println("Bye")
 }

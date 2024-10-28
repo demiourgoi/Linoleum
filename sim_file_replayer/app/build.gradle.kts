@@ -31,8 +31,13 @@ dependencies {
     implementation(libs.guava)
 
     // https://opentelemetry.io/docs/languages/java/
+    // This fixes the version of io.opentelemetry artifacts
+    // https://maven.apache.org/guides/introduction/introduction-to-dependency-mechanism.html#bill-of-materials-bom-poms
     implementation(platform("io.opentelemetry:opentelemetry-bom:1.43.0"))
     implementation("io.opentelemetry:opentelemetry-api")
+    implementation("io.opentelemetry:opentelemetry-sdk")
+    implementation("io.opentelemetry:opentelemetry-exporter-logging")
+    implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
