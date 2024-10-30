@@ -35,6 +35,9 @@ Linoleum is an experiment for using observability signals for runtime verificati
     - [Record Telemetry with API](https://opentelemetry.io/docs/languages/java/api-components)
     - Not using the [Java agent](https://opentelemetry.io/docs/zero-code/java/agent/) as that is used for zero-code instrumentation. 
     - [Java SDK Configuration](https://opentelemetry.io/docs/languages/java/configuration/)
+    - [OpenTelemetry API Javadoc](https://javadoc.io/doc/io.opentelemetry/opentelemetry-api/latest/index.html)
+    - [Log instrumentation](https://opentelemetry.io/docs/languages/java/instrumentation/#log-instrumentation): the log record builder provided by the OTEL's `Logger::logRecordBuilder` is NOT meant to be used directly by application code, but through some bridge to some existing logging API like Log4j / SLF4J / Logback / etc. See e.g. [How to Create a Log4J Log Appender](https://opentelemetry.io/docs/specs/otel/logs/supplementary-guidelines/)
+
 - Kotlin
   - [Kotlin in Action, 2E](https://livebook.manning.com/book/kotlin-in-action-second-edition)
   - [Gradle for Kotlin](https://kotlinlang.org/docs/gradle.html)

@@ -8,8 +8,11 @@ import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.ContextKey
+import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.StatusCode
+import io.opentelemetry.api.trace.Tracer
+import io.opentelemetry.context.Scope
 
 private const val SCOPE_NAME = "es.ucm.fdi.linoleum.tools.simreplayer"
 private const val SCOPE_VERSION = "0.1.0"
@@ -24,26 +27,64 @@ fun provideOtel(): OpenTelemetry {
     return AutoConfiguredOpenTelemetrySdk.initialize().openTelemetrySdk
 }
 
-fun sendSomeArbitraryTraces(): Unit {
-    // TODO otelSdk creation in separate fun
-    val otel = provideOtel()
-    val tracer = otel.tracerProvider
+fun provideTracer(otel: OpenTelemetry): Tracer {
+    return otel.tracerProvider
         .tracerBuilder(SCOPE_NAME)
         .setInstrumentationVersion(SCOPE_VERSION)
         .setSchemaUrl(SCOPE_SCHEMA_URL)
         .build()
-    val context = Context.current().with(
-        ContextKey.named<String>("fooCtxKey"), "barCtxKey")
+}
+
+fun waitForSpanRecording(span: Span) {
+    while (!span.isRecording) {
+        println("waiting for span to get ready to record")
+        Thread.sleep(500)
+    }
+    println("span ready to record!")
+}
+
+fun sendSomeArbitraryTraces(): Unit {
+    val otel = provideOtel()
+    val tracer = provideTracer(otel)
+
+    val context = Context.current()
+        .with(ContextKey.named<String>("fooCtxKey"), "barCtxKey")
+
     val span = tracer.spanBuilder("Hello-span")
         .setSpanKind(SpanKind.INTERNAL)
         .setAttribute(AttributeKey.stringKey("${SCOPE_NAME}.foo"),"bar")
+        .setAttribute(AttributeKey.stringKey("${SCOPE_NAME}.qux"),"baz")
         .setParent(context)
         .startSpan()
-    if (span.isRecording) {
+    val ctxWithParentSpan = span.storeInContext(context)
+    try {
+        waitForSpanRecording(span)
+
+        val childSpan = tracer.spanBuilder("child span")
+            .setParent(ctxWithParentSpan)
+            .startSpan()
+        var childSpanScope: Scope? = null
+        try {
+            // only keeping this reference so we can close it later, and pop from the
+            // stack in `Context.current()`
+            childSpanScope = childSpan.makeCurrent()
+
+            val grandSonSpan = tracer.spanBuilder("grandson")
+                .setAttribute(AttributeKey.stringKey("${SCOPE_NAME}.grandSonFoo"), "bar")
+                .startSpan()
+            grandSonSpan.end()
+
+        } finally {
+            childSpanScope?.close()
+            childSpan.end()
+        }
+
         span.addEvent("foo event")
         span.setStatus(StatusCode.OK, "all good man")
+
+    } finally {
+        span.end()
     }
-    span.end()
 }
 
 fun main() {
