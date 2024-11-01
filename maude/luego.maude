@@ -1,0 +1,161 @@
+fmod LUEGO-SYNTAX is
+ pr NAT .
+
+ sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
+ sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList .
+ subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI < Sys .
+ subsort Task < TaskList .
+ subsort TaskPair < TaskPairList .
+ subsort TaskPair < ClientTaskDB .
+
+ *** System specification
+ op none : -> Sys [ctor] .
+ op __ : Sys Sys -> Sys [ctor assoc comm id: none] .
+
+ *** Database for clients. Maps Task to TaskId
+ op nil : -> ClientTaskDB [ctor] .
+ op [_,_] : Task TaskId -> TaskPair [ctor] .
+ op _,_ : ClientTaskDB ClientTaskDB -> ClientTaskDB [ctor assoc comm id: nil] .
+
+ *** Clients and IDs
+ op c : Nat -> CId [ctor] .
+ op [_|_,_] : CId TaskList ClientTaskDB -> Client [ctor] .
+
+ *** Tasks, pairs, lists, and queues
+ op task : Nat -> Task [ctor] .
+ op taskId : Nat -> TaskId [ctor] .
+
+ op mtTL : -> TaskList [ctor] .
+ op __ : TaskList TaskList -> TaskList [ctor assoc id: mtTL] .
+
+ op mtTPL : -> TaskPairList [ctor] .
+ op _;_ : TaskPairList TaskPairList -> TaskPairList [ctor assoc id: mtTPL] .
+
+ op queue : TaskPairList -> Queue [ctor] .
+
+ *** Workers
+ op worker : TaskPairList -> Worker [ctor] .
+
+ *** Load balancer
+ op loadBalancer : -> LoadBalancer [ctor] .
+
+ *** Luego API
+ op lapi : Nat -> LuegoAPI [ctor] .
+
+ *** REST API
+ op rapi : -> RESTAPI [ctor] .
+
+ *** Database
+ op mtDB : -> DBContents [ctor] .
+ op [_,_] : TaskId Result -> DBContents [ctor] .
+ op __ : DBContents DBContents -> DBContents [ctor assoc comm id: mtDB] .
+ op db : DBContents -> Database [ctor] .
+
+ var DBC : DBContents .
+ var TID : TaskId .
+ var R : Result .
+
+ op addKey : DBContents TaskId ~> DBContents .
+ ceq addKey(DBC, TID) = DBC [TID, noResult]
+  if not contains(DBC, TID) .
+
+ op contains : DBContents TaskId -> Bool .
+ eq contains([TID, R] DBC, TID) = true .
+ eq contains(DBC, TID) = false [owise] .
+
+ *** Results
+ op noResult : -> Result [ctor] .
+ op result : Nat -> Result [ctor] .
+
+ *** Messages
+ op request : CId Task -> Msg [ctor] .
+ op request-tid : CId Task -> Msg [ctor] .
+ op request-worker : Task TaskId -> Msg [ctor] .
+ op taskIdAssigned : CId Task TaskId -> Msg [ctor] .
+ op taskIdAssigned-balancer : CId Task TaskId -> Msg [ctor] .
+ op add-database : TaskId -> Msg [ctor] .
+ op work-done : TaskId Result -> Msg [ctor] .
+endfm
+
+mod LUEGO-SEMANTICS is
+ pr LUEGO-SYNTAX .
+
+ var CTDB : ClientTaskDB .
+ var TPL : TaskPairList .
+ var DBC : DBContents .
+ var TL : TaskList .
+ var TID : TaskId .
+ var CID : CId .
+ var T : Task .
+ var N : Nat .
+
+ rl [request-task] :
+    [CID | T TL, CTDB]
+ => [CID | TL, CTDB]
+    request(CID, T) .
+
+ rl [request-reaches-balancer] :
+    request(CID, T)
+    loadBalancer
+ => loadBalancer
+    request-tid(CID, T) .
+
+ rl [request-reaches-api] :
+    request-tid(CID, T)
+    lapi(N)
+ => lapi(s(N))
+    taskIdAssigned-balancer(CID, T, taskId(N)) .
+
+ rl [taskId-reaches-balancer] :
+    taskIdAssigned-balancer(CID, T, TID)
+    loadBalancer
+ => loadBalancer
+    taskIdAssigned(CID, T, TID)
+    request-worker(T, TID)
+    add-database(TID) .
+
+ rl [client-taskId-assigned] :
+    taskIdAssigned(CID, T, TID)
+    [CID | TL, CTDB]
+ => [CID | TL, (CTDB, [T, TID])] .
+
+ rl [add-database] :
+    add-database(TID)
+    db(DBC)
+ => db(addKey(DBC, TID)) .
+
+ rl [add-queue] :
+    request-worker(T, TID)
+    queue(TPL)
+ => queue([T, TID] ; TPL) .
+
+ rl [worker-gets-task] :
+    queue(TPL ; [T, TID])
+    worker(mtTPL)
+ => queue(TPL)
+    worker([T, TID]) .
+
+ rl [work-done] :
+    worker([task(N), TID])
+    rapi
+ => worker(mtTPL)
+    rapi
+    work-done(TID, result(N)) .
+endm
+
+mod TEST is
+ pr LUEGO-SEMANTICS .
+
+ op init : -> Sys .
+ eq init = [c(0) | task(0) task(1) task(2), nil] *** Client 0, with three tasks
+           [c(1) | task(3) task(4), nil]         *** Client 1, with two tasks
+           loadBalancer                          *** Load balancer
+           lapi(0)                               *** Luego API, initial counter for generating task IDs
+           db(mtDB)                              *** Database
+           queue(mtTPL)                          *** Queue
+           rapi                                  *** REST API
+           worker(mtTPL)                         *** Worker 0
+           .
+endm
+
+rew init .
