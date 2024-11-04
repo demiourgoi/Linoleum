@@ -40,7 +40,7 @@ fmod LUEGO-SYNTAX is
  op loadBalancer : -> LoadBalancer [ctor] .
 
  *** Luego API
- op lapi : Nat -> LuegoAPI [ctor] .
+ op lapi : -> LuegoAPI [ctor] .
 
  *** REST API
  op rapi : -> RESTAPI [ctor] .
@@ -49,7 +49,7 @@ fmod LUEGO-SYNTAX is
  op mtDB : -> DBContents [ctor] .
  op [_,_] : TaskId Result -> DBContents [ctor] .
  op __ : DBContents DBContents -> DBContents [ctor assoc comm id: mtDB] .
- op db : DBContents -> Database [ctor] .
+ op db : DBContents Nat -> Database [ctor] .
 
  var DBC : DBContents .
  var TID : TaskId .
@@ -68,13 +68,13 @@ fmod LUEGO-SYNTAX is
  op result : Nat -> Result [ctor] .
 
  *** Messages
- op request : CId Task -> Msg [ctor] .
  op request-tid : CId Task -> Msg [ctor] .
  op request-worker : Task TaskId -> Msg [ctor] .
  op taskIdAssigned : CId Task TaskId -> Msg [ctor] .
- op taskIdAssigned-balancer : CId Task TaskId -> Msg [ctor] .
+ op taskIdAssigned-lapi : CId Task TaskId -> Msg [ctor] .
  op add-database : TaskId -> Msg [ctor] .
  op work-done : TaskId Result -> Msg [ctor] .
+ op work-done-db : TaskId Result -> Msg [ctor] .
 endfm
 
 mod LUEGO-SEMANTICS is
@@ -89,40 +89,34 @@ mod LUEGO-SEMANTICS is
  var T : Task .
  var N : Nat .
 
- rl [request-task] :
-    [CID | T TL, CTDB]
- => [CID | TL, CTDB]
-    request(CID, T) .
-
  rl [request-reaches-balancer] :
-    request(CID, T)
+    [CID | T TL, CTDB]
     loadBalancer
- => loadBalancer
+    lapi
+ => [CID | TL, CTDB]
+    loadBalancer
+    lapi
     request-tid(CID, T) .
 
  rl [request-reaches-api] :
     request-tid(CID, T)
-    lapi(N)
- => lapi(s(N))
-    taskIdAssigned-balancer(CID, T, taskId(N)) .
+    db(DBC, N)
+ => db(addKey(DBC, taskId(N)), s(N))
+    taskIdAssigned-lapi(CID, T, taskId(N)) .
 
  rl [taskId-reaches-balancer] :
-    taskIdAssigned-balancer(CID, T, TID)
+    taskIdAssigned-lapi(CID, T, TID)
     loadBalancer
+    lapi
  => loadBalancer
+    lapi
     taskIdAssigned(CID, T, TID)
-    request-worker(T, TID)
-    add-database(TID) .
+    request-worker(T, TID) .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
     [CID | TL, CTDB]
  => [CID | TL, (CTDB, [T, TID])] .
-
- rl [add-database] :
-    add-database(TID)
-    db(DBC)
- => db(addKey(DBC, TID)) .
 
  rl [add-queue] :
     request-worker(T, TID)
@@ -141,6 +135,17 @@ mod LUEGO-SEMANTICS is
  => worker(mtTPL)
     rapi
     work-done(TID, result(N)) .
+
+ rl [work-done-lapi]
+    work-done(TID, result(N))
+    lapi
+ => lapi
+    work-done-db(TID, result(N)) .
+
+ rl [work-done-db] :
+    work-done-db(TID, result(N))
+    db(DBC, N)
+ => db(DBC, N) . *** TODO
 endm
 
 mod TEST is
@@ -150,8 +155,8 @@ mod TEST is
  eq init = [c(0) | task(0) task(1) task(2), nil] *** Client 0, with three tasks
            [c(1) | task(3) task(4), nil]         *** Client 1, with two tasks
            loadBalancer                          *** Load balancer
-           lapi(0)                               *** Luego API, initial counter for generating task IDs
-           db(mtDB)                              *** Database
+           lapi                                  *** Luego API, initial counter for generating task IDs
+           db(mtDB, 0)                           *** Database
            queue(mtTPL)                          *** Queue
            rapi                                  *** REST API
            worker(mtTPL)                         *** Worker 0
