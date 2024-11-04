@@ -136,7 +136,7 @@ mod LUEGO-SEMANTICS is
     rapi
     work-done(TID, result(N)) .
 
- rl [work-done-lapi]
+ rl [work-done-lapi] :
     work-done(TID, result(N))
     lapi
  => lapi
