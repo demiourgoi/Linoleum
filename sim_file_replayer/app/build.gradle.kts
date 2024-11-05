@@ -37,6 +37,8 @@ dependencies {
     implementation("io.opentelemetry:opentelemetry-api")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("io.opentelemetry:opentelemetry-exporter-logging")
+    // Implementation so we can use OTEL_TRACES_EXPORTER=otlp
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
 }
 

@@ -20,6 +20,11 @@ Linoleum is an experiment for using observability signals for runtime verificati
     - The __OTEL API__ is the interface to instrument telemetry, what your user code uses the sends metrics, logs and traces.
     - The __OTEL SDK__ implements the API, actually sending the telemetry somewhere. The API has a no-op implementation that sends telemetry nowhere, the SDKs does other stuff like sampling and interacts with actual telemetry storages. This separation allows to swap one telemetry technology with another without reimplementing instrumentation. See [OpenTelemetry Client Generic Design](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/library-guidelines.md#opentelemetry-client-generic-design) for more
     - The __OTEL [Collector](https://opentelemetry.io/docs/collector/)__ is a server where the OTEL SDK sends the telemetry, instead of sending it to storage directly. The collector can perform some local processing like aggregation or sampling to reduce the load to the telemetry storage. A simple deployment runs the collector as a [sidecar](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/) of your services, but some complex applications like [tail sampling](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/tailsamplingprocessor) requires running processing all spans for each trace to the same collector, which leads to things like a collector k8s Service
+      - [When to use a collector](https://opentelemetry.io/docs/collector/#when-to-use-a-collector) makes clear a collector is optional, but in general it is recommended to offload features to improve reliability and fault tolerance of the metric collection process like batching and retries, as well as advanced features like sampling.
+
+        > For trying out and getting started with OpenTelemetry, sending your data directly to a backend is a great way to get value quickly. Also, in a development or small-scale environment you can get decent results without a collector.
+        > However, in general we recommend using a collector alongside your service, since it allows your service to offload data quickly and the collector can take care of additional handling like retries, batching, encryption or even sensitive data filtering.
+
   - [__Context propagation__](https://opentelemetry.io/docs/languages/java/instrumentation/#context-propagation) refers to adding metadata to the different __telemetry signals__ (metrics, logs, traces, ...) to be able to correlate signal values of different times that describe the same event. 
     - Typically done as follows: a trace span may have links to its parent span and to other spans; structured logs may include a trace id in some field; a metric [exemplar](https://opentelemetry.io/docs/specs/otel/metrics/data-model/#exemplars) is a metric time series data point that includes a trace id in its metadata. 
     - Linking is useful for discovery, and it's the main way of locating relevant traces during an incident: after grepping logs to find a relevant error message we can jump to a trace to get more details; or e.g. after identifying the time when a metric started to change then we can jump to traces that were emitted during the same event (e.g. API request handling) where those metrics are emitted. 
@@ -37,6 +42,12 @@ Linoleum is an experiment for using observability signals for runtime verificati
     - [Java SDK Configuration](https://opentelemetry.io/docs/languages/java/configuration/)
     - [OpenTelemetry API Javadoc](https://javadoc.io/doc/io.opentelemetry/opentelemetry-api/latest/index.html)
     - [Log instrumentation](https://opentelemetry.io/docs/languages/java/instrumentation/#log-instrumentation): the log record builder provided by the OTEL's `Logger::logRecordBuilder` is NOT meant to be used directly by application code, but through some bridge to some existing logging API like Log4j / SLF4J / Logback / etc. See e.g. [How to Create a Log4J Log Appender](https://opentelemetry.io/docs/specs/otel/logs/supplementary-guidelines/)
+    - [Environment Variable Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)
+    - [OpenTelemetry Protocol Exporter](https://opentelemetry.io/docs/specs/otel/protocol/exporter/)
+- Grafana Tempo
+  - [Get started with Grafana Tempo using the Helm chart](https://grafana.com/docs/helm-charts/tempo-distributed/next/get-started-helm-charts/)
+  - [Query with TraceQL](https://grafana.com/docs/tempo/latest/traceql/)
+
 
 - Kotlin
   - [Kotlin in Action, 2E](https://livebook.manning.com/book/kotlin-in-action-second-edition)

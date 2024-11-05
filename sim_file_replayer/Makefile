@@ -27,13 +27,15 @@ build: export OTEL_SDK_DISABLED=true
 build:	### build app (this also runs unit tests)
 	$(GRADLE) build
 
+OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
 # https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
 run: export OTEL_SERVICE_NAME=linoleum.tools.simreplayer:kotlin
 run: export OTEL_LOG_LEVEL=debug
-# TODO: set to use Grafana Cloud
-run: export OTEL_TRACES_EXPORTER=console
+# Export traces to OLTP so they go to Tempo, but also to the console to
+# see in stdout with format "INFO; span_name : trace_id span_id ..."
+run: export OTEL_TRACES_EXPORTER=otlp,console
 run: export OTEL_METRICS_EXPORTER=console
 run: export OTEL_LOGS_EXPORTER=console
-
 run:	### run app with example flags
-	$(GRADLE) run
+	echo "Using OTEL_EXPORTER_ENV_FILE='$(OTEL_EXPORTER_ENV_FILE)'"
+	source $(OTEL_EXPORTER_ENV_FILE) && $(GRADLE) run

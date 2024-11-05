@@ -18,3 +18,7 @@ Basic gradle targets
 ```
 
 Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
+
+## Design
+
+This commands sends data directly to an OTEL tracing endpoint, and does not rely on any variant the OTEL collector. This is because this is a development and simulation tool, not intended for production usage, so a simpler setup is more convenient (at least until we find a limitation on this approach).

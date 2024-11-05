@@ -84,6 +84,8 @@ fun sendSomeArbitraryTraces(): Unit {
 
     } finally {
         span.end()
+        val spanCtx = span.spanContext
+        println("Closed span with span id ${spanCtx.spanId}, trace id ${spanCtx.traceId}")
     }
 }
 
