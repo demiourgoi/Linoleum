@@ -23,9 +23,9 @@ endif
 clean:	### cleanup the build
 	$(GRADLE) clean
 
-build: export OTEL_SDK_DISABLED=true
 build:	### build app (this also runs unit tests)
 	$(GRADLE) build
+	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
 OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
 # https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/

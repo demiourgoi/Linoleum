@@ -3,6 +3,10 @@
  */
 package es.ucm.fdi.linoleum.tools.simreplayer
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
 import io.opentelemetry.api.common.AttributeKey
@@ -17,6 +21,51 @@ import io.opentelemetry.context.Scope
 private const val SCOPE_NAME = "es.ucm.fdi.linoleum.tools.simreplayer"
 private const val SCOPE_VERSION = "0.1.0"
 private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
+
+/** A simulated trace span
+ *
+ * @property parentId Id of the span that is the parent of this span
+ * @property startTimeOffsetMillis How much to wait since the start of the replay to start this span. The parent
+ * trace is created on its first span
+ * @property durationMillis How much to wait since the span is created to close the span
+ * */
+@Serializable
+data class SimSpan(
+    val spanId: SimSpanId, val parentId: SimSpanId,
+    val spanName: String, val spanKind: SpanKind=SpanKind.INTERNAL,
+    val startTimeOffsetMillis: Long,
+    val durationMillis: Long,
+    val attributes: Map<String, String> = emptyMap<String, String>()) {
+
+    companion object {
+        fun fromJsonStr(jsonStr: String): SimSpan = Json.decodeFromString<SimSpan>(jsonStr)
+    }
+
+    fun toJsonStr(): String = Json.encodeToString(this)
+}
+
+/**
+ * Id of a span in the simulation. These are arbitrary ids that won't be respected when emitting the trace
+ * as the OTEL SDK will autogenerate new trace and span ids
+ * A SimSpanId with an empty spanId is used for as the parentId of the first span of a trace.
+ * */
+@Serializable
+data class SimSpanId(val traceId: String, val spanId: String? = null)
+
+
+/*
+* TODO for reaply
+* - order by time: be explicit about assumption of whether or not we allow spans to happen at the same millis
+* - create trace on first span found; also handle wait for next span. Grouping by trace and short the spans in advance
+*   might be useful. Consider using some kind of executor service for this
+* - signal errors due to spans emitted late: log to mark this
+* - Create unit test with an OTEL provider that does nothing: detect spans emitted late with a mock logger. Usa
+* https://mockk.io/ for idiomatic mocking
+* * Precondition: each SimSpanId is unique in a simulation file. spanName doesn't need to be
+* * Precondition: each trace has a single root span that is a span with null parentId.spanId, that is also
+* the span with lowest startTimeOffsetMillis
+* */
+
 
 /**
  * @return a suitable open telemetry API implementation, typically a configured

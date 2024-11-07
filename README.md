@@ -55,3 +55,18 @@ Linoleum is an experiment for using observability signals for runtime verificati
   - [Coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
   - [KDoc](https://kotlinlang.org/docs/kotlin-doc.html)
   - [Klint](https://www.baeldung.com/kotlin/ktlint-code-formatting)
+  - Serialization
+    - [High level guide](https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json)
+    - [Low level details](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/serializers.md): the plugin mentioned on the high level guide is what generates serilizer implemenations for classes marked as `Serializable`
+    - [High level details](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/basic-serialization.md#basics)
+    - [ContextualSerializer](https://kotlinlang.org/api/kotlinx.serialization/kotlinx-serialization-core/kotlinx.serialization/-contextual-serializer/): a mechanism for using custom serialization for specific fields and combine it with the serializer implemented by the plugin. E.g. when using a type defiend in another library.
+  - Logging
+    - [Idiomatic way of logging in Kotlin](https://stackoverflow.com/questions/34416869/idiomatic-way-of-logging-in-kotlin)
+    - [java.util.logging](https://docs.oracle.com/javase/8/docs/api/java/util/logging/package-summary.html)
+  - Testing
+    - [kotlin-test](https://kotlinlang.org/api/core/kotlin-test/), included in the standard library, has integration with standard Java test frameworks
+    - [Kotest](https://kotest.io/) is an a test framework with PBT capabilities, an assertion library, and several testing styles including BDD and data driven testing
+      - [Kotest IntelliJ plugin](https://kotest.io/docs/intellij/intellij-plugin.html)
+        - Until https://github.com/kotest/kotest/issues/4261 is solved this only works when [disabling K2 Kotlin compiler mode on IntelliJ](https://blog.jetbrains.com/idea/2024/03/k2-kotlin-mode-alpha-in-intellij-idea/)
+      - [Baeldung examples](https://github.com/Baeldung/kotlin-tutorials/tree/master/kotlin-kotest)
+    - [jqwik](https://jqwik.net/) is a Property-Based Testing (PBT) for the JVM, targeting Kotlin among others

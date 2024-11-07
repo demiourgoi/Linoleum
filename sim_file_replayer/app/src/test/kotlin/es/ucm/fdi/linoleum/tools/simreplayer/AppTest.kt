@@ -3,12 +3,28 @@
  */
 package es.ucm.fdi.linoleum.tools.simreplayer
 
-import kotlin.test.Test
-import kotlin.test.assertNotNull
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.datatest.withData
 
-class AppTest {
-    @Test fun appCanProvideOtel() {
-        val sdk = provideOtel()
-        assertNotNull(sdk)
+import io.opentelemetry.api.trace.SpanKind
+
+fun simpleSimSpan() = SimSpan(
+    spanId = SimSpanId(traceId = "traceId", spanId="spanId"),
+    parentId = SimSpanId(traceId = "parentTraceId", spanId="parentSpanId"),
+    spanName="spanName",
+    startTimeOffsetMillis = 0, durationMillis = 10, attributes = mapOf("foo" to "bar")
+)
+
+class SimSpanTest : FunSpec( {
+    context("JSON SerDe tests") {
+        withData(
+            simpleSimSpan().copy(spanKind = SpanKind.CONSUMER),
+            simpleSimSpan().copy(parentId = SimSpanId(traceId = "parentTraceId"))
+        ) { simSpan ->
+            val json = simSpan.toJsonStr()
+            val deserializedSimSpan = SimSpan.fromJsonStr(json)
+            deserializedSimSpan shouldBe simSpan
+        }
     }
-}
+})

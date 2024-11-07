@@ -11,6 +11,9 @@ plugins {
 
     // Apply the application plugin to add support for building a CLI application in Java.
     application
+
+    // https://kotlinlang.org/docs/serialization.html#example-json-serialization
+    kotlin("plugin.serialization") version "2.0.21"
 }
 
 repositories {
@@ -19,12 +22,11 @@ repositories {
 }
 
 dependencies {
-    // Use the Kotlin JUnit 5 integration.
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    val kotestVersion = "5.9.1"
+    testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+    testImplementation("io.kotest:kotest-framework-datatest:$kotestVersion")
 
-    // Use the JUnit 5 integration.
-    testImplementation(libs.junit.jupiter.engine)
-
+    // https://kotest.io/docs/framework/project-setup.html
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // This dependency is used by the application.
@@ -40,6 +42,9 @@ dependencies {
     // Implementation so we can use OTEL_TRACES_EXPORTER=otlp
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation("io.opentelemetry:opentelemetry-sdk-extension-autoconfigure")
+
+    // https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
