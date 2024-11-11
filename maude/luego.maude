@@ -51,13 +51,16 @@ fmod LUEGO-SYNTAX is
  op __ : DBContents DBContents -> DBContents [ctor assoc comm id: mtDB] .
  op db : DBContents Nat -> Database [ctor] .
 
- var DBC : DBContents .
- var TID : TaskId .
- var R : Result .
+ var  DBC : DBContents .
+ vars R R' : Result .
+ var  TID : TaskId .
 
  op addKey : DBContents TaskId ~> DBContents .
  ceq addKey(DBC, TID) = DBC [TID, noResult]
   if not contains(DBC, TID) .
+
+ op add : DBContents TaskId Result ~> DBContents .
+ eq add([TID, R] DBC, TID, R') = [TID, R'] DBC .
 
  op contains : DBContents TaskId -> Bool .
  eq contains([TID, R] DBC, TID) = true .
@@ -85,6 +88,7 @@ mod LUEGO-SEMANTICS is
  var DBC : DBContents .
  var TL : TaskList .
  var TID : TaskId .
+ var R : Result .
  var CID : CId .
  var T : Task .
  var N : Nat .
@@ -143,9 +147,9 @@ mod LUEGO-SEMANTICS is
     work-done-db(TID, result(N)) .
 
  rl [work-done-db] :
-    work-done-db(TID, result(N))
+    work-done-db(TID, R)
     db(DBC, N)
- => db(DBC, N) . *** TODO
+ => db(add(DBC, TID, R), N) .
 endm
 
 mod TEST is
