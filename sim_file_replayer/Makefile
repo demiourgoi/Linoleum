@@ -2,6 +2,8 @@ SHELL := /bin/bash
 
 .SILENT:
 
+.DEFAULT_GOAL := release
+
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -19,6 +21,9 @@ else
 	@awk -F ':.*###' '$$0 ~ FS {printf "%15s%s\n", $$1 ":", $$2}' \
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
+
+release: clean build
+	echo "PASS all release checks"
 
 clean:	### cleanup the build
 	$(GRADLE) clean

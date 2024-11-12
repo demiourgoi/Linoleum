@@ -16,7 +16,7 @@ fun simpleSimSpan() = SimSpan(
     startTimeOffsetMillis = 0, durationMillis = 10, attributes = mapOf("foo" to "bar")
 )
 
-class SimSpanTest : FunSpec( {
+class SimSpanSerdeTest : FunSpec( {
     context("JSON SerDe tests") {
         withData(
             simpleSimSpan().copy(spanKind = SpanKind.CONSUMER),
