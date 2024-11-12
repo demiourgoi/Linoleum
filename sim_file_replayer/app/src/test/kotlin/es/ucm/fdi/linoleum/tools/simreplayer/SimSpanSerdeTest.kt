@@ -3,28 +3,38 @@
  */
 package es.ucm.fdi.linoleum.tools.simreplayer
 
+import kotlinx.serialization.SerializationException
+
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.datatest.withData
+import io.kotest.matchers.result.shouldBeFailure
+import io.kotest.matchers.result.shouldBeSuccess
 
 import io.opentelemetry.api.trace.SpanKind
 
-fun simpleSimSpan() = SimSpan(
-    spanId = SimSpanId(traceId = "traceId", spanId="spanId"),
-    parentId = SimSpanId(traceId = "parentTraceId", spanId="parentSpanId"),
+// If you mark a declaration as private, it will only be visible inside the file that contains the declaration.
+// https://kotlinlang.org/docs/visibility-modifiers.html#packages
+private fun simpleSimSpan() = SimSpan(
+    spanId = SpanId(traceId = "traceId", spanId="spanId"),
+    parentId = SpanId(traceId = "parentTraceId", spanId="parentSpanId"),
     spanName="spanName",
-    startTimeOffsetMillis = 0, durationMillis = 10, attributes = mapOf("foo" to "bar")
+    startTimeOffsetNs = 0, durationNs = 10000, attributes = mapOf("foo" to "bar")
 )
 
 class SimSpanSerdeTest : FunSpec( {
     context("JSON SerDe tests") {
         withData(
             simpleSimSpan().copy(spanKind = SpanKind.CONSUMER),
-            simpleSimSpan().copy(parentId = SimSpanId(traceId = "parentTraceId"))
+            simpleSimSpan().copy(parentId = SpanId(traceId = "parentTraceId"))
         ) { simSpan ->
             val json = simSpan.toJsonStr()
-            val deserializedSimSpan = SimSpan.fromJsonStr(json)
-            deserializedSimSpan shouldBe simSpan
+            val deserializedSimSpanResult = SimSpan.fromJsonStr(json)
+            deserializedSimSpanResult shouldBeSuccess simSpan
         }
+    }
+
+    test("Parsing a wrongly formatted string should fail") {
+        val jsonStr = "not a SimSpan"
+        SimSpan.fromJsonStr(jsonStr).shouldBeFailure<SerializationException>()
     }
 })

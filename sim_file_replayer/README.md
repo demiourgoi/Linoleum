@@ -12,6 +12,10 @@ Basic gradle targets
 ./gradlew test
 
 # Runs using as entry point the `mainClass` defined app/build.gradle.kts
+# Expects a bash file with path defined by OTEL_EXPORTER_ENV_FILE (see Makefile for default value)
+# exporting env vars OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS
+# that define endpoint and credentials to connect to an OTLP endpoint.
+# See https://opentelemetry.io/docs/specs/otel/protocol/exporter/ for docs.
 ./gradlew run
 
 ./gradlew clean
