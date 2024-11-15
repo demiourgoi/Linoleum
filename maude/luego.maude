@@ -59,8 +59,9 @@ fmod LUEGO-SYNTAX is
  ceq addKey(DBC, TID) = DBC [TID, noResult]
   if not contains(DBC, TID) .
 
- op add : DBContents TaskId Result ~> DBContents .
+ op add : DBContents TaskId Result -> DBContents .
  eq add([TID, R] DBC, TID, R') = [TID, R'] DBC .
+ eq add(DBC, TID, R') = [TID, R'] DBC [owise] .
 
  op contains : DBContents TaskId -> Bool .
  eq contains([TID, R] DBC, TID) = true .
@@ -95,10 +96,10 @@ mod LUEGO-SEMANTICS is
 
  rl [request-reaches-balancer] :
     [CID | T TL, CTDB]
-    loadBalancer
+    *** loadBalancer
     lapi
  => [CID | TL, CTDB]
-    loadBalancer
+    *** loadBalancer
     lapi
     request-tid(CID, T) .
 
@@ -110,9 +111,9 @@ mod LUEGO-SEMANTICS is
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
-    loadBalancer
+    *** loadBalancer
     lapi
- => loadBalancer
+ => *** loadBalancer
     lapi
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID) .
@@ -158,13 +159,31 @@ mod TEST is
  op init : -> Sys .
  eq init = [c(0) | task(0) task(1) task(2), nil] *** Client 0, with three tasks
            [c(1) | task(3) task(4), nil]         *** Client 1, with two tasks
-           loadBalancer                          *** Load balancer
+           *** loadBalancer                          *** Load balancer
            lapi                                  *** Luego API, initial counter for generating task IDs
            db(mtDB, 0)                           *** Database
            queue(mtTPL)                          *** Queue
            rapi                                  *** REST API
            worker(mtTPL)                         *** Worker 0
+           worker(mtTPL)                         *** Worker 1
            .
 endm
 
 rew init .
+
+
+eof
+
+lapi
+rapi
+queue(mtTPL)
+worker(mtTPL)
+worker(mtTPL)
+db([taskId(0), result(0)] [taskId(1), result(1)] [taskId(2), result(2)]
+   [taskId(3), result(3)] [taskId(4), result(4)], 5)
+[c(0) | mtTL, [task(0), taskId(0)], [task(1), taskId(1)], [task(2), taskId(2)]]
+[c(1) | mtTL, [task(3), taskId(3)], [task(4), taskId(4)]]
+
+
+
+
