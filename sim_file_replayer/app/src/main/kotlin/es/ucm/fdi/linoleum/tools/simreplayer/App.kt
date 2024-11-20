@@ -40,7 +40,9 @@ private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
 /** A simulated trace span
  * See https://opentelemetry.io/docs/concepts/signals/traces/
  *
- * @property parentId Identifier of the span that is the parent of this span
+ * @property parentId Identifier of the span that is the parent of this span, or null if
+ * this is a root span. We implictily assume the parent is a span of the same trace
+ * as spanId.traceId
  * @property startTimeOffsetNs How much time (in nanoseconds) to wait since the start of the replay to start this span. The parent
  * trace is created on its first span
  * @property durationNs How much time (in nanoseconds) to wait since the span is created to close the span. Spans
@@ -49,7 +51,7 @@ private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
  * */
 @Serializable
 data class SimSpan(
-    val spanId: SpanId, val parentId: SpanId,
+    val spanId: SpanId, val parentId: String?,
     val spanName: String, val spanKind: SpanKind=SpanKind.INTERNAL,
     val startTimeOffsetNs: Long,
     val durationNs: Long,
@@ -60,7 +62,9 @@ data class SimSpan(
             runCatching {  Json.decodeFromString<SimSpan>(jsonStr) }
     }
 
-    val isRootSpan = parentId.spanId == null
+    // In this case the parent id has no information, as both should
+    // have the same trace id
+    val isRootSpan = parentId == null
 
     fun toJsonStr(): String = Json.encodeToString(this)
 
@@ -84,7 +88,7 @@ data class SimSpan(
 }
 
 data class Tree<T>(
-    val value: T, val children: List<Tree<T>>
+    val root: T, val children: List<Tree<T>>
 )
 /**
  * Per https://opentelemetry.io/docs/concepts/signals/traces/ there is only one root span in a
@@ -92,6 +96,12 @@ data class Tree<T>(
  * See also https://grafana.com/docs/tempo/latest/introduction/
  * */
 typealias SimSpanTree = Tree<SimSpan>
+fun simSpanTree(spans: List<SimSpan>): SimSpanTree {
+    val rootSpan = spans.first{ it.isRootSpan }
+    // TODO find parent and resolve children, traversing the trace graph
+    return Tree(rootSpan, emptyList())
+}
+
 
 /**
  * Identifier of a span in the simulation. These are arbitrary ids that won't be respected when emitting
@@ -99,7 +109,7 @@ typealias SimSpanTree = Tree<SimSpan>
  * A SimSpanId with an empty spanId is used for the parentId of the first span of a trace.
  * */
 @Serializable
-data class SpanId(val traceId: String, val spanId: String? = null)
+data class SpanId(val traceId: String, val spanId: String)
 
 class SpanSimFilePlayer(
     private val tracer: Tracer,
@@ -152,20 +162,21 @@ class SpanSimFilePlayer(
 * the span with lowest startTimeOffsetMillis
 *
 * TODO docment it blocks
+*  // TODO reimplement with coroutines to avoid the limitation due to MAX_THREAD_POOL_SIZE
 * */
     private fun playSim(spans: List<SimSpan>): Result<List<SpanId>>{
+        // To accumulate the dynamically scheduled futures for the spam execution
+        val futures = ConcurrentLinkedQueue<ScheduledFuture<SpanId>>()
 
-        /** Schedules the replay of the spans of a
+        /** Schedules the replay of the spans of a trace
+         *
+         * @throws IllegalStateException when this tries to schedule the root trace too late
          * TODO return
           */
-        fun replayTrace(spans: List<SimSpan>): Result<List<ScheduledFuture<Result<SpanId>>>> {
-            if (spans.isEmpty()) return Result.success(emptyList())
-
-            val spanIdSet = ConcurrentHashMap<SpanId, Void>()
+        fun replayTrace(spanTree: SimSpanTree) {
             val traceId = spans.first().spanId.traceId
             val replayStartTime = Duration.ofNanos(System.nanoTime())
             logger.info("Start scheduling of replay of trace with id $traceId at start time $replayStartTime")
-            val futures = ConcurrentLinkedQueue<ScheduledFuture<SpanId>>()
 
             /** How much should the scheduler wait before creating a span, relative to `replayStartTimeNanos`
              * It throws an exception if the time is negative, because that implies we are too late to
@@ -191,6 +202,35 @@ class SpanSimFilePlayer(
                 return Duration.ofNanos(duration)
             }
 
+            /**
+             * Schedules the root span and adds the corresponding future to futures
+             * @throws IllegalStateException when this tries to schedule the root trace too late
+             * */
+            fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree): ScheduledFuture<SpanId> {
+                val span = spanTree.root
+                val spanStart = scheduler.schedule(Callable{
+                    val spanStartTime = System.nanoTime()
+                    val emittedSpan = span.build(tracer, context)
+                    val childrenContext = emittedSpan.storeInContext(context)
+                    // TODO schedule itself at the end and wait for children
+
+                    // TODO wait for children, but let them add themselves to futures
+                    spanTree.children.map{
+                        // FIXME this is waiting for the start, not the end
+                        scheduleSpanReplay(childrenContext, it)
+                    }
+
+
+                    // TODO logging
+
+                    val emittedSpanCtx = emittedSpan.spanContext
+                    SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
+                    span.spanId // FIXME
+                }, spanScheduleDelayNs(span).toNanos(), TimeUnit.NANOSECONDS)
+                futures.add(spanStart)
+                return spanStart
+            }
+
             fun scheduleSpanReplay(context: Context, span: SimSpan): ScheduledFuture<Context> {
                 return scheduler.schedule(Callable{
                     val spanStartTime = System.nanoTime()
@@ -214,33 +254,23 @@ class SpanSimFilePlayer(
                 }, span.startTimeOffsetNs, TimeUnit.NANOSECONDS )
             }
 
-            // TODO find parent and resolve children, traversing the trace graph
-            // priemro construye arbol de spans en TraceTree class, no creo que hagan falta
-            // ADT. Primero define y usa clase, luego calculalo aqui
-            // Pej pasa a scheduleSpanReplay junto con System.nanoTime() de inciio de sim calculado
-            // once. Consiera add method para elapsed desde srtart, pej como extension de nano times
-            val rootSpan = spans.first{ it.isRootSpan }
-
-            val spanTree: SimSpanTree = Tree(rootSpan, emptyList()) // FIXME compute correctly
             // https://javadoc.io/doc/io.opentelemetry/opentelemetry-context/1.1.0/io/opentelemetry/context/Context.html
             val rootContext = Context.root() // TODO add to notes the println experiment
-            runCatching {
-
-                require(true, {"foo"}) // FIXME
-
-            }
+            scheduleSpanReplay(rootContext, spanTree)
             logger.info("Completed scheduling of replay of trace with id $traceId")
-            return Result.success(emptyList())
         }
 
+        val traces = spans.groupBy { it.spanId.traceId}
+        val traceSchedulingErrors = traces.values.map {
+            // FIXME implement simSpanTree
+            runCatching{replayTrace(simSpanTree(it))}
+        }.filter { it.isFailure }
 
-        // TODO reimplement with coroutines to avoid the limitation due to MAX_THREAD_POOL_SIZE
-        val traces = spans
-            .groupBy { it.spanId.traceId }
-            // .toList()
-            // .sortedBy { it.second. }
+        // TODO: get latest timestamp and block here waiting for it to ensure all spans are scheduled
+        // Use that wait to log progress
 
-
+        // TODO collect futures using runCatching to turn into result, aggregate all results into a single
+        // custom exception, also with traceSchedulingErrors
         return Result.success(emptyList()) // FIXME
     }
 

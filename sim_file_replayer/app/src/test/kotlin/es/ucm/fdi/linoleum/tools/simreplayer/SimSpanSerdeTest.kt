@@ -16,7 +16,7 @@ import io.opentelemetry.api.trace.SpanKind
 // https://kotlinlang.org/docs/visibility-modifiers.html#packages
 private fun simpleSimSpan() = SimSpan(
     spanId = SpanId(traceId = "traceId", spanId="spanId"),
-    parentId = SpanId(traceId = "parentTraceId", spanId="parentSpanId"),
+    parentId = "parentSpanId",
     spanName="spanName",
     startTimeOffsetNs = 0, durationNs = 10000, attributes = mapOf("foo" to "bar")
 )
@@ -25,7 +25,7 @@ class SimSpanSerdeTest : FunSpec( {
     context("JSON SerDe tests") {
         withData(
             simpleSimSpan().copy(spanKind = SpanKind.CONSUMER),
-            simpleSimSpan().copy(parentId = SpanId(traceId = "parentTraceId"))
+            simpleSimSpan().copy(parentId = null)
         ) { simSpan ->
             val json = simSpan.toJsonStr()
             val deserializedSimSpanResult = SimSpan.fromJsonStr(json)
