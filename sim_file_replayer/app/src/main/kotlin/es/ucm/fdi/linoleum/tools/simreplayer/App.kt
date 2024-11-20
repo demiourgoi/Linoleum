@@ -11,6 +11,7 @@ import java.nio.file.Path
 import java.io.Closeable
 
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -206,29 +207,32 @@ class SpanSimFilePlayer(
              * Schedules the root span and adds the corresponding future to futures
              * @throws IllegalStateException when this tries to schedule the root trace too late
              * */
-            fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree): ScheduledFuture<SpanId> {
+            fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree, signalComplete: CountDownLatch?=null) {
                 val span = spanTree.root
                 val spanStart = scheduler.schedule(Callable{
-                    val spanStartTime = System.nanoTime()
-                    val emittedSpan = span.build(tracer, context)
-                    val childrenContext = emittedSpan.storeInContext(context)
-                    // TODO schedule itself at the end and wait for children
+                    try {
+                        val spanStartTime = System.nanoTime()
+                        val emittedSpan = span.build(tracer, context)
+                        val childrenContext = emittedSpan.storeInContext(context)
+                        val childrenComplete = CountDownLatch(spanTree.children.size)
+                        // TODO schedule itself at the end, addign to futures, and wait for children
 
-                    // TODO wait for children, but let them add themselves to futures
-                    spanTree.children.map{
-                        // FIXME this is waiting for the start, not the end
-                        scheduleSpanReplay(childrenContext, it)
+                        // wait for children, but let them add themselves to futures
+                        spanTree.children.forEach{
+                            scheduleSpanReplay(childrenContext, it, childrenComplete)
+                        }
+                        childrenComplete.await()
+
+                        // TODO logging
+
+                        val emittedSpanCtx = emittedSpan.spanContext
+                        SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
+                        span.spanId // FIXME
+                    } finally {
+                        signalComplete?.await()
                     }
-
-
-                    // TODO logging
-
-                    val emittedSpanCtx = emittedSpan.spanContext
-                    SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
-                    span.spanId // FIXME
                 }, spanScheduleDelayNs(span).toNanos(), TimeUnit.NANOSECONDS)
                 futures.add(spanStart)
-                return spanStart
             }
 
             fun scheduleSpanReplay(context: Context, span: SimSpan): ScheduledFuture<Context> {
