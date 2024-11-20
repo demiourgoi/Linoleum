@@ -26,6 +26,11 @@ dependencies {
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-framework-datatest:$kotestVersion")
 
+    val log4jVersion = "2.24.1"
+    implementation("org.apache.logging.log4j:log4j-api:$log4jVersion")
+    implementation("org.apache.logging.log4j:log4j-core:$log4jVersion")
+    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:$log4jVersion")
+
     // https://kotest.io/docs/framework/project-setup.html
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 

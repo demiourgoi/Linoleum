@@ -2,8 +2,6 @@ SHELL := /bin/bash
 
 .SILENT:
 
-.DEFAULT_GOAL := release
-
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -22,7 +20,7 @@ else
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
 
-release: clean build
+release: clean build	### run all release checks
 	echo "PASS all release checks"
 
 clean:	### cleanup the build
@@ -33,6 +31,9 @@ build:	### build app (this also runs unit tests)
 	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
 OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
+# Make OTEL log in English
+# https://docs.oracle.com/javase/8/docs/technotes/guides/troubleshoot/envvars002.html
+run: export JAVA_TOOL_OPTIONS=-Duser.language=en
 # https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
 run: export OTEL_SERVICE_NAME=linoleum.tools.simreplayer:kotlin
 run: export OTEL_LOG_LEVEL=debug

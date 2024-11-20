@@ -7,13 +7,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 
-import java.util.logging.Logger
 import java.nio.file.Path
 import java.io.Closeable
 
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk
@@ -26,17 +29,23 @@ import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.context.Scope
 import java.time.Duration
+import java.util.concurrent.Callable
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ConcurrentHashMap
 
 private const val SCOPE_NAME = "es.ucm.fdi.linoleum.tools.simreplayer"
 private const val SCOPE_VERSION = "0.1.0"
 private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
 
 /** A simulated trace span
+ * See https://opentelemetry.io/docs/concepts/signals/traces/
  *
- * @property parentId Id of the span that is the parent of this span
+ * @property parentId Identifier of the span that is the parent of this span
  * @property startTimeOffsetNs How much time (in nanoseconds) to wait since the start of the replay to start this span. The parent
  * trace is created on its first span
- * @property durationNs How much much time (in nanoseconds) to wait since the span is created to close the span
+ * @property durationNs How much time (in nanoseconds) to wait since the span is created to close the span. Spans
+ * involved in a SimSpanTree wait both for this duration and for their children spans to terminate.
+ * https://github.com/envoyproxy/envoy/issues/21583
  * */
 @Serializable
 data class SimSpan(
@@ -51,20 +60,51 @@ data class SimSpan(
             runCatching {  Json.decodeFromString<SimSpan>(jsonStr) }
     }
 
+    val isRootSpan = parentId.spanId == null
+
     fun toJsonStr(): String = Json.encodeToString(this)
+
+    fun build(tracer: Tracer, context: Context): Span {
+        val spanBuilder = tracer
+            .spanBuilder(spanName)
+            .setSpanKind(spanKind)
+        if (!isRootSpan) {
+            spanBuilder.setParent(context)
+        }
+        attributes.forEach{ entry ->
+            spanBuilder.setAttribute(entry.key, entry.value)
+        }
+        val span = spanBuilder.startSpan()
+        // FIXME not clear this is required
+        // FIXME to companion for this class
+        waitForSpanRecording(span)
+        return span
+    }
+
 }
 
+data class Tree<T>(
+    val value: T, val children: List<Tree<T>>
+)
 /**
- * Id of a span in the simulation. These are arbitrary ids that won't be respected when emitting the trace
- * as the OTEL SDK will autogenerate new trace and span ids
- * A SimSpanId with an empty spanId is used for as the parentId of the first span of a trace.
+ * Per https://opentelemetry.io/docs/concepts/signals/traces/ there is only one root span in a
+ * trace, that represents the action that started the trace
+ * See also https://grafana.com/docs/tempo/latest/introduction/
+ * */
+typealias SimSpanTree = Tree<SimSpan>
+
+/**
+ * Identifier of a span in the simulation. These are arbitrary ids that won't be respected when emitting
+ * the trace as the OTEL SDK will autogenerate new trace and span ids
+ * A SimSpanId with an empty spanId is used for the parentId of the first span of a trace.
  * */
 @Serializable
 data class SpanId(val traceId: String, val spanId: String? = null)
 
 class SpanSimFilePlayer(
+    private val tracer: Tracer,
     private val scheduler: ScheduledExecutorService = DEFAULT_NEW_SCHEDULER(),
-    private val logger: Logger = Logger.getLogger(SpanSimFilePlayer::class.java.name)
+    private val logger: Logger = LoggerFactory.getLogger(SpanSimFilePlayer::class.java.name)
 ) : Closeable {
 
     companion object {
@@ -94,7 +134,7 @@ class SpanSimFilePlayer(
         val spanResults = lines.map{SimSpan.fromJsonStr(it)}
         val parseFailures = spanResults.filter{it.isFailure}
         return when {
-            parseFailures.isNotEmpty() -> parseFailures.first().map{listOf()}
+            parseFailures.isNotEmpty() -> parseFailures.first().map{ emptyList() }
             else -> playSim(spanResults.successes)
         }
     }
@@ -111,8 +151,89 @@ class SpanSimFilePlayer(
 * * Precondition: each trace has a single root span that is a span with null parentId.spanId, that is also
 * the span with lowest startTimeOffsetMillis
 *
+* TODO docment it blocks
 * */
     private fun playSim(spans: List<SimSpan>): Result<List<SpanId>>{
+
+        /** Schedules the replay of the spans of a
+         * TODO return
+          */
+        fun replayTrace(spans: List<SimSpan>): Result<List<ScheduledFuture<Result<SpanId>>>> {
+            if (spans.isEmpty()) return Result.success(emptyList())
+
+            val spanIdSet = ConcurrentHashMap<SpanId, Void>()
+            val traceId = spans.first().spanId.traceId
+            val replayStartTime = Duration.ofNanos(System.nanoTime())
+            logger.info("Start scheduling of replay of trace with id $traceId at start time $replayStartTime")
+            val futures = ConcurrentLinkedQueue<ScheduledFuture<SpanId>>()
+
+            /** How much should the scheduler wait before creating a span, relative to `replayStartTimeNanos`
+             * It throws an exception if the time is negative, because that implies we are too late to
+             * schedule the span
+             * TODO document notes
+             * FIXME to extention?
+             * */
+            fun spanScheduleDelayNs(span: SimSpan): Duration {
+                val delay = span.startTimeOffsetNs + replayStartTime.toNanos() - System.nanoTime()
+                check(delay > 0){"Schedule delay for span with id ${span.spanId} is negative: too late to schedule"}
+                return Duration.ofNanos(delay)
+            }
+
+            /**
+             * TODO document notes
+             * FIXME to extention?
+             * */
+            fun remainingSpanTime(span: SimSpan, spanStartTime: Duration): Duration {
+                val duration = span.durationNs + spanStartTime.toNanos() - System.nanoTime()
+                check(duration > 0){
+                    "Remaining span duration for span with id ${span.spanId} is negative: not enough time to run the span"
+                }
+                return Duration.ofNanos(duration)
+            }
+
+            fun scheduleSpanReplay(context: Context, span: SimSpan): ScheduledFuture<Context> {
+                return scheduler.schedule(Callable{
+                    val spanStartTime = System.nanoTime()
+                    val spanBuilder = tracer.spanBuilder(span.spanName)
+                       .setSpanKind(span.spanKind)
+                    if (!span.isRootSpan) {
+                        spanBuilder.setParent(context)
+                    }
+                    span.attributes.forEach{ entry ->
+                        spanBuilder.setAttribute(entry.key, entry.value)
+                    }
+                    val emittedSpan = spanBuilder.startSpan()
+                    waitForSpanRecording(emittedSpan) // FIXME not clear this is required
+                    val remainingSpanTime = Duration.ofNanos(
+                        span.durationNs - (System.nanoTime() - spanStartTime))
+                    Thread.sleep(remainingSpanTime) // FIXME schedule end en vez de esto rollo reenetrante
+                    // acumula schedule en cjto mutable para emitir dos aqui ...
+                    // o no devuelve el future del final pq no es result, solo espra al executor entero
+                    // schedule los hijos aqui tb
+                    emittedSpan.storeInContext(context) // TODO can we get span id from here?
+                }, span.startTimeOffsetNs, TimeUnit.NANOSECONDS )
+            }
+
+            // TODO find parent and resolve children, traversing the trace graph
+            // priemro construye arbol de spans en TraceTree class, no creo que hagan falta
+            // ADT. Primero define y usa clase, luego calculalo aqui
+            // Pej pasa a scheduleSpanReplay junto con System.nanoTime() de inciio de sim calculado
+            // once. Consiera add method para elapsed desde srtart, pej como extension de nano times
+            val rootSpan = spans.first{ it.isRootSpan }
+
+            val spanTree: SimSpanTree = Tree(rootSpan, emptyList()) // FIXME compute correctly
+            // https://javadoc.io/doc/io.opentelemetry/opentelemetry-context/1.1.0/io/opentelemetry/context/Context.html
+            val rootContext = Context.root() // TODO add to notes the println experiment
+            runCatching {
+
+                require(true, {"foo"}) // FIXME
+
+            }
+            logger.info("Completed scheduling of replay of trace with id $traceId")
+            return Result.success(emptyList())
+        }
+
+
         // TODO reimplement with coroutines to avoid the limitation due to MAX_THREAD_POOL_SIZE
         val traces = spans
             .groupBy { it.spanId.traceId }
@@ -120,7 +241,7 @@ class SpanSimFilePlayer(
             // .sortedBy { it.second. }
 
 
-        return Result.success(listOf()) // FIXME
+        return Result.success(emptyList()) // FIXME
     }
 
     override fun close() {
@@ -133,14 +254,14 @@ class SpanSimFilePlayer(
                 // Wait a while for tasks to respond to being cancelled
                 if (!scheduler.awaitTermination(
                         SCHEDULER_TERMINATION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-                    logger.severe("Failure shutting down thread pool")
+                    logger.error("Failure shutting down thread pool")
                 }
             }
         } catch (ie: InterruptedException) {
             // (Re-)Cancel if current thread also interrupted
-            scheduler.shutdownNow();
+            scheduler.shutdownNow()
             // Preserve interrupt status
-            Thread.currentThread().interrupt();
+            Thread.currentThread().interrupt()
         }
     }
 }
@@ -151,7 +272,7 @@ val <T> List<Result<T>>.successes: List<T>
         val value = it.getOrNull()
         when {
             value != null -> listOf(value)
-            else -> listOf()
+            else -> emptyList()
         }
     }
 
@@ -176,18 +297,22 @@ fun provideTracer(otel: OpenTelemetry): Tracer {
 fun waitForSpanRecording(span: Span) {
     while (!span.isRecording) {
         println("waiting for span to get ready to record")
-        Thread.sleep(500)
+        Thread.sleep(1)
     }
     println("span ready to record!")
 }
 
 // FIXME delete
-fun sendSomeArbitraryTraces(): Unit {
+fun sendSomeArbitraryTraces() {
     val otel = provideOtel()
     val tracer = provideTracer(otel)
 
+    println("Current context at start: [${Context.current()}]")
+    println("Current context at start is null: [${Context.current() == null}]")
+    println("Current context at start is Context.root(): [${Context.current().equals(Context.root())}]")
+    Context.root()
     val context = Context.current()
-        .with(ContextKey.named<String>("fooCtxKey"), "barCtxKey")
+        .with(ContextKey.named("fooCtxKey"), "barCtxKey")
 
     val span = tracer.spanBuilder("Hello-span")
         .setSpanKind(SpanKind.INTERNAL)
@@ -232,6 +357,13 @@ fun main() {
     sendSomeArbitraryTraces() // FIXME remove
     // TODO use https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.io/use.html
     // for the replayer
-    val replayer = SpanSimFilePlayer()
-    println("Bye")
+    /*val otel = provideOtel()
+    val tracer = provideTracer(otel)
+    val replayer = SpanSimFilePlayer(tracer)*/
+
+    // FIXME setup logger here and pass to replayer
+    // FIXME setup loger to log time and other formatting
+    val logger = LoggerFactory.getLogger("root")
+
+    logger.info("Bye")
 }
