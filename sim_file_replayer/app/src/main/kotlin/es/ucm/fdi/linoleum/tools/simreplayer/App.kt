@@ -69,7 +69,7 @@ data class SimSpan(
 
     fun toJsonStr(): String = Json.encodeToString(this)
 
-    fun build(tracer: Tracer, context: Context): Span {
+    fun start(tracer: Tracer, context: Context): Span {
         val spanBuilder = tracer
             .spanBuilder(spanName)
             .setSpanKind(spanKind)
@@ -122,7 +122,7 @@ class SpanSimFilePlayer(
         // https://stackoverflow.com/questions/763579/how-many-threads-can-a-java-vm-support
         // https://stackoverflow.com/questions/7726871/maximum-number-of-threads-in-a-jvm
         private const val MAX_THREAD_POOL_SIZE_ENV_VAR = "MAX_THREAD_POOL_SIZE"
-        private val MAX_THREAD_POOL_SIZE = (System.getenv(MAX_THREAD_POOL_SIZE_ENV_VAR) ?: "3000").toInt()
+        private val MAX_THREAD_POOL_SIZE = (System.getenv(MAX_THREAD_POOL_SIZE_ENV_VAR) ?: "5000").toInt()
         private val SCHEDULER_TERMINATION_TIMEOUT = Duration.ofSeconds(10)
         private val DEFAULT_NEW_SCHEDULER = {
             Executors.newScheduledThreadPool(
@@ -168,6 +168,8 @@ class SpanSimFilePlayer(
     private fun playSim(spans: List<SimSpan>): Result<List<SpanId>>{
         // To accumulate the dynamically scheduled futures for the spam execution
         val futures = ConcurrentLinkedQueue<ScheduledFuture<SpanId>>()
+        // To wait for all spans to complete
+        val allSpansComplete = CountDownLatch(spans.size)
 
         /** Schedules the replay of the spans of a trace
          *
@@ -207,55 +209,35 @@ class SpanSimFilePlayer(
              * Schedules the root span and adds the corresponding future to futures
              * @throws IllegalStateException when this tries to schedule the root trace too late
              * */
-            fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree, signalComplete: CountDownLatch?=null) {
+            fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree, spanComplete: CountDownLatch?=null) {
                 val span = spanTree.root
                 val spanStart = scheduler.schedule(Callable{
                     try {
-                        val spanStartTime = System.nanoTime()
-                        val emittedSpan = span.build(tracer, context)
+                        // TODO logging
+                        val spanStartTime = Duration.ofNanos(System.nanoTime())
+                        val emittedSpan = span.start(tracer, context)
                         val childrenContext = emittedSpan.storeInContext(context)
                         val childrenComplete = CountDownLatch(spanTree.children.size)
-                        // TODO schedule itself at the end, addign to futures, and wait for children
 
-                        // wait for children, but let them add themselves to futures
+                        // launch wait for children, but let them add themselves to futures
                         spanTree.children.forEach{
                             scheduleSpanReplay(childrenContext, it, childrenComplete)
                         }
+                        // wait for span duration
+                        Thread.sleep(remainingSpanTime(span, spanStartTime))
+                        // wait for children
                         childrenComplete.await()
-
-                        // TODO logging
+                        // complete span emission
+                        emittedSpan.end()
 
                         val emittedSpanCtx = emittedSpan.spanContext
                         SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
-                        span.spanId // FIXME
                     } finally {
-                        signalComplete?.await()
+                        spanComplete?.countDown()
+                        allSpansComplete.countDown()
                     }
                 }, spanScheduleDelayNs(span).toNanos(), TimeUnit.NANOSECONDS)
                 futures.add(spanStart)
-            }
-
-            fun scheduleSpanReplay(context: Context, span: SimSpan): ScheduledFuture<Context> {
-                return scheduler.schedule(Callable{
-                    val spanStartTime = System.nanoTime()
-                    val spanBuilder = tracer.spanBuilder(span.spanName)
-                       .setSpanKind(span.spanKind)
-                    if (!span.isRootSpan) {
-                        spanBuilder.setParent(context)
-                    }
-                    span.attributes.forEach{ entry ->
-                        spanBuilder.setAttribute(entry.key, entry.value)
-                    }
-                    val emittedSpan = spanBuilder.startSpan()
-                    waitForSpanRecording(emittedSpan) // FIXME not clear this is required
-                    val remainingSpanTime = Duration.ofNanos(
-                        span.durationNs - (System.nanoTime() - spanStartTime))
-                    Thread.sleep(remainingSpanTime) // FIXME schedule end en vez de esto rollo reenetrante
-                    // acumula schedule en cjto mutable para emitir dos aqui ...
-                    // o no devuelve el future del final pq no es result, solo espra al executor entero
-                    // schedule los hijos aqui tb
-                    emittedSpan.storeInContext(context) // TODO can we get span id from here?
-                }, span.startTimeOffsetNs, TimeUnit.NANOSECONDS )
             }
 
             // https://javadoc.io/doc/io.opentelemetry/opentelemetry-context/1.1.0/io/opentelemetry/context/Context.html
@@ -269,9 +251,13 @@ class SpanSimFilePlayer(
             // FIXME implement simSpanTree
             runCatching{replayTrace(simSpanTree(it))}
         }.filter { it.isFailure }
+        if (traceSchedulingErrors.isNotEmpty()) {
+            // Abort and do not wait for other spans
+            return Result.success(emptyList()) // FIXME proper custom exception aggregating errors
+        }
 
-        // TODO: get latest timestamp and block here waiting for it to ensure all spans are scheduled
-        // Use that wait to log progress
+        // Wait for all spans to complete
+        allSpansComplete.await()
 
         // TODO collect futures using runCatching to turn into result, aggregate all results into a single
         // custom exception, also with traceSchedulingErrors
@@ -388,7 +374,7 @@ fun sendSomeArbitraryTraces() {
 }
 
 fun main() {
-    sendSomeArbitraryTraces() // FIXME remove
+    sendSomeArbitraryTraces() // FIXME remove as well as def
     // TODO use https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.io/use.html
     // for the replayer
     /*val otel = provideOtel()
