@@ -31,6 +31,9 @@ build:	### build app (this also runs unit tests)
 	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
 OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
+# Example script args
+DEFAULT_SIM_FILE_PATH=$(ROOT_DIR)/app/build/simFiles/traces1.jsonl
+run: export SIM_FILE_PATH=$(shell echo $${SIM_FILE_PATH:-$(DEFAULT_SIM_FILE_PATH)})
 # Make OTEL log in English
 # https://docs.oracle.com/javase/8/docs/technotes/guides/troubleshoot/envvars002.html
 run: export JAVA_TOOL_OPTIONS=-Duser.language=en

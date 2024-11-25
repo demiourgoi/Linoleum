@@ -3,22 +3,18 @@
  */
 package es.ucm.fdi.linoleum.tools.simreplayer
 
-import kotlinx.serialization.SerializationException
-
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.net.URI
-
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
 import io.kotest.matchers.result.shouldBeFailure
 import io.kotest.matchers.result.shouldBeSuccess
 import io.kotest.matchers.string.shouldNotBeEmpty
-
-import org.slf4j.LoggerFactory
-
 import io.opentelemetry.api.trace.SpanKind
+import kotlinx.serialization.SerializationException
+import org.slf4j.LoggerFactory
+import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.Duration
 
 // If you mark a declaration as private, it will only be visible inside the file that contains the declaration.
@@ -49,7 +45,7 @@ class SimSpanSerdeTest : FunSpec( {
 })
 
 fun getRootSimFilesPath(): Path {
-    val buildRootDir = System.getenv("BUILD_DIR")
+    val buildRootDir = System.getenv(EnvVars.BUILD_DIR_VAR_NAME)
     val path =
         if (buildRootDir != null) {
             val simFilesPath = Path.of(buildRootDir).resolve("simFiles")
