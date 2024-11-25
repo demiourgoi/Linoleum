@@ -49,7 +49,7 @@ private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
  * */
 @Serializable
 data class SimSpan(
-    val spanId: SpanId, val parentId: String?,
+    val spanId: SpanId, val parentId: String?=null,
     val spanName: String, val spanKind: SpanKind=SpanKind.INTERNAL,
     val startTimeOffsetNs: Long,
     val durationNs: Long,

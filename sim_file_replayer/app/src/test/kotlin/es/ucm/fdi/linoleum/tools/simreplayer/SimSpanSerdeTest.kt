@@ -4,11 +4,19 @@
 package es.ucm.fdi.linoleum.tools.simreplayer
 
 import kotlinx.serialization.SerializationException
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.net.URI
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.result.shouldBeFailure
 import io.kotest.matchers.result.shouldBeSuccess
+import io.kotest.matchers.string.shouldBeBlank
+
+import org.slf4j.LoggerFactory
 
 import io.opentelemetry.api.trace.SpanKind
 
@@ -36,5 +44,36 @@ class SimSpanSerdeTest : FunSpec( {
     test("Parsing a wrongly formatted string should fail") {
         val jsonStr = "not a SimSpan"
         SimSpan.fromJsonStr(jsonStr).shouldBeFailure<SerializationException>()
+    }
+})
+
+class CreateExampleSimFileTest : FunSpec({
+    val logger = LoggerFactory.getLogger(CreateExampleSimFileTest::class.java.name)
+
+    test("Create an example sim file") {
+        // FIXME Console contains an invalid element or attribute "encoding"
+        val rootResource = javaClass.getResource("/")
+        val rootResourcePath = Paths.get(rootResource?.toURI() ?: URI(""))
+        rootResourcePath.toString().length shouldBeGreaterThan 0
+
+        logger.info("Using rootResourcePath: $rootResourcePath")
+
+        // FIXME put in resources dir
+        val simFilesPath = rootResourcePath
+
+        val trace1Id = "trace1Id"
+        val trace1Path = simFilesPath.resolve("trace1.json")
+        logger.info("Writing to trace1Path: $trace1Path")
+        val rootSpan = SimSpan(
+            spanId = SpanId(traceId = trace1Id, spanId="rootSpan"),
+            spanName="rootSpan",
+            startTimeOffsetNs = 0, durationNs = 10000,
+            attributes = mapOf("foo" to "bar")
+        )
+        trace1Path.toFile().bufferedWriter().use {out ->
+            out.write(rootSpan.toJsonStr())
+            out.write(System.lineSeparator())
+        }
+        logger.info("Done writing to trace1Path: $trace1Path")
     }
 })
