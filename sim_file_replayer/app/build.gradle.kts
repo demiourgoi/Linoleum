@@ -68,4 +68,5 @@ tasks.named<Test>("test") {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
     testLogging.showStandardStreams = true
+    environment("BUILD_DIR", layout.buildDirectory.get().asFile)
 }

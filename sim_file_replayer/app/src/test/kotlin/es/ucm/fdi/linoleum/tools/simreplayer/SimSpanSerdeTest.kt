@@ -4,21 +4,22 @@
 package es.ucm.fdi.linoleum.tools.simreplayer
 
 import kotlinx.serialization.SerializationException
+
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.net.URI
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
-import io.kotest.matchers.ints.shouldBeGreaterThan
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.result.shouldBeFailure
 import io.kotest.matchers.result.shouldBeSuccess
-import io.kotest.matchers.string.shouldBeBlank
+import io.kotest.matchers.string.shouldNotBeEmpty
 
 import org.slf4j.LoggerFactory
 
 import io.opentelemetry.api.trace.SpanKind
+import java.time.Duration
 
 // If you mark a declaration as private, it will only be visible inside the file that contains the declaration.
 // https://kotlinlang.org/docs/visibility-modifiers.html#packages
@@ -47,33 +48,71 @@ class SimSpanSerdeTest : FunSpec( {
     }
 })
 
+fun getRootSimFilesPath(): Path {
+    val buildRootDir = System.getenv("BUILD_DIR")
+    val path =
+        if (buildRootDir != null) {
+            val simFilesPath = Path.of(buildRootDir).resolve("simFiles")
+            Files.createDirectories(simFilesPath)
+         simFilesPath
+        } else {
+            // Env vars defined in the Gradle build are not available in IntelliJ
+            // so here we fall back to this path that also resolves to the build
+            val rootResource = object{}.javaClass.getResource("/")
+            Paths.get(rootResource?.toURI() ?: URI(""))
+        }
+
+    path.toString().shouldNotBeEmpty()
+    return path
+}
+
 class CreateExampleSimFileTest : FunSpec({
     val logger = LoggerFactory.getLogger(CreateExampleSimFileTest::class.java.name)
+    val simFilesPath by lazy {
+        val path = getRootSimFilesPath()
+        logger.info("Using simFilesPath: $path")
+        path
+    }
 
     test("Create an example sim file") {
-        // FIXME Console contains an invalid element or attribute "encoding"
-        val rootResource = javaClass.getResource("/")
-        val rootResourcePath = Paths.get(rootResource?.toURI() ?: URI(""))
-        rootResourcePath.toString().length shouldBeGreaterThan 0
+        val simFilePath = simFilesPath.resolve("traces1.jsonl")
+        logger.info("Writing to simFilePath: $simFilePath")
 
-        logger.info("Using rootResourcePath: $rootResourcePath")
+        val hundredMs = Duration.ofMillis(100).toNanos()
 
-        // FIXME put in resources dir
-        val simFilesPath = rootResourcePath
-
-        val trace1Id = "trace1Id"
-        val trace1Path = simFilesPath.resolve("trace1.json")
-        logger.info("Writing to trace1Path: $trace1Path")
-        val rootSpan = SimSpan(
-            spanId = SpanId(traceId = trace1Id, spanId="rootSpan"),
-            spanName="rootSpan",
-            startTimeOffsetNs = 0, durationNs = 10000,
-            attributes = mapOf("foo" to "bar")
+        val traceId1 = "trace1"
+        val root1 = SimSpan.new(
+            traceId = traceId1, spanId = "root",
+            startTimeOffsetNs = 0, durationNs = hundredMs)
+            .copy(attributes = mapOf("foo" to "bar"))
+        val child11 = SimSpan.new(
+            traceId = traceId1, spanId = "child11", parentSpan = root1,
+            startTimeOffsetNs = 2 * hundredMs, durationNs = hundredMs * 3)
+            .copy(attributes = mapOf("bar" to "baz"))
+        val child111 = SimSpan.new(
+            traceId = traceId1, spanId = "child111", parentSpan = child11,
+            startTimeOffsetNs = (2.5 * hundredMs).toLong(), durationNs = hundredMs)
+        val child12 = SimSpan(
+            spanId = SpanId(traceId = traceId1, spanId="child12"),
+            parentId = root1.spanId.spanId,
+            spanName="child12",
+            startTimeOffsetNs = 3 * hundredMs, durationNs = hundredMs
         )
-        trace1Path.toFile().bufferedWriter().use {out ->
-            out.write(rootSpan.toJsonStr())
-            out.write(System.lineSeparator())
+
+        val traceId2 = "trace2"
+        val root2 = SimSpan.new(
+            traceId = traceId2, spanId = "root",
+            startTimeOffsetNs = (0.5 * hundredMs).toLong(), durationNs = 2 * hundredMs)
+            .copy(attributes = mapOf("foo" to "bar"))
+
+        val spans = listOf(root1, child11, child111, child12, root2)
+
+        simFilePath.toFile().bufferedWriter().use{ out ->
+            spans.forEach{ span ->
+                out.write(span.toJsonStr())
+                out.write(System.lineSeparator())
+            }
         }
-        logger.info("Done writing to trace1Path: $trace1Path")
+        logger.info("Done writing to trace1Path: $simFilePath")
     }
 })
