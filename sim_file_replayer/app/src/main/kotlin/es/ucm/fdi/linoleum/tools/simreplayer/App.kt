@@ -97,12 +97,11 @@ data class Tree<T>(val root: T, val children: List<Tree<T>>) {
  * See also https://grafana.com/docs/tempo/latest/introduction/
  * */
 typealias SimSpanTree = Tree<SimSpan>
-fun simSpanTree(spans: List<SimSpan>): SimSpanTree {
+fun simSpanTree(spans: List<SimSpan>): Result<SimSpanTree> = runCatching {
     val rootSpan = spans.first{ it.isRootSpan }
     // TODO find parent and resolve children, traversing the trace graph
-    return Tree(rootSpan, emptyList())
+    Tree(rootSpan, emptyList())
 }
-
 
 /**
  * Identifier of a span in the simulation. These are arbitrary ids that won't be respected when emitting
@@ -111,7 +110,6 @@ fun simSpanTree(spans: List<SimSpan>): SimSpanTree {
  * */
 @Serializable
 data class SpanId(val traceId: String, val spanId: String)
-
 
 class SpanErrorsException(private val spanErrors: List<Throwable>): Exception() {
     override fun getLocalizedMessage(): String =
@@ -282,9 +280,16 @@ class SpanSimFilePlayer(
         logger.info("Added $schedulePadding schedule padding of to all spans")
 
         // Schedule all spans
-        paddedSpans.groupBy{ it.spanId.traceId }.values.forEach{
-            // FIXME implement simSpanTree
-            replayTrace(simSpanTree(it))
+        val spanTreeBuildErrors = paddedSpans.groupBy{ it.spanId.traceId }.values.flatMap{
+            simSpanTree(it).fold({spanTree ->
+                replayTrace(spanTree)
+                emptyList()
+            },{ exception ->
+                listOf(exception)
+            })
+        }
+        if (spanTreeBuildErrors.isNotEmpty()) {
+            return Result.failure(SpanErrorsException(spanTreeBuildErrors))
         }
 
         // Wait for all spans to complete
