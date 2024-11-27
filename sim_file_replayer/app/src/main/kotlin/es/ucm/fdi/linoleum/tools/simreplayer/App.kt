@@ -56,10 +56,8 @@ data class SimSpan(
 
         fun waitForSpanRecording(span: Span) {
             while (!span.isRecording) {
-                println("waiting for span to get ready to record")
-                Thread.sleep(1)
+                Thread.sleep(Duration.ofNanos(100))
             }
-            println("span ready to record!")
         }
     }
 
@@ -278,8 +276,13 @@ class SpanSimFilePlayer(
             logger.info("Completed scheduling of replay of trace with id $traceId")
         }
 
+        // Add some padding to the span to cover the delay until we start scheduling
+        val schedulePadding = Duration.ofSeconds(1)
+        val paddedSpans = spans.map{ it.copy(startTimeOffsetNs = it.startTimeOffsetNs + schedulePadding.toNanos())}
+        logger.info("Added $schedulePadding schedule padding of to all spans")
+
         // Schedule all spans
-        spans.groupBy{ it.spanId.traceId }.values.forEach{
+        paddedSpans.groupBy{ it.spanId.traceId }.values.forEach{
             // FIXME implement simSpanTree
             replayTrace(simSpanTree(it))
         }
