@@ -187,7 +187,7 @@ class SpanSimFilePlayer(
         /** Schedules the replay of the spans of a trace
           */
         fun replayTrace(spanTree: SimSpanTree) {
-            val traceId = spans.first().spanId.traceId
+            val traceId = spanTree.root.spanId.traceId
             val replayStartTime = Duration.ofNanos(System.nanoTime())
             logger.info("Start scheduling of replay of trace with id $traceId at start time $replayStartTime")
 
@@ -281,7 +281,7 @@ class SpanSimFilePlayer(
 
         // Schedule all spans
         val spanTreeBuildErrors = paddedSpans.groupBy{ it.spanId.traceId }.values.flatMap{
-            simSpanTree(it).fold({spanTree ->
+            simSpanTree(it).fold({ spanTree ->
                 replayTrace(spanTree)
                 emptyList()
             },{ exception ->
