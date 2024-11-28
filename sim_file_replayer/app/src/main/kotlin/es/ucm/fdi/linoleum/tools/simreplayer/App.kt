@@ -98,9 +98,18 @@ data class Tree<T>(val root: T, val children: List<Tree<T>>) {
  * */
 typealias SimSpanTree = Tree<SimSpan>
 fun simSpanTree(spans: List<SimSpan>): Result<SimSpanTree> = runCatching {
-    val rootSpan = spans.first{ it.isRootSpan }
-    // TODO find parent and resolve children, traversing the trace graph
-    Tree(rootSpan, emptyList())
+    val spanIds = spans.map{it.spanId}
+    require(spanIds.toSet().size == spanIds.size){"found duplicate span id"}
+
+    fun buildSimSpanTree(root: SimSpan? = null): SimSpanTree {
+        val rootSpan = root ?: spans.first{ it.isRootSpan }
+        val children = spans.filter { it.parentId?.equals(rootSpan.spanId.spanId) ?: false }
+        return Tree(rootSpan, children.map(::buildSimSpanTree))
+    }
+
+    val tree = buildSimSpanTree()
+    check(tree.list.size == spans.size){"spans dependencies are not a tree"}
+    tree
 }
 
 /**
@@ -189,7 +198,7 @@ class SpanSimFilePlayer(
         fun replayTrace(spanTree: SimSpanTree) {
             val traceId = spanTree.root.spanId.traceId
             val replayStartTime = Duration.ofNanos(System.nanoTime())
-            logger.info("Start scheduling of replay of trace with id $traceId at start time $replayStartTime")
+            logger.info("Start scheduling of trace with id $traceId at start time $replayStartTime")
 
             /** How much should the scheduler wait before creating a span, relative to `replayStartTimeNanos`
              * Fails if the time is negative, because that implies we are too late to
@@ -235,7 +244,7 @@ class SpanSimFilePlayer(
                     val emittedSpan = span.start(tracer, context)
                     val emittedSpanCtx = emittedSpan.spanContext
                     val otelSpanId = SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
-                    logger.info("Starting span with id ${span.spanId} emitted with OTEL id $otelSpanId")
+                    logger.info("Started span with id ${span.spanId} emitted with OTEL id $otelSpanId")
                     spanIds.add(otelSpanId)
 
                     // launch children, but let them add themselves to futures
@@ -259,11 +268,11 @@ class SpanSimFilePlayer(
 
                     remainingSpanTime(span, spanStartTime).fold({remainingTime ->
                         scheduler.schedule({
-                            completeSpan{ logger.info("Span with id ${span.spanId} completed with success") }
+                            completeSpan{ logger.info("Completed span with id ${span.spanId} with success") }
                         }, remainingTime.toNanos(), TimeUnit.NANOSECONDS)
                     }, { exception ->
                         spanErrors.add(exception)
-                        completeSpan{ logger.error("Span with id ${span.spanId} run out of time", exception) }
+                        completeSpan{ logger.error("Timeout span with id ${span.spanId}", exception) }
                     })
                 }, spanDelay.toNanos(), TimeUnit.NANOSECONDS)
             }
@@ -271,7 +280,7 @@ class SpanSimFilePlayer(
             // https://javadoc.io/doc/io.opentelemetry/opentelemetry-context/1.1.0/io/opentelemetry/context/Context.html
             val rootContext = Context.root()
             scheduleSpanReplay(rootContext, spanTree)
-            logger.info("Completed scheduling of replay of trace with id $traceId")
+            logger.info("Completed scheduling of trace with id $traceId")
         }
 
         // Add some padding to the span to cover the delay until we start scheduling
@@ -279,9 +288,17 @@ class SpanSimFilePlayer(
         val paddedSpans = spans.map{ it.copy(startTimeOffsetNs = it.startTimeOffsetNs + schedulePadding.toNanos())}
         logger.info("Added $schedulePadding schedule padding of to all spans")
 
+        // Build all span tress
+        val spanTrees = paddedSpans.groupBy{ it.spanId.traceId }.values
+            .map{
+                val spanTree = simSpanTree(it)
+                logger.info("Built span tree {}", spanTree)
+                spanTree
+            }
+
         // Schedule all spans
-        val spanTreeBuildErrors = paddedSpans.groupBy{ it.spanId.traceId }.values.flatMap{
-            simSpanTree(it).fold({ spanTree ->
+        val spanTreeBuildErrors = spanTrees.flatMap {
+            it.fold({ spanTree ->
                 replayTrace(spanTree)
                 emptyList()
             },{ exception ->
