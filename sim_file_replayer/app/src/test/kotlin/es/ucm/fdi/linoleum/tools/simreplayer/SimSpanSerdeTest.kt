@@ -23,7 +23,7 @@ private fun simpleSimSpan() = SimSpan(
     spanId = SpanId(traceId = "traceId", spanId="spanId"),
     parentId = "parentSpanId",
     spanName="spanName",
-    startTimeOffsetNs = 0, durationNs = 10000, attributes = mapOf("foo" to "bar")
+    startTimeOffsetMs = 0, durationMs = 10, attributes = mapOf("foo" to "bar")
 )
 
 class SimSpanSerdeTest : FunSpec( {
@@ -74,31 +74,31 @@ class CreateExampleSimFileTest : FunSpec({
         val simFilePath = simFilesPath.resolve("traces1.jsonl")
         logger.info("Writing to simFilePath: $simFilePath")
 
-        val hundredMs = Duration.ofMillis(100).toNanos()
+        val stepSizeMs = 1000L
 
         val traceId1 = "trace1"
         val root1 = SimSpan.new(
             traceId = traceId1, spanId = "root1",
-            startTimeOffsetNs = 0, durationNs = hundredMs)
+            startTimeOffsetMs = 0, durationMs = stepSizeMs)
             .copy(attributes = mapOf("foo" to "bar"))
         val child11 = SimSpan.new(
             traceId = traceId1, spanId = "child11", parentSpan = root1,
-            startTimeOffsetNs = 2 * hundredMs, durationNs = hundredMs * 3)
+            startTimeOffsetMs = 2 * stepSizeMs, durationMs = stepSizeMs * 3)
             .copy(attributes = mapOf("bar" to "baz"))
         val child111 = SimSpan.new(
             traceId = traceId1, spanId = "child111", parentSpan = child11,
-            startTimeOffsetNs = (2.5 * hundredMs).toLong(), durationNs = hundredMs)
+            startTimeOffsetMs = (2.5 * stepSizeMs).toLong(), durationMs = stepSizeMs)
         val child12 = SimSpan(
             spanId = SpanId(traceId = traceId1, spanId="child12"),
             parentId = root1.spanId.spanId,
             spanName="child12",
-            startTimeOffsetNs = 3 * hundredMs, durationNs = hundredMs
+            startTimeOffsetMs = 3 * stepSizeMs, durationMs = stepSizeMs
         )
 
         val traceId2 = "trace2"
         val root2 = SimSpan.new(
             traceId = traceId2, spanId = "root2",
-            startTimeOffsetNs = (0.5 * hundredMs).toLong(), durationNs = 2 * hundredMs)
+            startTimeOffsetMs = (0.5 * stepSizeMs).toLong(), durationMs = 2 * stepSizeMs)
             .copy(attributes = mapOf("foo" to "bar"))
 
         val spans = listOf(root1, child11, child111, child12, root2)

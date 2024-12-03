@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.nio.file.Path
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.*
 import kotlin.system.exitProcess
 
@@ -27,9 +28,9 @@ private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
  * @property parentId .spanId.spanId of the span that is the parent of this span, or null if
  * this is a root span. We implicitly assume the parent is a span of the same trace
  * as spanId.traceId
- * @property startTimeOffsetNs How much time (in nanoseconds) to wait since the start of the replay to start this span. The parent
+ * @property startTimeOffsetMs How much time (in milliseconds) to wait since the start of the replay to start this span. The parent
  * trace is created on its first span
- * @property durationNs How much time (in nanoseconds) to wait since the span is created to close the span. Spans
+ * @property durationMs How much time (in milliseconds) to wait since the span is created to close the span. Spans
  * involved in a SimSpanTree wait both for this duration and for their children spans to terminate.
  * https://github.com/envoyproxy/envoy/issues/21583
  * */
@@ -37,8 +38,8 @@ private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
 data class SimSpan(
     val spanId: SpanId, val parentId: String?=null,
     val spanName: String, val spanKind: SpanKind=SpanKind.INTERNAL,
-    val startTimeOffsetNs: Long,
-    val durationNs: Long,
+    val startTimeOffsetMs: Long,
+    val durationMs: Long,
     val attributes: Map<String, String> = emptyMap()) {
 
     companion object {
@@ -46,13 +47,12 @@ data class SimSpan(
             runCatching {  Json.decodeFromString<SimSpan>(jsonStr) }
 
         fun new(spanId: String, traceId: String,
-                startTimeOffsetNs: Long,  durationNs: Long,
+                startTimeOffsetMs: Long, durationMs: Long,
                 parentSpan: SimSpan?=null) = SimSpan(
             spanId = SpanId(traceId = traceId, spanId=spanId),
             parentId = parentSpan?.spanId?.spanId,
             spanName = spanId,
-            startTimeOffsetNs = startTimeOffsetNs, durationNs = durationNs
-        )
+            startTimeOffsetMs = startTimeOffsetMs, durationMs = durationMs)
 
         fun waitForSpanRecording(span: Span) {
             while (!span.isRecording) {
@@ -197,29 +197,31 @@ class SpanSimFilePlayer(
           */
         fun replayTrace(spanTree: SimSpanTree) {
             val traceId = spanTree.root.spanId.traceId
-            val replayStartTime = Duration.ofNanos(System.nanoTime())
+            val replayStartTime = Instant.now()
             logger.info("Start scheduling of trace with id $traceId at start time $replayStartTime")
 
-            /** How much should the scheduler wait before creating a span, relative to `replayStartTimeNanos`
+            /** How much should the scheduler wait before creating a span, relative to `replayStartTime`
              * Fails if the time is negative, because that implies we are too late to
              * schedule the span
              * TODO document notes
              * */
             fun spanScheduleDelay(span: SimSpan): Result<Duration> = runCatching {
-                val delay = span.startTimeOffsetNs + replayStartTime.toNanos() - System.nanoTime()
+                // discount the time that has passed since replayStartTime
+                val delay = span.startTimeOffsetMs - replayStartTime.elapsedTime().toMillis()
                 check(delay > 0){"Schedule delay for span with id ${span.spanId} is negative: too late to schedule"}
-                Duration.ofNanos(delay)
+                Duration.ofMillis(delay)
             }
 
             /**
              * TODO document
              * */
-            fun remainingSpanTime(span: SimSpan, spanStartTime: Duration): Result<Duration> = runCatching {
-                val duration = span.durationNs + spanStartTime.toNanos() - System.nanoTime()
+            fun remainingSpanTime(span: SimSpan, spanStartTime: Instant): Result<Duration> = runCatching {
+                // discount the time that has passed since spanStartTime
+                val duration = span.durationMs - spanStartTime.elapsedTime().toMillis()
                 check(duration > 0){
                     "Remaining span duration for span with id ${span.spanId} is negative: not enough time to run the span"
                 }
-                Duration.ofNanos(duration)
+                Duration.ofMillis(duration)
             }
 
             /**
@@ -240,7 +242,7 @@ class SpanSimFilePlayer(
 
                 logger.info("Scheduling $span with delay $spanDelay")
                 scheduler.schedule({
-                    val spanStartTime = Duration.ofNanos(System.nanoTime())
+                    val spanStartTime = Instant.now()
                     val emittedSpan = span.start(tracer, context)
                     val emittedSpanCtx = emittedSpan.spanContext
                     val otelSpanId = SpanId(traceId = emittedSpanCtx.traceId, spanId = emittedSpanCtx.spanId)
@@ -269,12 +271,12 @@ class SpanSimFilePlayer(
                     remainingSpanTime(span, spanStartTime).fold({remainingTime ->
                         scheduler.schedule({
                             completeSpan{ logger.info("Completed span with id ${span.spanId} with success") }
-                        }, remainingTime.toNanos(), TimeUnit.NANOSECONDS)
+                        }, remainingTime.toMillis(), TimeUnit.MILLISECONDS)
                     }, { exception ->
                         spanErrors.add(exception)
                         completeSpan{ logger.error("Timeout span with id ${span.spanId}", exception) }
                     })
-                }, spanDelay.toNanos(), TimeUnit.NANOSECONDS)
+                }, spanDelay.toMillis(), TimeUnit.MILLISECONDS)
             }
 
             // https://javadoc.io/doc/io.opentelemetry/opentelemetry-context/1.1.0/io/opentelemetry/context/Context.html
@@ -285,7 +287,7 @@ class SpanSimFilePlayer(
 
         // Add some padding to the span to cover the delay until we start scheduling
         val schedulePadding = Duration.ofSeconds(1)
-        val paddedSpans = spans.map{ it.copy(startTimeOffsetNs = it.startTimeOffsetNs + schedulePadding.toNanos())}
+        val paddedSpans = spans.map{ it.copy(startTimeOffsetMs = it.startTimeOffsetMs + schedulePadding.toMillis())}
         logger.info("Added $schedulePadding schedule padding of to all spans")
 
         // Build all span tress
@@ -311,7 +313,7 @@ class SpanSimFilePlayer(
 
         // Wait for all spans to complete
         runCatching {
-            allSpansComplete.await(timeout.toNanos(), TimeUnit.NANOSECONDS)
+            allSpansComplete.await(timeout.toMillis(), TimeUnit.MILLISECONDS)
         }.recover { exception ->
             return Result.failure(exception)
         }
@@ -344,6 +346,12 @@ class SpanSimFilePlayer(
         }
     }
 }
+
+/** @return How much time has passed since this, at the time of the call.
+ * Resolution is limited to milliseconds
+ * */
+fun Instant.elapsedTime(): Duration =
+    Duration.ofMillis(Instant.now().toEpochMilli() - this.toEpochMilli())
 
 /** @return Filters and unwraps the successful results */
 val <T> List<Result<T>>.successes: List<T>
