@@ -32,3 +32,9 @@ jobs:
       - name: Build with Gradle Wrapper
         run: chmod +x gradlew && make release
 
+      # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow
+      - name: Archive build reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: app/build/reports
