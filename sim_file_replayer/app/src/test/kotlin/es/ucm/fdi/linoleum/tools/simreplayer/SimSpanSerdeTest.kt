@@ -5,6 +5,7 @@ package es.ucm.fdi.linoleum.tools.simreplayer
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.datatest.withData
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.result.shouldBeFailure
 import io.kotest.matchers.result.shouldBeSuccess
 import io.kotest.matchers.string.shouldNotBeEmpty
@@ -70,6 +71,16 @@ class CreateExampleSimFileTest : FunSpec({
         path
     }
 
+    fun testPlaySim(simFilePath: Path, spans: List<SimSpan>) {
+        val otel = provideOtel()
+        val tracer = provideTracer(otel)
+        val replayer = SpanSimFilePlayer(tracer)
+        val replayedSpans = replayer.playSim(simFilePath, Duration.ofSeconds(5))
+
+        replayedSpans.shouldBeSuccess()
+        replayedSpans.getOrNull()?.shouldHaveSize(spans.size)
+    }
+
     test("Create an example sim file") {
         val simFilePath = simFilesPath.resolve("traces1.jsonl")
         logger.info("Writing to simFilePath: $simFilePath")
@@ -110,5 +121,8 @@ class CreateExampleSimFileTest : FunSpec({
             }
         }
         logger.info("Done writing to trace1Path: $simFilePath")
+
+        // Kotest doesn't have test dependencies https://github.com/kotest/kotest/issues/774
+        testPlaySim(simFilePath, spans)
     }
 })
