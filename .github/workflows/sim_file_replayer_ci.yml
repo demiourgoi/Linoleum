@@ -10,6 +10,9 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./sim_file_replayer
     permissions:
       contents: read
 
@@ -28,13 +31,16 @@ jobs:
         uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
 
       - name: Build with Gradle Wrapper
-        run: cd sim_file_replayer && chmod +x gradlew && make release
+        run: chmod +x gradlew && make release
 
   # Analyze dependencies to detect vulnerabilities
   # https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/using-the-dependency-submission-api
   dependency-submission:
 
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./sim_file_replayer
     permissions:
       contents: write
 
@@ -45,7 +51,6 @@ jobs:
         with:
           java-version: '20'
           distribution: 'temurin'
-          build-root-directory: sim_file_replayer
 
       # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
       # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
