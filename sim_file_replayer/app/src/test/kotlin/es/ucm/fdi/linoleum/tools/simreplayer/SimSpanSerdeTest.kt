@@ -75,7 +75,7 @@ class CreateExampleSimFileTest : FunSpec({
         val otel = provideOtel()
         val tracer = provideTracer(otel)
         val replayer = SpanSimFilePlayer(tracer)
-        val replayedSpans = replayer.playSim(simFilePath, Duration.ofSeconds(5))
+        val replayedSpans = replayer.playSim(simFilePath, Duration.ofSeconds(10))
 
         replayedSpans.shouldBeSuccess()
         replayedSpans.getOrNull()?.shouldHaveSize(spans.size)

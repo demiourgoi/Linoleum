@@ -382,7 +382,7 @@ object EnvVars {
     const val BUILD_DIR_VAR_NAME = "BUILD_DIR"
     const val SIM_FILE_PATH_VAR_NAME = "SIM_FILE_PATH"
     const val REPLAY_TIMEOUT_VAR_NAME = "REPLAY_TIMEOUT"
-    val REPLAY_TIMEOUT_DEFAULT_SECS = Duration.ofMinutes(5).toSeconds()
+    val REPLAY_TIMEOUT_DEFAULT_SECS = Duration.ofMinutes(10).toSeconds()
 }
 object ExitCodes {
     const val MISSING_ARGS = 1
