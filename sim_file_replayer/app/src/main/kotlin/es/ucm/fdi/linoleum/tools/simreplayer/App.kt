@@ -154,8 +154,8 @@ class SpanSimFilePlayer(
      * This call blocks until the simulation is complete, or the timeout is reached.
      *
      * Limitations:
-     * - SimSpan offsets and durations are in milliseconds, but with 500s we already get a 1% error in the timing of
-     * the replayed spans
+     * - SimSpan offsets and durations are in milliseconds, but with 500ms of granularity
+     * we already get a 1% error in the timing of the replayed spans
      * - Spans can happen at the same time. This is scheduling each span using a thread pool of 5000 threads, which
      * size can be set with the env var MAX_THREAD_POOL_SIZE_ENV_VAR. A better implementation would use coroutines
      * - The simulation starts 1 second after this command is called, to avoid failing schedules due to

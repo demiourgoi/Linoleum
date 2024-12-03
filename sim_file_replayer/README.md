@@ -21,7 +21,11 @@ Basic gradle targets
 ./gradlew clean
 ```
 
-`./gradlew run` takes its parameters from the following environment variables:
+Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
+
+## How to run a simulation
+
+`./gradlew run` __runs a simulation__, taking its _parameters_ from the following _environment variables:
 
 - SIM_FILE_PATH: path to the __Sim file___ to replay. This file is a JSON lines (https://jsonlines.org/) with a SimSpan per line serialzied as a JSON object.
   - `./gradlew build` generates an example Sim file at `app/build/simFiles/traces1.jsonl`
@@ -32,7 +36,7 @@ Basic gradle targets
 - MAX_THREAD_POOL_SIZE: number of threads to use for the simulation, should be higher or equal than the number of concurrent spans
   - Optional: 5000 by default
 
-Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
+__Simulation precision__: with 500ms of granularity we already get a 1% error in the timing of the replayed spans. As a workaround we can scale the simulation to use longer times, while respecting the causal relationships between events, and their relative durations.  
 
 ## Design
 
