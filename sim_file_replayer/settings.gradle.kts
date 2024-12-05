@@ -8,6 +8,18 @@
 plugins {
     // Apply the foojay-resolver plugin to allow automatic download of JDKs
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+
+    id("com.gradle.develocity") version "3.17.5"
+}
+
+// https://stackoverflow.com/questions/55725574/how-to-conditionally-accept-gradle-build-scan-plugin-terms-of-service-in-kotlin/56634703#56634703
+develocity {
+    buildScan {
+        termsOfUseUrl = "https://gradle.com/help/legal-terms-of-use"
+        termsOfUseAgree = "yes"
+        // If you don't need to auto-publish the build scan, uncomment it.
+        // publishing.onlyIf { false }
+    }
 }
 
 rootProject.name = "sim-file-replayer"

@@ -30,7 +30,7 @@ jobs:
         uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
 
       - name: Build with Gradle Wrapper
-        run: chmod +x gradlew && make release
+        run: chmod +x gradlew && make release EXTRA_BUILD_ARGS=--scan
 
       # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/storing-and-sharing-data-from-a-workflow
       # https://github.com/actions/upload-artifact/issues/232  The upload-artifact action does not use the working-directory setting

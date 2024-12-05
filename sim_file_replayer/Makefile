@@ -26,8 +26,11 @@ release: clean build	### run all release checks
 clean:	### cleanup the build
 	$(GRADLE) clean
 
+# Run with `EXTRA_BUILD_ARGS=--scan` to send a gradle build scan, e.g.
+# `make release EXTRA_BUILD_ARGS=--scan`
+# https://docs.gradle.org/current/userguide/build_scans.html
 build:	### build app (this also runs unit tests)
-	$(GRADLE) build
+	$(GRADLE) build $(EXTRA_BUILD_ARGS)
 	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
 OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
