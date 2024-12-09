@@ -5,7 +5,9 @@ SHELL := /bin/bash
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
-GRADLE := $(ROOT_DIR)/gradlew
+# Only publish build scan when explicitly asking, e.g. on CI
+EXTRA_BUILD_ARGS ?= --no-scan
+GRADLE := $(ROOT_DIR)/gradlew $(EXTRA_BUILD_ARGS)
 
 default: help
 
@@ -30,7 +32,7 @@ clean:	### cleanup the build
 # `make release EXTRA_BUILD_ARGS=--scan`
 # https://docs.gradle.org/current/userguide/build_scans.html
 build:	### build app (this also runs unit tests)
-	$(GRADLE) build $(EXTRA_BUILD_ARGS)
+	$(GRADLE) build
 	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
 OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/otel_exporter.env
