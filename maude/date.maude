@@ -1,0 +1,51 @@
+fmod DATE is
+    pr NAT .
+    pr CONVERSION .
+
+    sorts Date Date? .
+    subsorts Date < Date? .
+
+    var D M Y D' M' Y' : NzNat .
+    vars DATE DATE' : Date .
+
+    op date : NzNat NzNat NzNat -> Date? [ctor] .
+    cmb date(D, M, Y) : Date
+        if valid(D, M, Y) .
+
+    op leap : NzNat -> Bool .
+    eq leap(Y) = ((Y rem 4) == 0) and ((Y rem 100) =/= 0) or ((Y rem 400) == 0) .
+    op valid : NzNat NzNat NzNat -> Bool .
+    eq valid(D,M,Y) = 
+        (
+            (D <= 31 and (M == 1 or M == 3 or M == 5 or M == 7 or M == 8 or M == 10 or M == 12)) or
+            (D <= 30 and (M == 4 or M == 6 or M == 9 or M == 11)) or
+            (D <= 28 and (M == 2)) or
+            (D <= 29 and (M == 2) and leap(Y))
+        ) .
+    op _<_ : Date Date -> Bool .
+    ceq date(D, M, Y) < date(D', M', Y') =
+        (
+            (Y < Y') or 
+            ((Y == Y') and (M < M')) or 
+            ((Y == Y') and (M == M') and (D < D')) 
+        )
+    if date(D, M, Y) : Date /\ date(D', M', Y') : Date .
+    op _>_ : Date Date -> Bool .
+    ceq DATE > DATE' = DATE' < DATE
+    if DATE : Date /\ DATE' : Date .
+    
+    op _=_ : Date Date -> Bool .
+    ceq date(D, M, Y) = date(D', M', Y') = ((Y == Y') and (M == M') and (D == D'))
+    if date(D, M, Y) : Date /\ date(D', M', Y') : Date .
+
+    op _!=_ : Date Date -> Bool .
+    ceq date(D, M, Y) != date(D', M', Y') = ((Y =/= Y') or (M =/= M') and (D =/= D'))
+    if date(D, M, Y) : Date /\ date(D', M', Y') : Date .
+
+endfm
+
+
+view Date from TRIV to DATE is
+    sort Elt to Date .
+endv
+

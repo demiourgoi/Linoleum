@@ -1,9 +1,11 @@
+load json.maude
+
 fmod LUEGO-SYNTAX is
- pr NAT .
+ pr JSON .
 
  sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
- sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList .
- subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI < Sys .
+ sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
+ subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log < Sys .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
  subsort TaskPair < ClientTaskDB .
@@ -71,6 +73,9 @@ fmod LUEGO-SYNTAX is
  op noResult : -> Result [ctor] .
  op result : Nat -> Result [ctor] .
 
+ *** Trace
+ op log : JSON -> Log [ctor] .
+
  *** Messages
  op request-tid : CId Task -> Msg [ctor] .
  op request-worker : Task TaskId -> Msg [ctor] .
@@ -83,25 +88,31 @@ endfm
 
 mod LUEGO-SEMANTICS is
  pr LUEGO-SYNTAX .
+ pr COUNTER .
+ pr RANDOM .
 
- var CTDB : ClientTaskDB .
- var TPL : TaskPairList .
- var DBC : DBContents .
- var TL : TaskList .
- var TID : TaskId .
- var R : Result .
- var CID : CId .
- var T : Task .
- var N : Nat .
+ var  CTDB : ClientTaskDB .
+ var  TPL : TaskPairList .
+ var  DBC : DBContents .
+ var  TL : TaskList .
+ var  TID : TaskId .
+ vars N : Nat .
+ var  TIME : [Nat] .
+ var  R : Result .
+ var  JS : JSON .
+ var  CID : CId .
+ var  T : Task .
 
  rl [request-reaches-balancer] :
     [CID | T TL, CTDB]
     *** loadBalancer
     lapi
+    log(JS)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
-    request-tid(CID, T) .
+    request-tid(CID, T)
+    log(v("a" |-> v(random(counter)))) [print JS] .
 
  rl [request-reaches-api] :
     request-tid(CID, T)
@@ -166,8 +177,11 @@ mod TEST is
            rapi                                  *** REST API
            worker(mtTPL)                         *** Worker 0
            worker(mtTPL)                         *** Worker 1
+           log({})                               *** Log
            .
 endm
+
+set print attribute on .
 
 rew init .
 
@@ -185,5 +199,10 @@ db([taskId(0), result(0)] [taskId(1), result(1)] [taskId(2), result(2)]
 [c(1) | mtTL, [task(3), taskId(3)], [task(4), taskId(4)]]
 
 
-
+Juan Rodríguez Hortalá
+11:21
+https://github.com/juanrh/Linoleum/blob/sim_file_replayer/sim_file_replayer/app/src/main/kotlin/es/ucm/fdi/linoleum/tools/simreplayer/App.kt#L42
+Juan Rodríguez Hortalá
+11:24
+https://juanrh.grafana.net/a/grafana-exploretraces-app/explore?primarySignal=full_traces&from=now-15m&to=now&var-ds=grafanacloud-traces&var-filters=nestedSetParent%7C%3C%7C0&var-metric=rate&var-groupBy=resource.service.name&var-latencyThreshold=&var-partialLatencyThreshold=&refresh=&actionView=traceList&traceId=7de453aead3c52d7100b81d97f4ea1cb&spanId=ae8c101998925301
 

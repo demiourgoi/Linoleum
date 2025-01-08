@@ -1,0 +1,43 @@
+load value.maude
+
+fmod JSON is
+    pr VALUE .
+
+    sort JSON .
+    subsort JSON < Value .
+
+    var  MSV : Map{String, Value} .
+    vars V V' : Value .
+    var  S : String .
+
+    op {} : -> JSON [ctor] .
+
+    cmb v(MSV) : JSON
+     if not repeated(MSV) /\
+        allValid(MSV) .
+
+    op allValid : Map{String, Value} -> Bool .
+    ceq allValid((S |-> v(MSV), MSV)) = false
+     if not (v(MSV) :: JSON) .
+    eq allValid(MSV) = true [owise] .
+
+    op repeated : Map{String, Value} -> Bool .
+    eq repeated((S |-> V, S |-> V', MSV)) = true .
+    eq repeated(MSV) = false [owise] .
+
+    op contains : JSON String -> Bool .
+    eq contains(v(((S |-> V), MSV)), S) = true .
+    eq contains(v(MSV), S) = false [owise] .
+
+    op _._ : JSON String ~> Value .
+    eq v(MSV) . S = MSV [ S ] .
+
+    op add : JSON String Value -> JSON .
+    eq add(v((S |-> V, MSV)), S, V') = v((S |-> V', MSV)) .
+    eq add(v(MSV), S, V) = v((S |-> V, MSV)) [owise] .
+endfm
+
+view JSON from TRIV to JSON is
+    sort Elt to JSON .
+endv
+
