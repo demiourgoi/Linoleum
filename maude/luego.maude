@@ -15,9 +15,9 @@ fmod LUEGO-SYNTAX is
  op __ : Sys Sys -> Sys [ctor assoc comm id: none] .
 
  *** Database for clients. Maps Task to TaskId
- op nil : -> ClientTaskDB [ctor] .
+ op mtCTDB : -> ClientTaskDB [ctor] .
  op [_,_] : Task TaskId -> TaskPair [ctor] .
- op _,_ : ClientTaskDB ClientTaskDB -> ClientTaskDB [ctor assoc comm id: nil] .
+ op _,_ : ClientTaskDB ClientTaskDB -> ClientTaskDB [ctor assoc comm id: mtCTDB] .
 
  *** Clients and IDs
  op c : Nat -> CId [ctor] .
@@ -74,7 +74,13 @@ fmod LUEGO-SYNTAX is
  op result : Nat -> Result [ctor] .
 
  *** Trace
- op log : JSON -> Log [ctor] .
+ sort JL .
+ subsort JSON < JL .
+
+ op mtJL : -> JL [ctor] .
+ op _$_ : JL JL -> JL [ctor assoc id: mtJL] .
+
+ op log : JL -> Log [ctor] .
 
  *** Messages
  op request-tid : CId Task -> Msg [ctor] .
@@ -99,7 +105,7 @@ mod LUEGO-SEMANTICS is
  vars N : Nat .
  var  TIME : [Nat] .
  var  R : Result .
- var  JS : JSON .
+ var  JL : JL .
  var  CID : CId .
  var  T : Task .
 
@@ -107,14 +113,14 @@ mod LUEGO-SEMANTICS is
     [CID | T TL, CTDB]
     *** loadBalancer
     lapi
-    log(JS)
+    log(JL)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
     request-tid(CID, T)
-    log(v("a" |-> v(random(counter)))) [print JS] .
+    log(JL $ v("a" |-> v(random(counter)))) .
 
- rl [request-reaches-api] :
+ rl [request-reaches-db] :
     request-tid(CID, T)
     db(DBC, N)
  => db(addKey(DBC, taskId(N)), s(N))
@@ -168,16 +174,16 @@ mod TEST is
  pr LUEGO-SEMANTICS .
 
  op init : -> Sys .
- eq init = [c(0) | task(0) task(1) task(2), nil] *** Client 0, with three tasks
-           [c(1) | task(3) task(4), nil]         *** Client 1, with two tasks
-           *** loadBalancer                          *** Load balancer
-           lapi                                  *** Luego API, initial counter for generating task IDs
-           db(mtDB, 0)                           *** Database
-           queue(mtTPL)                          *** Queue
-           rapi                                  *** REST API
-           worker(mtTPL)                         *** Worker 0
-           worker(mtTPL)                         *** Worker 1
-           log({})                               *** Log
+ eq init = [c(0) | task(0) task(1) task(2), mtCTDB] *** Client 0, with three tasks
+           [c(1) | task(3) task(4), mtCTDB]         *** Client 1, with two tasks
+           *** loadBalancer                         *** Load balancer
+           lapi                                     *** Luego API, initial counter for generating task IDs
+           db(mtDB, 0)                              *** Database
+           queue(mtTPL)                             *** Queue
+           rapi                                     *** REST API
+           worker(mtTPL)                            *** Worker 0
+           worker(mtTPL)                            *** Worker 1
+           log(mtJL)                                *** Log
            .
 endm
 
