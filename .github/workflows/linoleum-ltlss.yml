@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./
+        working-directory: ./linoleum-ltlss
     permissions:
       contents: read
 
@@ -21,6 +21,12 @@ jobs:
     steps:
       - name: Checkout current branch
         uses: actions/checkout@v4
+
+      - name: Checkout sscheck-core
+        uses: actions/checkout@v4
+        with:
+          repository: 'demiourgoi/sscheck-core'
+          ref: '0.5.1-scala'
 
       - name: Set up JDK 20
         uses: actions/setup-java@v4
@@ -32,4 +38,4 @@ jobs:
         uses: sbt/setup-sbt@v1
 
       - name: Build with SBT
-        run: sbt clean compile scalafixEnable "scalafixAll --check" test
+        run: sbt clean compile scalafixEnable "scalafixAll --check" test run
