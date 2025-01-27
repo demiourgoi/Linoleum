@@ -61,7 +61,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "es.ucm.fdi.linoleum.tools.simreplayer.AppKt"
+    mainClass = "es.ucm.fdi.demiourgoi.linoleum.tools.simreplayer.AppKt"
 }
 
 tasks.named<Test>("test") {
