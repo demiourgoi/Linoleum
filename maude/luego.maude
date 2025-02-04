@@ -4,8 +4,8 @@ fmod LUEGO-SYNTAX is
  pr JSON .
 
  sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
- sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
- subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log < Sys .
+ sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log Clock .
+ subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log Clock < Sys .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
  subsort TaskPair < ClientTaskDB .
@@ -82,6 +82,9 @@ fmod LUEGO-SYNTAX is
 
  op log : JL -> Log [ctor] .
 
+ *** Global time, time elapsed since last step, max
+ op clock : Nat Nat Nat -> Clock [ctor] .
+
  *** Messages
  op request-tid : CId Task -> Msg [ctor] .
  op request-worker : Task TaskId -> Msg [ctor] .
@@ -97,13 +100,12 @@ mod LUEGO-SEMANTICS is
  pr COUNTER .
  pr RANDOM .
 
+ vars N TIME ELAPSED MAX : Nat .
  var  CTDB : ClientTaskDB .
  var  TPL : TaskPairList .
  var  DBC : DBContents .
  var  TL : TaskList .
  var  TID : TaskId .
- vars N : Nat .
- var  TIME : [Nat] .
  var  R : Result .
  var  JL : JL .
  var  CID : CId .
@@ -114,11 +116,13 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     log(JL)
+    clock(TIME, ELAPSED, MAX)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
     request-tid(CID, T)
-    log(JL $ v("a" |-> v(random(counter)))) .
+    log(JL $ v("a" |-> v(TIME)))
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) [print TIME] .
 
  rl [request-reaches-db] :
     request-tid(CID, T)
@@ -173,6 +177,9 @@ endm
 mod TEST is
  pr LUEGO-SEMANTICS .
 
+ op max : -> Nat .
+ eq max = 10000 .
+
  op init : -> Sys .
  eq init = [c(0) | task(0) task(1) task(2), mtCTDB] *** Client 0, with three tasks
            [c(1) | task(3) task(4), mtCTDB]         *** Client 1, with two tasks
@@ -184,6 +191,7 @@ mod TEST is
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
            log(mtJL)                                *** Log
+           clock(0, random(counter) rem max, max)   *** Clock
            .
 endm
 
