@@ -1,4 +1,4 @@
-package es.ucm.fdi.linoleum.tools.simreplayer
+package es.ucm.fdi.demiourgoi.linoleum.tools.simreplayer
 
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.trace.Span
@@ -18,7 +18,7 @@ import java.time.Instant
 import java.util.concurrent.*
 import kotlin.system.exitProcess
 
-private const val SCOPE_NAME = "es.ucm.fdi.linoleum.tools.simreplayer"
+private const val SCOPE_NAME = "es.ucm.fdi.demiourgoi.linoleum.tools.simreplayer"
 private const val SCOPE_VERSION = "0.1.0"
 private const val SCOPE_SCHEMA_URL = "https://demiourgoi.github.io"
 
