@@ -6,6 +6,8 @@ import "common/v1/common.proto";
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "trace/v1/trace.proto";
 
+option java_package = "com.grafana.tempopb";
+
 service Pusher {
   // different versions of PushBytes expect the trace data to be pushed in
   // different formats

@@ -1,5 +1,12 @@
 # Developer guide
 
+## Setup
+
+Prerequisites:
+
+- [SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
+- [Podman](https://podman.io/docs/installation)
+
 ## How to build the code
 
 ```bash
