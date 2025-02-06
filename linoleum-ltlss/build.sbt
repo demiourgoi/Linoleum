@@ -20,6 +20,7 @@ libraryDependencies += "es.ucm.fdi.demiourgoi" %% "sscheck-core" % sscheckVersio
 lazy val grpcVersion = "1.70.0"
 libraryDependencies += "io.grpc" % "grpc-protobuf" % grpcVersion
 libraryDependencies += "io.grpc" % "grpc-stub" % grpcVersion
+libraryDependencies += "javax.annotation" % "javax.annotation-api" % "1.3.2"
 
 resolvers ++= Seq(
   "MVN Repository.com" at "https://mvnrepository.com/artifact/",

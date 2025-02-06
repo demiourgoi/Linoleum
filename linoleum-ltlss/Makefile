@@ -28,7 +28,10 @@ DOCKER_PROTOBUF_IMAGE ?= otel/build-protobuf:0.23.0
 VENDOR_PROTO_ROOT = vendor/proto
 PROTOC = podman run --rm -v .:/workspace -w /workspace ${DOCKER_PROTOBUF_IMAGE} --proto_path=/workspace
 PROTO_INCLUDES = -I$(VENDOR_PROTO_ROOT)/opentelemetry
-PROTO_GEN = $(PROTOC) $(PROTO_INCLUDES) --java_out=$(2) $(1)
+# grpc-java_out to generate client stubs
+# https://github.com/grpc/grpc-java/tree/master/compiler
+# https://stackoverflow.com/questions/38488073/protocal-buffers-arent-generating-service-stubs
+PROTO_GEN = $(PROTOC) $(PROTO_INCLUDES) --java_out=$(2) --grpc-java_out=$(2) $(1)
 PROTO_GEN_WITH_VENDOR = $(PROTOC) $(PROTO_INCLUDES) -Ivendor -Ivendor/proto/gogo --java_out=$(2) $(1)
 
 tempo-client/gen:	### generate protocol buffers client for Tempo

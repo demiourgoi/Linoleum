@@ -9,6 +9,14 @@ Prerequisites:
 
 ## How to build the code
 
+First of all render the gRPC models into Java code.
+
+```bash
+make clean tempo-client/gen
+```
+
+Then use SBT to build the code.
+
 ```bash
 # Launch SBT shell
 sbt
