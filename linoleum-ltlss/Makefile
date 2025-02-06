@@ -38,9 +38,11 @@ tempo-client/gen:	### generate protocol buffers client for Tempo
 	$(call PROTO_GEN,vendor/proto/opentelemetry/trace/v1/trace.proto,./src/main/java/)
 	$(call PROTO_GEN,vendor/proto/tempo/tempo.proto,./src/main/java/)
 	$(call PROTO_GEN,vendor/proto/tempodb/v1/v1.proto,./src/main/java/)
+	$(call PROTO_GEN,vendor/proto/gogo/gogoproto/gogo.proto,./src/main/java/)
 	echo 'Protobuf generation as Java code completed with success'
 
 tempo-client/clean:
 	rm -rf src/main/java/io/opentelemetry
 	rm -rf src/main/java/com/grafana
+	rm -rf src/main/java/com/google
 	echo 'Success cleaning up proto generated Java code'
