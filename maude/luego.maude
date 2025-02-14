@@ -80,7 +80,7 @@ fmod LUEGO-SYNTAX is
  op mtJL : -> JL [ctor] .
  op _$_ : JL JL -> JL [ctor assoc id: mtJL] .
 
- op log : JL -> Log [ctor] .
+ op log : JL ClientTaskDB -> Log [ctor] .
 
  *** Global time, time elapsed since last step, max
  op clock : Nat Nat Nat -> Clock [ctor] .
@@ -98,28 +98,76 @@ endfm
 fmod ID-HANDLING is
  pr LUEGO-SYNTAX .
 
- vars TRACE-ID SPAN-ID SPAN-NAME : String .
- vars START-TIME DURATION : Nat .
+ vars TRACE-ID SPAN-ID SPAN-NAME PARENT-NAME : String .
+ vars START-TIME DURATION N N' : Nat .
+ var  MSV : Map{String, Value} .
+ var  T : Task .
 
- op mk-cid-tid-root : CId TaskId -> String .
+ op mkTraceId : Task -> String [memo] .
+ eq mkTraceId(task(N)) = "trace" + string(N, 10) .
 
- op createTrace : String String String Nat Nat -> JSON .
- eq createTrace(TRACE-ID, SPAN-ID, SPAN-NAME, START-TIME, DURATION) =
+ op mkRootId : Task -> String [memo] .
+ eq mkRootId(task(N)) = "root" + string(N, 10) .
+
+ op mkChildId : Task Nat -> String [memo] .
+ eq mkChildId(task(N), N') = "root" + string(N, 10) + string(N', 10) .
+
+ op createInitialTrace : Task -> JL . *** TODO
+ eq createInitialTrace(T) = createTrace(T, "root1") .
+
+ op createTrace : Task String Nat Nat Map{String, Value} -> JSON .
+ ceq createTrace(T, SPAN-ID, START-TIME, DURATION, MSV) =
+        createTrace(TRACE-ID, SPAN-ID, START-TIME, DURATION, MSV)
+  if TRACE-ID := mkTraceId(T) .
+
+ op createTrace : String String Nat Nat Map{String, Value} -> JSON .
+ eq createTrace(TRACE-ID, SPAN-ID, START-TIME, DURATION, MSV) =
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
-                                  "spanId"  |-> v("root1"))),
-       "spanName"          |-> v(SPAN-NAME),
+                                  "spanId"  |-> v(SPAN-ID))),
+       "spanName"          |-> v(SPAN-ID),
        "startTimeOffsetMS" |-> v(START-TIME),
        "durationMs"        |-> v(DURATION),
+       "attributes"        |-> v(MSV))) .
+
+ op createTrace : Task String Nat -> JSON .
+ ceq createTrace(T, SPAN-ID, START-TIME) =
+      createTrace(TRACE-ID, SPAN-ID, START-TIME)
+  if TRACE-ID := mkTraceId(T) .
+
+
+ op createTrace : String String Nat -> JSON .
+ eq createTrace(TRACE-ID, SPAN-ID, START-TIME) =
+    v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                  "spanId"  |-> v(SPAN-ID))),
+       "spanName"          |-> v(SPAN-ID),
+       "startTimeOffsetMS" |-> v(START-TIME),
+       "durationMs"        |-> v(0),
+       "attributes"        |-> v("foo" |-> v("bar")))) .
+
+ op createTrace : Task String -> JSON .
+ ceq createTrace(T, SPAN-ID) =
+      createTrace(TRACE-ID, SPAN-ID)
+  if TRACE-ID := mkTraceId(T) .
+
+ op createTrace : String String -> JSON .
+ eq createTrace(TRACE-ID, SPAN-ID) =
+    v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                  "spanId"  |-> v(SPAN-ID))),
+       "spanName"          |-> v(SPAN-ID),
+       "startTimeOffsetMS" |-> v(0),
+       "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 endfm
+
+red createInitialTrace(task(7)) .
 
 mod LUEGO-SEMANTICS is
  pr ID-HANDLING .
  pr COUNTER .
  pr RANDOM .
 
+ vars CTDB LCTDB : ClientTaskDB .
  vars N TIME ELAPSED MAX : Nat .
- var  CTDB : ClientTaskDB .
  var  TPL : TaskPairList .
  var  DBC : DBContents .
  var  TL : TaskList .
@@ -133,13 +181,13 @@ mod LUEGO-SEMANTICS is
     [CID | T TL, CTDB]
     *** loadBalancer
     lapi
-    log(JL)
+    log(JL, LCTDB)
     clock(TIME, ELAPSED, MAX)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
     request-tid(CID, T)
-    log(JL $ v("a" |-> v(TIME)))
+    log(JL $ v("a" |-> v(TIME)), LCTDB)
     clock(TIME + ELAPSED, random(counter) rem MAX, MAX) [print TIME] .
 
  rl [request-reaches-db] :
@@ -208,7 +256,7 @@ mod TEST is
            rapi                                     *** REST API
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
-           log(mtJL)                                *** Log
+           log(mtJL, mtCTDB)                        *** Log
            clock(0, random(counter) rem max, max)   *** Clock
            .
 endm
