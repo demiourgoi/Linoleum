@@ -98,7 +98,7 @@ endfm
 fmod ID-HANDLING is
  pr LUEGO-SYNTAX .
 
- vars TRACE-ID SPAN-ID SPAN-NAME PARENT-NAME : String .
+ vars TRACE-ID SPAN-ID SPAN-NAME PARENT-ID CHILD-ID CHILD-ID' : String .
  vars START-TIME DURATION N N' : Nat .
  var  MSV : Map{String, Value} .
  var  T : Task .
@@ -112,9 +112,13 @@ fmod ID-HANDLING is
  op mkChildId : Task Nat -> String [memo] .
  eq mkChildId(task(N), N') = "child" + string(N, 10) + string(N', 10) .
 
- op createInitialTrace : Task -> JL .
- eq createInitialTrace(T) = createTrace(T) $
-                            createTrace(T, mkChildId(T, 1)) .
+ op createInitialTrace : Task Nat -> JL .
+ ceq createInitialTrace(T, START-TIME) = createTrace(T, START-TIME) $
+                                         createTraceChild(TRACE-ID, CHILD-ID, mkRootId(T), START-TIME) $
+                                         createTraceChild(TRACE-ID, CHILD-ID', CHILD-ID, START-TIME)
+  if TRACE-ID := mkTraceId(T) /\
+     CHILD-ID := mkChildId(T, 1) /\
+     CHILD-ID' := mkChildId(T, 11) .
 
  op createTrace : Task String Nat Nat Map{String, Value} -> JSON .
  ceq createTrace(T, SPAN-ID, START-TIME, DURATION, MSV) =
@@ -145,34 +149,53 @@ fmod ID-HANDLING is
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
- op createTrace : Task String -> JSON .
- ceq createTrace(T, SPAN-ID) =
-      createTrace(TRACE-ID, SPAN-ID)
+ op createTrace : Task String Nat -> JSON .
+ ceq createTrace(T, SPAN-ID, START-TIME) =
+      createTrace(TRACE-ID, SPAN-ID, START-TIME)
   if TRACE-ID := mkTraceId(T) .
 
- op createTrace : Task -> JSON .
- ceq createTrace(T) =
-      createTrace(TRACE-ID, SPAN-ID)
+ op createTrace : Task Nat -> JSON .
+ ceq createTrace(T, START-TIME) =
+      createTrace(TRACE-ID, SPAN-ID, START-TIME)
   if TRACE-ID := mkTraceId(T) /\
      SPAN-ID := mkRootId(T) .
 
- op createTraceChild : Task Nat -> JSON .
- ceq createTraceChild(T, N) =
-      createTrace(TRACE-ID, SPAN-ID)
+ op createTraceChild : Task Nat Nat Nat -> JSON .
+ ceq createTraceChild(T, N, START-TIME, DURATION) =
+      createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION)
   if TRACE-ID := mkTraceId(T) /\
+     PARENT-ID := mkRootId(T) /\
      SPAN-ID := mkChildId(T, N) .
 
- op createTrace : String String -> JSON .
- eq createTrace(TRACE-ID, SPAN-ID) =
+ op createTrace : String String Nat -> JSON .
+ eq createTrace(TRACE-ID, SPAN-ID, START-TIME) =
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
-       "startTimeOffsetMS" |-> v(0),
+       "startTimeOffsetMS" |-> v(START-TIME),
+       "durationMs"        |-> v(0),
+       "attributes"        |-> v("foo" |-> v("bar")))) .
+
+ op createTraceChild : String String String Nat Nat -> JSON .
+ eq createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION) =
+    v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                  "spanId"  |-> v(SPAN-ID))),
+       "spanName"          |-> v(SPAN-ID),
+       "parentId"          |-> v(PARENT-ID),
+       "startTimeOffsetMS" |-> v(START-TIME),
+       "durationMs"        |-> v(DURATION),
+       "attributes"        |-> v("foo" |-> v("bar")))) .
+
+ op createTraceChild : String String String Nat -> JSON .
+ eq createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME) =
+    v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                  "spanId"  |-> v(SPAN-ID))),
+       "spanName"          |-> v(SPAN-ID),
+       "parentId"          |-> v(PARENT-ID),
+       "startTimeOffsetMS" |-> v(START-TIME),
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 endfm
-
-red createInitialTrace(task(7)) .
 
 mod LUEGO-SEMANTICS is
  pr ID-HANDLING .
@@ -200,7 +223,7 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     request-tid(CID, T)
-    log(JL $ createInitialTrace(T), LCTDB)
+    log(JL $ createInitialTrace(T, TIME), LCTDB)
     clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [request-reaches-db] :
@@ -210,27 +233,39 @@ mod LUEGO-SEMANTICS is
     clock(TIME, ELAPSED, MAX)
  => db(addKey(DBC, taskId(N)), s(N))
     taskIdAssigned-lapi(CID, T, taskId(N))
-    log(JL $ createTraceChild(T, 11), (LCTDB, [T, taskId(N)]))
+    log(JL $ createTraceChild(T, 12, TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
     clock(TIME + ELAPSED, random(counter) rem MAX, MAX)  .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
     *** loadBalancer
     lapi
+    log(JL, LCTDB)
+    clock(TIME, ELAPSED, MAX)
  => *** loadBalancer
     lapi
     taskIdAssigned(CID, T, TID)
-    request-worker(T, TID) .
+    request-worker(T, TID)
+    log(JL $ createTraceChild(T, 13, TIME, ELAPSED), LCTDB)
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
     [CID | TL, CTDB]
- => [CID | TL, (CTDB, [T, TID])] .
+    log(JL, LCTDB)
+    clock(TIME, ELAPSED, MAX)
+ => [CID | TL, (CTDB, [T, TID])]
+    log(JL $ createTraceChild(T, 13, TIME, ELAPSED), LCTDB)
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [add-queue] :
     request-worker(T, TID)
     queue(TPL)
- => queue([T, TID] ; TPL) .
+    log(JL, LCTDB)
+    clock(TIME, ELAPSED, MAX)
+ => queue([T, TID] ; TPL)
+    log(JL $ createTraceChild(T, 13, TIME, ELAPSED), LCTDB)
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [worker-gets-task] :
     queue(TPL ; [T, TID])
@@ -281,3 +316,46 @@ endm
 set print attribute on .
 
 rew init .
+
+eof
+
+lapi
+rapi
+queue(mtTPL)
+worker(mtTPL)
+worker(mtTPL)
+db([taskId(0), result(0)] [taskId(1), result(1)] [taskId(2), result(2)] [taskId(3), result(3)] [taskId(4), result(4)], 5)
+log(v(("attributes" |-> v("foo" |-> v("bar")),
+       "durationMs" |-> v(0),
+       "spanId" |-> v(("spanId" |-> v("root0"),
+                       "traceId" |-> v("trace0"))),
+       "spanName" |-> v("root0"),
+       "startTimeOffsetMS" |-> v(0))) $
+    v(("attributes" |-> v("foo" |-> v("bar")),
+       "durationMs" |-> v(0),
+       "parentId" |-> v("root0"),
+       "spanId" |-> v(("spanId" |-> v("child01"),
+                       "traceId" |-> v("trace0"))),
+       "spanName" |-> v("child01"),
+       "startTimeOffsetMS" |-> v(0))) $
+    v(("attributes" |-> v("foo" |-> v("bar")),
+       "durationMs" |-> v(8239),
+       "parentId" |-> v("root0"), "spanId"
+    |-> v(("spanId" |-> v("child011"), "traceId" |-> v("trace0"))), "spanName" |-> v("child011"), "startTimeOffsetMS" |-> v(6044))) $ v(("attributes" |-> v("foo" |-> v("bar")),
+    "durationMs" |-> v(0), "spanId" |-> v(("spanId" |-> v("root1"), "traceId" |-> v("trace1"))), "spanName" |-> v("root1"), "startTimeOffsetMS" |-> v(14283))) $ v(("attributes" |-> v(
+    "foo" |-> v("bar")), "durationMs" |-> v(0), "parentId" |-> v("root1"), "spanId" |-> v(("spanId" |-> v("child11"), "traceId" |-> v("trace1"))), "spanName" |-> v("child11"),
+    "startTimeOffsetMS" |-> v(14283))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(3760), "parentId" |-> v("root1"), "spanId" |-> v(("spanId" |-> v("child111"),
+    "traceId" |-> v("trace1"))), "spanName" |-> v("child111"), "startTimeOffsetMS" |-> v(19216))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(0), "spanId" |-> v((
+    "spanId" |-> v("root2"), "traceId" |-> v("trace2"))), "spanName" |-> v("root2"), "startTimeOffsetMS" |-> v(22976))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(0),
+    "parentId" |-> v("root2"), "spanId" |-> v(("spanId" |-> v("child21"), "traceId" |-> v("trace2"))), "spanName" |-> v("child21"), "startTimeOffsetMS" |-> v(22976))) $ v(("attributes"
+    |-> v("foo" |-> v("bar")), "durationMs" |-> v(8379), "parentId" |-> v("root2"), "spanId" |-> v(("spanId" |-> v("child211"), "traceId" |-> v("trace2"))), "spanName" |-> v("child211"),
+    "startTimeOffsetMS" |-> v(31939))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(0), "spanId" |-> v(("spanId" |-> v("root3"), "traceId" |-> v("trace3"))), "spanName"
+    |-> v("root3"), "startTimeOffsetMS" |-> v(40318))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(0), "parentId" |-> v("root3"), "spanId" |-> v(("spanId" |-> v(
+    "child31"), "traceId" |-> v("trace3"))), "spanName" |-> v("child31"), "startTimeOffsetMS" |-> v(40318))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(8503),
+    "parentId" |-> v("root3"), "spanId" |-> v(("spanId" |-> v("child311"), "traceId" |-> v("trace3"))), "spanName" |-> v("child311"), "startTimeOffsetMS" |-> v(45745))) $ v(("attributes"
+    |-> v("foo" |-> v("bar")), "durationMs" |-> v(0), "spanId" |-> v(("spanId" |-> v("root4"), "traceId" |-> v("trace4"))), "spanName" |-> v("root4"), "startTimeOffsetMS" |-> v(54248))) $
+    v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(0), "parentId" |-> v("root4"), "spanId" |-> v(("spanId" |-> v("child41"), "traceId" |-> v("trace4"))), "spanName" |-> v(
+    "child41"), "startTimeOffsetMS" |-> v(54248))) $ v(("attributes" |-> v("foo" |-> v("bar")), "durationMs" |-> v(5683), "parentId" |-> v("root4"), "spanId" |-> v(("spanId" |-> v(
+    "child411"), "traceId" |-> v("trace4"))), "spanName" |-> v("child411"), "startTimeOffsetMS" |-> v(57745))), [task(0), taskId(0)], [task(1), taskId(1)], [task(2), taskId(2)], [task(3),
+    taskId(3)], [task(4), taskId(4)]) [c(0) | mtTL, [task(0), taskId(0)], [task(1), taskId(1)], [task(2), taskId(2)]] [c(1) | mtTL, [task(3), taskId(3)], [task(4), taskId(4)]] clock(
+    63428, 4101, 10000)
