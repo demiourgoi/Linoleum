@@ -27,8 +27,8 @@ fmod VALUE is
     var s s' : String .
     var d d' : Date .
     var f f' : Float .
-    var v v' : Value .
-    var  MSV : Map{String, Value} .
+    var V V' : Value .
+    var MSV : Map{String, Value} .
 
     op v : Date -> Value [ctor] .
     op v : String -> Value [ctor] .
@@ -40,7 +40,7 @@ fmod VALUE is
 
 
     op valid : Map{String, Value} -> Bool .
-    ceq valid((s |-> v, s' |-> v', MSV)) = true
+    ceq valid((s |-> V, s' |-> V', MSV)) = true
     if s =/= s' .
     eq valid(MSV) = false [owise] .
 
@@ -64,12 +64,12 @@ fmod VALUE is
 
 
     op _=_ : Value Value -> Bool .
-    eq  v = v = true .
-    eq  v = v' = false [owise] .
+    eq V = V = true .
+    eq V = V' = false [owise] .
 
 
     op _!=_ : Value Value -> Bool .
-    eq v != v' = not (v = v').
+    eq V != V' = not (v = v').
 
     op getInt : Value ~> Int .
     eq getInt(v(i)) = i .
