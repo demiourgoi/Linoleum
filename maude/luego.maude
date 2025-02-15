@@ -110,7 +110,7 @@ fmod ID-HANDLING is
  eq mkRootId(task(N)) = "root" + string(N, 10) .
 
  op mkChildId : Task Nat -> String [memo] .
- eq mkChildId(task(N), N') = "root" + string(N, 10) + string(N', 10) .
+ eq mkChildId(task(N), N') = "child" + string(N, 10) + string(N', 10) .
 
  op createInitialTrace : Task -> JL .
  eq createInitialTrace(T) = createTrace(T) $
@@ -156,6 +156,12 @@ fmod ID-HANDLING is
   if TRACE-ID := mkTraceId(T) /\
      SPAN-ID := mkRootId(T) .
 
+ op createTraceChild : Task Nat -> JSON .
+ ceq createTraceChild(T, N) =
+      createTrace(TRACE-ID, SPAN-ID)
+  if TRACE-ID := mkTraceId(T) /\
+     SPAN-ID := mkChildId(T, N) .
+
  op createTrace : String String -> JSON .
  eq createTrace(TRACE-ID, SPAN-ID) =
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
@@ -195,13 +201,17 @@ mod LUEGO-SEMANTICS is
     lapi
     request-tid(CID, T)
     log(JL $ createInitialTrace(T), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) [print TIME] .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [request-reaches-db] :
     request-tid(CID, T)
     db(DBC, N)
+    log(JL, LCTDB)
+    clock(TIME, ELAPSED, MAX)
  => db(addKey(DBC, taskId(N)), s(N))
-    taskIdAssigned-lapi(CID, T, taskId(N)) .
+    taskIdAssigned-lapi(CID, T, taskId(N))
+    log(JL $ createTraceChild(T, 11), (LCTDB, [T, taskId(N)]))
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX)  .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
