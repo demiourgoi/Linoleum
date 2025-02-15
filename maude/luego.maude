@@ -112,8 +112,9 @@ fmod ID-HANDLING is
  op mkChildId : Task Nat -> String [memo] .
  eq mkChildId(task(N), N') = "root" + string(N, 10) + string(N', 10) .
 
- op createInitialTrace : Task -> JL . *** TODO
- eq createInitialTrace(T) = createTrace(T, "root1") .
+ op createInitialTrace : Task -> JL .
+ eq createInitialTrace(T) = createTrace(T) $
+                            createTrace(T, mkChildId(T, 1)) .
 
  op createTrace : Task String Nat Nat Map{String, Value} -> JSON .
  ceq createTrace(T, SPAN-ID, START-TIME, DURATION, MSV) =
@@ -148,6 +149,12 @@ fmod ID-HANDLING is
  ceq createTrace(T, SPAN-ID) =
       createTrace(TRACE-ID, SPAN-ID)
   if TRACE-ID := mkTraceId(T) .
+
+ op createTrace : Task -> JSON .
+ ceq createTrace(T) =
+      createTrace(TRACE-ID, SPAN-ID)
+  if TRACE-ID := mkTraceId(T) /\
+     SPAN-ID := mkRootId(T) .
 
  op createTrace : String String -> JSON .
  eq createTrace(TRACE-ID, SPAN-ID) =
@@ -187,7 +194,7 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     request-tid(CID, T)
-    log(JL $ v("a" |-> v(TIME)), LCTDB)
+    log(JL $ createInitialTrace(T), LCTDB)
     clock(TIME + ELAPSED, random(counter) rem MAX, MAX) [print TIME] .
 
  rl [request-reaches-db] :
