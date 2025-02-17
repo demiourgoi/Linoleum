@@ -1,0 +1,5 @@
+{"spanId":{"traceId":"trace1","spanId":"root1"},"spanName":"root1","startTimeOffsetMs":0,"durationMs":1000,"attributes":{"foo":"bar"}}
+{"spanId":{"traceId":"trace1","spanId":"child11"},"parentId":"root1","spanName":"child11","startTimeOffsetMs":2000,"durationMs":3000,"attributes":{"bar":"baz"}}
+{"spanId":{"traceId":"trace1","spanId":"child111"},"parentId":"child11","spanName":"child111","startTimeOffsetMs":2500,"durationMs":1000}
+{"spanId":{"traceId":"trace1","spanId":"child12"},"parentId":"root1","spanName":"child12","startTimeOffsetMs":3000,"durationMs":1000}
+{"spanId":{"traceId":"trace2","spanId":"root2"},"spanName":"root2","startTimeOffsetMs":500,"durationMs":2000,"attributes":{"foo":"bar"}}
