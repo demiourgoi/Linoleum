@@ -15,6 +15,8 @@ First of all render the gRPC models into Java code.
 make clean tempo-client/gen
 ```
 
+If you get an error with podman retry restarting the VM with `podman machine stop && podman machine start`.
+
 Then use SBT to build the code.
 
 ```bash
