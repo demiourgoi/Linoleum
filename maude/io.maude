@@ -1,0 +1,96 @@
+load file.maude
+
+fmod META-FULL-MAUDE-SIGN is
+  inc META-LEVEL .
+
+  op BUBBLES : -> FModule .
+
+  eq BUBBLES
+    = (fmod 'GRAMMAR is
+        including 'QID-LIST .
+        sorts none .
+        none
+        op 'token : 'Qid -> '@Token@
+             [special(
+               (id-hook('Bubble, '1 '1)
+                op-hook('qidSymbol, '<Qids>, nil, 'Qid)))] .
+        op 'neTokenList : 'QidList -> '@NeTokenList@
+             [special(
+               (id-hook('Bubble, '1 '-1 '`( '`))
+                op-hook('qidListSymbol, '__, 'QidList 'QidList, 'QidList)
+                op-hook('qidSymbol, '<Qids>, nil, 'Qid)
+                id-hook('Exclude, '. ':)))] .
+        op 'bubble : 'QidList -> '@Bubble@
+             [special(
+               (id-hook('Bubble, '1 '-1 '`( '`))
+                op-hook('qidListSymbol, '__, 'QidList 'QidList, 'QidList)
+                op-hook('qidSymbol, '<Qids>, nil, 'Qid)
+                id-hook('Exclude, 'eq 'ceq 'rl 'crl 'mb 'cmb 'sd 'csd
+                                  'var 'vars 'strat 'endm
+                                  'endfm 'endsm 'sorts 'subsort 'subsorts
+                                  'subclass 'subclasses 'op 'ops
+                                  'protecting 'pr 'including 'inc 'extending
+                                  'ctor 'assoc 'comm '==)))] .
+        none
+        none
+     endfm) .
+
+  op GRAMMAR : -> FModule [memo] .
+  eq GRAMMAR = addImports((including 'FULL-MAUDE-SIGN .), BUBBLES) .
+
+  op addImports : ImportList Module -> Module .
+  eq addImports()
+endfm
+
+mod LUEGO-IO is
+ inc STD-STREAM .
+ inc FILE .
+
+ ***            ***
+ *** Attributes ***
+ ***            ***
+
+ *** Output file path
+ op output-file:_ : String -> Attribute [ctor] .
+
+ ***           ***
+ *** CID & OID ***
+ ***           ***
+
+ *** Object and class definition
+ op luego : -> Oid [ctor] .
+ op Luego : -> Cid [ctor] .
+
+
+ var O : Oid .
+ var A : AttributeSet .
+ var S : String .
+ var C : Char .
+
+ rl [process] :
+    gotLine(luego, O, S)
+    < luego : Luego | A >
+ => < luego : Luego | A >
+    if S =/= ""
+    then write(stdout, luego, "Hello " + S)
+    else none
+    fi .
+
+ rl [remove-wrote] :
+    wrote(luego, stdout)
+    < luego : Luego | A >
+ => < luego : Luego | A > .
+
+ ***                              ***
+ *** Initial value for attributes ***
+ ***                              ***
+ op initAtS : -> AttributeSet .
+ eq initAtS = output-file: "" .
+
+ op run : -> Configuration .
+ eq run
+  = <> < luego : Luego | initAtS >
+   getLine(stdin, luego, "What is your name? ") .
+endm
+
+erew run .
