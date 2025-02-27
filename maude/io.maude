@@ -1,10 +1,36 @@
 load file.maude
 
-fmod META-FULL-MAUDE-SIGN is
+fmod MAYBE{X :: TRIV} is
+ sort Maybe{X} .
+ subsort X$Elt < Maybe{X} .
+ op maybe : -> Maybe{X} [ctor] .
+endfm
+
+view Term from TRIV to META-TERM is
+ sort Elt to Term .
+endv
+
+fmod COMMANDS is
+
+ sorts @Token@ @NeTokenList@ @Bubble@ @Command@ .
+
+ op set`solutions_ : @Token@ -> @Command@ [ctor] .
+ op quit : -> @Command@ [ctor] .
+ op q : -> @Command@ [ctor] .
+endfm
+
+fmod META-LUEGO-SIGN is
   inc META-LEVEL .
 
-  op BUBBLES : -> FModule .
+  var  SSDS : SubsortDeclSet .
+  vars IL IL' : ImportList .
+  var  EqS : EquationSet .
+  var  ODS : OpDeclSet .
+  var  MAS : MembAxSet .
+  var  SS : SortSet .
+  var  H : Header .
 
+  op BUBBLES : -> FModule .
   eq BUBBLES
     = (fmod 'GRAMMAR is
         including 'QID-LIST .
@@ -36,22 +62,86 @@ fmod META-FULL-MAUDE-SIGN is
      endfm) .
 
   op GRAMMAR : -> FModule [memo] .
-  eq GRAMMAR = addImports((including 'FULL-MAUDE-SIGN .), BUBBLES) .
+  eq GRAMMAR = addImports((including 'COMMANDS .), BUBBLES) .
 
   op addImports : ImportList Module -> Module .
-  eq addImports()
+  eq addImports(IL', fmod H is IL sorts SS . SSDS ODS MAS EqS endfm) =
+                     fmod H is IL IL' sorts SS . SSDS ODS MAS EqS endfm .
+endfm
+
+fmod COMMAND-PROCESSING is
+ pr META-LEVEL .
+ pr CONVERSION .
+
+ vars TL TL' : TermList .
+ var  Ct : Constant .
+ var  T : Term .
+ var  Q : Qid .
+ var  N : Nat .
+
+ op downQidList : Term ~> QidList .
+ eq downQidList('nil.TypeList) = nil .
+ eq downQidList(('__[TL], TL')) = (downQidList(TL) downQidList(TL')) .
+ eq downQidList((Q, TL)) = (downQid(Q) downQidList(TL)) .
+ eq downQidList(empty) = nil .
+
+ op downQid : Term ~> Qid .
+ eq downQid(Ct) = qid(substr(string(getName(Ct)), 1, length(string(getName(Ct))))) .
+
+ op parseNum : Term ~> Nat .
+ ceq parseNum(T) = N
+  if Q := downQid(T) /\
+     N := rat(string(Q), 10) .
 endfm
 
 mod LUEGO-IO is
+ pr COMMAND-PROCESSING .
+ pr META-LUEGO-SIGN .
+ pr MAYBE{Term} .
  inc STD-STREAM .
+ pr LEXICAL .
  inc FILE .
+
+ var  AtS : AttributeSet .
+ var  S : String .
+ vars N N' : Nat .
+ var  Ty : Type .
+ var  T : Term .
+ var  C : Char .
+ var  O : Oid .
 
  ***            ***
  *** Attributes ***
  ***            ***
 
+ *** Output folder path
+ op output-folder:_ : String -> Attribute [ctor] .
  *** Output file path
  op output-file:_ : String -> Attribute [ctor] .
+ *** Parsed input
+ op input:_ : Maybe{Term} -> Attribute [ctor] .
+ *** Current state
+ op state:_ : State -> Attribute [ctor] .
+ *** Number of solutions
+ op num-solutions:_ : Nat -> Attribute [ctor] .
+
+ ***            ***
+ ***   States   ***
+ ***            ***
+
+ sort State .
+ ops waiting processing write&wait write&end finished : -> State [ctor] .
+
+ *** Messages ***
+
+ op noParseMsg : -> String .
+ eq noParseMsg = "\n" + printTokens('\! '\r) + "Error: " + printTokens('\o) + "Command not parsed.\n" .
+
+ op byeMsg : -> String .
+ eq byeMsg = "\n" + printTokens('\o) + "Bye!\n\n" .
+
+ op setSolutionsMsg : Nat -> String .
+ eq setSolutionsMsg(N) = "\nNumber of solutions set to " + printTokens('\! '\r) + string(N, 10) + printTokens('\o) + ".\n" .
 
  ***           ***
  *** CID & OID ***
@@ -61,36 +151,88 @@ mod LUEGO-IO is
  op luego : -> Oid [ctor] .
  op Luego : -> Cid [ctor] .
 
+ *****************************
+ ***                       ***
+ ***      Set solutions    ***
+ ***                       ***
+ *****************************
 
- var O : Oid .
- var A : AttributeSet .
- var S : String .
- var C : Char .
+ crl [set-solutions] :
+     < luego : Luego | input: ('set`solutions_['token[T]]), state: processing,
+                       num-solutions: N, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, num-solutions: N', AtS >
+     write(stdout, luego, setSolutionsMsg(N'))
+  if N' := parseNum(T) .
 
- rl [process] :
-    gotLine(luego, O, S)
-    < luego : Luego | A >
- => < luego : Luego | A >
-    if S =/= ""
-    then write(stdout, luego, "Hello " + S)
-    else none
-    fi .
+  *** TODO: set solutions error
+
+ ********************
+ ***              ***
+ ***      Quit    ***
+ ***              ***
+ ********************
+
+ rl [parse-command] :
+    < luego : Luego | input: 'quit.@Command@, state: processing, AtS >
+ => < luego : Luego | input: maybe, state: write&end, AtS >
+    write(stdout, luego, byeMsg) .
+
+ rl [parse-command] :
+    < luego : Luego | input: 'q.@Command@, state: processing, AtS >
+ => < luego : Luego | input: maybe, state: write&end, AtS >
+    write(stdout, luego, byeMsg) .
+
+ ********************
+ ***              ***
+ ***     Parse    ***
+ ***              ***
+ ********************
+
+ crl [parse-command] :
+     gotLine(luego, stdin, S)
+     < luego : Luego | input: maybe, state: waiting, AtS >
+  => < luego : Luego | input: T, state: processing, AtS >
+  if {T, Ty} := metaParse(GRAMMAR, tokenize(S), '@Command@) .
+
+ crl [parse-command-error] :
+     gotLine(luego, stdin, S)
+     < luego : Luego | state: waiting, AtS >
+  => < luego : Luego | state: write&wait, AtS >
+     write(stdout, luego, noParseMsg)
+  if not (metaParse(GRAMMAR, tokenize(S), '@Command@) :: ResultPair) .
+
+ ********************
+ ***              ***
+ ***     Wrote    ***
+ ***              ***
+ ********************
 
  rl [remove-wrote] :
     wrote(luego, stdout)
-    < luego : Luego | A >
- => < luego : Luego | A > .
+    < luego : Luego | state: write&wait, AtS >
+ => < luego : Luego | state: waiting, AtS >
+    getLine(stdin, luego, "Luego> ") .
 
+ rl [remove-wrote] :
+    wrote(luego, stdout)
+    < luego : Luego | state: write&end, AtS >
+ => < luego : Luego | state: finished, AtS > .
+
+ ************************************
  ***                              ***
  *** Initial value for attributes ***
  ***                              ***
+ ************************************
  op initAtS : -> AttributeSet .
- eq initAtS = output-file: "" .
+ eq initAtS = output-file: "", output-folder: "jsons/", input: maybe,
+              state: waiting, num-solutions: 1 .
 
  op run : -> Configuration .
  eq run
   = <> < luego : Luego | initAtS >
-   getLine(stdin, luego, "What is your name? ") .
+    getLine(stdin, luego, "Luego> ") .
 endm
+
+set print attribute on .
 
 erew run .
