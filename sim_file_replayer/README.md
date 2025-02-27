@@ -32,7 +32,7 @@ Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
 - REPLAY_TIMEOUT: simulation timeout in seconds.
   - Optional: 10 by default
 - OTEL_EXPORTER_ENV_FILE: path of a bash file that exports env vars OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS that define URL and credentials to connect to an OTLP endpoint. See https://opentelemetry.io/docs/specs/otel/protocol/exporter/ for docs.
-    - Optional: by default it uses `${HOME})/.otel/otel_exporter.env`
+    - Optional: by default it uses devenv/local_jaeger_otel_exporter.env that is configured for a [Jaeger](https://www.jaegertracing.io/) instance running as a local container. See [linoleum-ltlss developer guide](../linoleum-ltlss/DEVELOPER_GUIDE.md) for instructions to easily launch such container.
 - MAX_THREAD_POOL_SIZE: number of threads to use for the simulation, should be higher or equal than the number of concurrent spans
   - Optional: 5000 by default
 

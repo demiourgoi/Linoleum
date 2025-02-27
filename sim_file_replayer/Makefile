@@ -35,7 +35,7 @@ build:	### build app (this also runs unit tests)
 	$(GRADLE) build
 	echo "See test report at file://$(ROOT_DIR)/app/build/reports/tests/test/index.html"
 
-OTEL_EXPORTER_ENV_FILE ?= $(shell echo $${HOME})/.otel/jaeger_otel_exporter.env
+OTEL_EXPORTER_ENV_FILE ?= $(ROOT_DIR)/devenv/local_jaeger_otel_exporter.env
 # Example script args
 DEFAULT_SIM_FILE_PATH=$(ROOT_DIR)/app/build/simFiles/traces1.jsonl
 run: export SIM_FILE_PATH=$(shell echo $${SIM_FILE_PATH:-$(DEFAULT_SIM_FILE_PATH)})
