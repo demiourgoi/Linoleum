@@ -41,4 +41,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build with SBT
-        run: cd ./linoleum-ltlss && make clean tempo-client/gen && sbt clean compile scalafixEnable "scalafixAll --check" test
+        run: cd ./linoleum-ltlss && make clean jaeger/podman/start && sbt clean compile scalafixEnable "scalafixAll --check" test

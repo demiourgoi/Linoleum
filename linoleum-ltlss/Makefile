@@ -10,7 +10,7 @@ default: help
 
 # https://news.ycombinator.com/item?id=11939200
 .PHONY: help
-help:	### list main targets
+help:	### List main targets
 ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -19,33 +19,33 @@ else
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
 
+.PHONY: clean
+clean:	jaeger/podman/stop ### Cleanup the build
 
-clean:	tempo-client/clean ### cleanup the build
+JAEGER_CONTAINER ?= jaeger-local-all-in-one
 
-# As in https://github.com/grafana/tempo/blob/main/Makefile
-## https://github.com/open-telemetry/build-tools/blob/main/protobuf/README.md
-DOCKER_PROTOBUF_IMAGE ?= otel/build-protobuf:0.23.0
-VENDOR_PROTO_ROOT = vendor/proto
-PROTOC = podman run --rm -v .:/workspace -w /workspace ${DOCKER_PROTOBUF_IMAGE} --proto_path=/workspace
-PROTO_INCLUDES = -I$(VENDOR_PROTO_ROOT)/opentelemetry
-# grpc-java_out to generate client stubs
-# https://github.com/grpc/grpc-java/tree/master/compiler
-# https://stackoverflow.com/questions/38488073/protocal-buffers-arent-generating-service-stubs
-PROTO_GEN = $(PROTOC) $(PROTO_INCLUDES) --java_out=$(2) --grpc-java_out=$(2) $(1)
-PROTO_GEN_WITH_VENDOR = $(PROTOC) $(PROTO_INCLUDES) -Ivendor -Ivendor/proto/gogo --java_out=$(2) $(1)
+.PHONY: jaeger/podman/stop
+jaeger/podman/stop:  ### Stop the test Jaeger container
+	podman container stop -i $(JAEGER_CONTAINER) || true
+	podman container rm -i $(JAEGER_CONTAINER) || true
+	echo "Test Jaeger container stopped with success"
 
-tempo-client/gen:	### generate protocol buffers client for Tempo
-	echo 'Starting proto generation'
-	$(call PROTO_GEN,vendor/proto/opentelemetry/common/v1/common.proto,./src/main/java/)
-	$(call PROTO_GEN,vendor/proto/opentelemetry/resource/v1/resource.proto,./src/main/java/)
-	$(call PROTO_GEN,vendor/proto/opentelemetry/trace/v1/trace.proto,./src/main/java/)
-	$(call PROTO_GEN,vendor/proto/tempo/tempo.proto,./src/main/java/)
-	$(call PROTO_GEN,vendor/proto/tempodb/v1/v1.proto,./src/main/java/)
-	$(call PROTO_GEN,vendor/proto/gogo/gogoproto/gogo.proto,./src/main/java/)
-	echo 'Protobuf generation as Java code completed with success'
+.PHONY: jaeger/podman/start
+jaeger/podman/start: jaeger/podman/stop  ### Launch a test Jaeger all-in-one container
+	# https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one
+	# Jaeger UI on http://localhost:16686
+	echo "Running local Jaeger, all previous state will be lost"
+	podman container run -d --name $(JAEGER_CONTAINER) \
+	  	-p 16686:16686 \
+  		-p 4317:4317 \
+		-p 4318:4318 \
+  		-p 5778:5778 \
+  		-p 9411:9411 \
+  		-p 16685:16685 \
+  		jaegertracing/jaeger:2.3.0
+	echo
+	echo "See Jaeger UI at http://localhost:16686"
 
-tempo-client/clean:
-	rm -rf src/main/java/io/opentelemetry
-	rm -rf src/main/java/com/grafana
-	rm -rf src/main/java/com/google
-	echo 'Success cleaning up proto generated Java code'
+.PHONY: jaeger/podman/logs
+jaeger/podman/logs:  ### Show the logs of the test Jaeger container
+	podman container logs $(JAEGER_CONTAINER)
