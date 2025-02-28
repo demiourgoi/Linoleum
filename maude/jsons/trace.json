@@ -1,0 +1,24 @@
+{"attributes" : {"foo" : "bar"}, "durationMs" : 42, "spanId" : {"spanId" : "root1", "traceId" : "trace1"}, "spanName" : "root1", "startTimeOffsetMS" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 27, "parentId" : "root1", "spanId" : {"spanId" : "child11", "traceId" : "trace1"}, "spanName" : "child11", "startTimeOffsetMS" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child11", "spanId" : {"spanId" : "child111", "traceId" : "trace1"}, "spanName" : "child111", "startTimeOffsetMS" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 51, "spanId" : {"spanId" : "root4", "traceId" : "trace4"}, "spanName" : "root4", "startTimeOffsetMS" : 3}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 27, "parentId" : "root4", "spanId" : {"spanId" : "child41", "traceId" : "trace4"}, "spanName" : "child41", "startTimeOffsetMS" : 3}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child41", "spanId" : {"spanId" : "child411", "traceId" : "trace4"}, "spanName" : "child411", "startTimeOffsetMS" : 3}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child11", "spanId" : {"spanId" : "child112", "traceId" : "trace1"}, "spanName" : "child112", "startTimeOffsetMS" : 6}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child11", "spanId" : {"spanId" : "child113", "traceId" : "trace1"}, "spanName" : "child113", "startTimeOffsetMS" : 9}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child41", "spanId" : {"spanId" : "child412", "traceId" : "trace4"}, "spanName" : "child412", "startTimeOffsetMS" : 12}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child41", "spanId" : {"spanId" : "child413", "traceId" : "trace4"}, "spanName" : "child413", "startTimeOffsetMS" : 15}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child11", "spanId" : {"spanId" : "child114", "traceId" : "trace1"}, "spanName" : "child114", "startTimeOffsetMS" : 18}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child41", "spanId" : {"spanId" : "child414", "traceId" : "trace4"}, "spanName" : "child414", "startTimeOffsetMS" : 21}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child11", "spanId" : {"spanId" : "child115", "traceId" : "trace1"}, "spanName" : "child115", "startTimeOffsetMS" : 24}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child41", "spanId" : {"spanId" : "child415", "traceId" : "trace4"}, "spanName" : "child415", "startTimeOffsetMS" : 27}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "root1", "spanId" : {"spanId" : "child12", "traceId" : "trace1"}, "spanName" : "child12", "startTimeOffsetMS" : 30}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child12", "spanId" : {"spanId" : "child121", "traceId" : "trace1"}, "spanName" : "child121", "startTimeOffsetMS" : 30}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child12", "spanId" : {"spanId" : "child122", "traceId" : "trace1"}, "spanName" : "child122", "startTimeOffsetMS" : 33}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child12", "spanId" : {"spanId" : "child123", "traceId" : "trace1"}, "spanName" : "child123", "startTimeOffsetMS" : 36}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child12", "spanId" : {"spanId" : "child124", "traceId" : "trace1"}, "spanName" : "child124", "startTimeOffsetMS" : 39}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "root4", "spanId" : {"spanId" : "child42", "traceId" : "trace4"}, "spanName" : "child42", "startTimeOffsetMS" : 42}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child42", "spanId" : {"spanId" : "child421", "traceId" : "trace4"}, "spanName" : "child421", "startTimeOffsetMS" : 42}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child42", "spanId" : {"spanId" : "child422", "traceId" : "trace4"}, "spanName" : "child422", "startTimeOffsetMS" : 45}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child42", "spanId" : {"spanId" : "child423", "traceId" : "trace4"}, "spanName" : "child423", "startTimeOffsetMS" : 48}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 3, "parentId" : "child42", "spanId" : {"spanId" : "child424", "traceId" : "trace4"}, "spanName" : "child424", "startTimeOffsetMS" : 51}

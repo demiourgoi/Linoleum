@@ -1,40 +1,94 @@
 load value.maude
 
 fmod JSON is
-    pr VALUE .
+ pr VALUE .
 
-    sort JSON .
-    subsort JSON < Value .
+ sort JSON .
+ subsort JSON < Value .
 
-    var  MSV : Map{String, Value} .
-    vars V V' : Value .
-    var  S : String .
+ var  MSV : Map{String, Value} .
+ vars V V' : Value .
+ var  S : String .
+ var  D : Date .
 
-    op {} : -> JSON [ctor] .
+ op {} : -> JSON [ctor] .
 
-    cmb v(MSV) : JSON
-     if not repeated(MSV) /\
-        allValid(MSV) .
+ cmb v(MSV) : JSON
+  if not repeated(MSV) /\
+     allValid(MSV) .
 
-    op allValid : Map{String, Value} -> Bool .
-    ceq allValid((S |-> v(MSV), MSV)) = false
-     if not (v(MSV) :: JSON) .
-    eq allValid(MSV) = true [owise] .
+ op allValid : Map{String, Value} -> Bool .
+ ceq allValid((S |-> v(MSV), MSV)) = false
+  if not (v(MSV) :: JSON) .
+ eq allValid(MSV) = true [owise] .
 
-    op repeated : Map{String, Value} -> Bool .
-    eq repeated((S |-> V, S |-> V', MSV)) = true .
-    eq repeated(MSV) = false [owise] .
+ op repeated : Map{String, Value} -> Bool .
+ eq repeated((S |-> V, S |-> V', MSV)) = true .
+ eq repeated(MSV) = false [owise] .
 
-    op contains : JSON String -> Bool .
-    eq contains(v(((S |-> V), MSV)), S) = true .
-    eq contains(v(MSV), S) = false [owise] .
+ op contains : JSON String -> Bool .
+ eq contains(v(((S |-> V), MSV)), S) = true .
+ eq contains(v(MSV), S) = false [owise] .
 
-    op _._ : JSON String ~> Value .
-    eq v(MSV) . S = MSV [ S ] .
+ op _._ : JSON String ~> Value .
+ eq v(MSV) . S = MSV [ S ] .
 
-    op add : JSON String Value -> JSON .
-    eq add(v((S |-> V, MSV)), S, V') = v((S |-> V', MSV)) .
-    eq add(v(MSV), S, V) = v((S |-> V, MSV)) [owise] .
+ op add : JSON String Value -> JSON .
+ eq add(v((S |-> V, MSV)), S, V') = v((S |-> V', MSV)) .
+ eq add(v(MSV), S, V) = v((S |-> V, MSV)) [owise] .
+
+ *** JSON List
+ sort JL .
+ subsort JSON < JL .
+
+ op mtJL : -> JL [ctor] .
+ op _$_ : JL JL -> JL [ctor assoc id: mtJL] .
+endfm
+
+fmod JSON-OPS is
+ pr JSON .
+
+ var  MSV : Map{String, Value} .
+ var  LV : List{Value} .
+ var  D M Y : NzNat .
+ var  DATE : Date .
+ var  S : String .
+ var  V : Value .
+ var  F : Float .
+ var  J : JSON .
+ var  JL : JL .
+ var  I : Int .
+
+ op print* : JL -> String .
+ eq print*(mtJL) = "" .
+ eq print*(J $ JL) = print(J) + "\n" + print*(JL) .
+
+ op print* : List{Value} -> String .
+ eq print*(nil) = "" .
+ eq print*(V) = print(V) .
+ ceq print*(V LV) = print(V) + ", " + print*(LV)
+  if LV =/= nil .
+
+ op print : Value -> String .
+ eq print(v(MSV)) = "{" + print(MSV) + "}" .
+ eq print(v(DATE)) = print(DATE) .
+ eq print(v(S)) = "\"" + S + "\"" .
+ eq print(v(LV)) = "[" + print*(LV) + "]" .
+ eq print(v(F)) = string(F) .
+ eq print(v(I)) = string(I, 10) .
+
+ op print : Map{String, Value} -> String .
+ eq print(empty) = "" .
+ ceq print((S |-> V, MSV)) = "\"" + S + "\"" + " : " + print(V) + ", " + print(MSV)
+  if MSV =/= empty .
+ eq print(S |-> V) = "\"" + S + "\"" + " : " + print(V) .
+
+ op print : Date -> String .
+ eq print(date(D, M, Y)) = string(Y, 10) + "-" + string(M, 10) + "-" + string(D, 10) .
+
+ op print : Bool -> String .
+ eq print(true) = "true" .
+ eq print(false) = "false" .
 endfm
 
 view JSON from TRIV to JSON is

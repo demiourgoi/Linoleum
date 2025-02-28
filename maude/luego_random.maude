@@ -76,8 +76,8 @@ fmod LUEGO-SYNTAX is
  *** Log
  op log : JL ClientTaskDB -> Log [ctor] .
 
- *** Global time, time elapsed since last step
- op clock : Nat Nat -> Clock [ctor] .
+ *** Global time, time elapsed since last step, max
+ op clock : Nat Nat Nat -> Clock [ctor] .
 
  *** Messages
  op request-tid : CId Task -> Msg [ctor] .
@@ -93,7 +93,7 @@ fmod LUEGO-SYNTAX is
  var JL : JL .
 
  op printTrace : Sys -> String .
- eq printTrace(S log(JL, CTDB)) = print*(JL) .
+ eq printTrace(S log(JL, CTDB)) = print(JL) .
  eq printTrace(S) = "" [owise] .
 endfm
 
@@ -269,105 +269,108 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
     request-tid(CID, T)
     log(JL $ createInitialTrace(T, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [request-reaches-db] :
     request-tid(CID, T)
     db(DBC, N)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => db(addKey(DBC, taskId(N)), s(N))
     taskIdAssigned-lapi(CID, T, taskId(N))
     log(JL $ createTraceChild(T, 1, 12, TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
-    clock(TIME + ELAPSED, ELAPSED)  .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX)  .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => *** loadBalancer
     lapi
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
     log(JL $ createTraceChild(T, 1, 13, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
     [CID | TL, CTDB]
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => [CID | TL, (CTDB, [T, TID])]
     log(JL $ createTraceChild(T, 1, 14, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [add-queue] :
     request-worker(T, TID)
     queue(TPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => queue([T, TID] ; TPL)
     log(updateTime1(JL $ createTraceChild(T, 1, 15, TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [worker-gets-task] :
     queue(TPL ; [T, TID])
     worker(mtTPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => queue(TPL)
     worker([T, TID])
     log(JL $ createTraceChild(T, 2, TIME, ELAPSED)
            $ createTraceChild(T, 2, 21, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [work-done] :
     worker([task(N), TID])
     rapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => worker(mtTPL)
     rapi
     work-done(TID, result(N))
     log(JL $ createTraceChild(T, 2, 22, TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [work-done-lapi] :
     work-done(TID, result(N))
     lapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => lapi
     work-done-db(TID, result(N))
     log(JL $ createTraceChild(T, 2, 23, TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 
  rl [work-done-db] :
     work-done-db(TID, R)
     db(DBC, N)
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    clock(TIME, ELAPSED, MAX)
  => db(add(DBC, TID, R), N)
     log(updateTime2(JL $ createTraceChild(T, 2, 24, TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, ELAPSED) .
+    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
 endm
 
 mod TEST is
  pr LUEGO-SEMANTICS .
 
+ op max : -> Nat .
+ eq max = 10000 .
+
  op init : -> Sys .
  eq init = *** [c(0) | task(1) task(2) task(3), mtCTDB] *** Client 0, with three tasks
            *** [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
-           [c(0) | task(1), mtCTDB]                     *** Client 0, with one task
-           [c(1) | task(4), mtCTDB]                 *** Client 1, with one task
+           [c(0) | task(1), mtCTDB] *** Client 0, with three tasks
+           [c(1) | task(4), mtCTDB]         *** Client 1, with two tasks
            *** loadBalancer                         *** Load balancer
            lapi                                     *** Luego API, initial counter for generating task IDs
            db(mtDB, 0)                              *** Database
@@ -376,17 +379,19 @@ mod TEST is
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
            log(mtJL, mtCTDB)                        *** Log
-           clock(0, 3)                              *** Clock
+           clock(0, random(counter) rem max, max)   *** Clock
            .
 endm
+
+search [c(0) | task(1), mtCTDB] rapi lapi  =>* S:Sys .
+
+search [1] init =>* init .
 
 eof
 
 set print attribute on .
 
 rew init .
-
-search [1] init =>! S:Sys .
 
 lapi
 rapi

@@ -22,6 +22,8 @@ fmod COMMANDS is
  op set`output`file_. : @Token@ -> @Command@ [ctor] .
  op set`solutions_. : @Token@ -> @Command@ [ctor] .
  op set`module_. : @Token@ -> @Command@ [ctor] .
+ op start_. : @Bubble@ -> @Command@ [ctor] .
+ op help : -> @Command@ [ctor] .
  op quit : -> @Command@ [ctor] .
  op q : -> @Command@ [ctor] .
 endfm
@@ -82,13 +84,19 @@ endfm
 fmod COMMAND-PROCESSING is
  pr META-LEVEL .
  pr CONVERSION .
+ pr STRING-OPS .
 
+ vars T T' T'' PAT : Term .
  vars TL TL' : TermList .
+ var  SB : Substitution .
  var  Ct : Constant .
+ var  QIL : QidList .
+ vars Ty Ty' Ty'' : Type .
+ var  V : Variable .
+ var  M : Module .
  var  S : String .
- var  T : Term .
+ vars N N' : Nat .
  var  Q : Qid .
- var  N : Nat .
 
  op downQidList : Term ~> QidList .
  eq downQidList('nil.TypeList) = nil .
@@ -104,10 +112,41 @@ fmod COMMAND-PROCESSING is
   if Q := downQid(T) /\
      N := rat(string(Q), 10) .
 
+ op downString : Term ~> String .
+ ceq downString(T) = S
+  if S := downTerm(T, "") .
+
  op parseString : Term ~> String .
  ceq parseString(T) = S
   if Q := downQid(T) /\
      S := string(Q) .
+
+ op makeFolderString : String -> String .
+ ceq makeFolderString(S) = S
+  if endsWith(S, "/") .
+ eq makeFolderString(S) = S + "/" [owise] .
+
+ op parseBubbles : Module Term -> ResultPair .
+ ceq parseBubbles(M, T) = {T', Ty}
+  if QIL := downQidList(T) /\
+     {T', Ty} := metaParse(M, QIL, anyType) .
+
+ op createVar : Type -> Variable .
+ eq createVar(Ty) = qid("Foo:" + string(Ty)) .
+
+ op searchTerms : Module Term Type Nat Qid -> TermList .
+ ceq searchTerms(M, T, Ty, N, Q) = TL
+  if V := createVar(Ty) /\
+     TL := obtainResults(M, T, V, 0, N, Q) .
+
+ op obtainResults : Module Term Term Nat Nat Qid -> TermList .
+ ceq obtainResults(M, T, PAT, N, N', Q) = T'', TL
+  if N < N' /\
+     {T', Ty', SB} := metaSearch(M, T, PAT, nil, '!, unbounded, N) /\
+     {T'', Ty''} := metaReduce(M, Q[T']) /\
+     TL := obtainResults(M, T, PAT, s(N), N', Q) [print Ty''] .
+ eq obtainResults(M, T, PAT, N, N', Q) = empty [owise] .
+
 endfm
 
 mod LUEGO-IO is
@@ -122,12 +161,13 @@ mod LUEGO-IO is
  vars S OUTFILE OUTFILE' OUTFOLDER OUTFOLDER' : String .
  var  AtS : AttributeSet .
  var  MM : Maybe{Module} .
+ vars TL TR : TermList .
+ vars O FHOut : Oid .
+ vars T T' : Term .
  var  M : Module .
  vars N N' : Nat .
  var  Ty : Type .
- var  T : Term .
  var  C : Char .
- var  O : Oid .
  var  Q : Qid .
 
  ***            ***
@@ -146,13 +186,17 @@ mod LUEGO-IO is
  op num-solutions:_ : Nat -> Attribute [ctor] .
  *** Current module
  op module:_ : Maybe{Module} -> Attribute [ctor] .
+ *** Print function
+ op printFunction:_ : Qid -> Attribute [ctor] .
+ *** Meta-represented traces
+ op traces:_ : TermList -> Attribute [ctor gather (&)] .
 
  ***            ***
  ***   States   ***
  ***            ***
 
  sort State .
- ops waiting processing write&wait write&end finished : -> State [ctor] .
+ ops waiting processing write&wait write&end finished startSaving saving wait4save : -> State [ctor] .
 
  *** Messages ***
 
@@ -188,6 +232,22 @@ mod LUEGO-IO is
 
  op moduleMsg : Qid -> String .
  eq moduleMsg(Q) = "\nModule " + printRed(string(Q)) + " selected.\n\n" .
+
+ op noModuleMsg : -> String .
+ eq noModuleMsg = errorMsg + "The module must be set before starting.\n\n" .
+
+ op helpMsg : -> String .
+ eq helpMsg = printRed("\nset output folder") + " FOLDER " + printRed(".") + "\t-> Updates the output folder name to FOLDER." +
+              printRed("\nset output file") + " FILE " + printRed(".")     + "\t\t-> Updates the output file name to FILE." +
+              printRed("\nset solutions") + " NUM " + printRed(".")        + "\t\t-> Updates the number of solutions to NUM." +
+              printRed("\nset module") + " MOD-NAME " + printRed(".")      + "\t\t-> Updates the module where solutions are searched to MOD-NAME." +
+              printRed("\nstart") + " TERM " + printRed(".")               + "\t\t\t-> Starts the searches from TERM." +
+              printRed("\nquit")                                           + "\t\t\t\t-> Exits the system." +
+              printRed("\nq")                                              + "\t\t\t\t-> Exits the system." +
+              printRed("\nhelp")                                           + "\t\t\t\t-> Displays this help.\n\n" .
+
+ op saveFinishedMsg : -> String .
+ eq saveFinishedMsg = "\nFile saved successfully.\n" .
 
  ***           ***
  *** CID & OID ***
@@ -230,9 +290,7 @@ mod LUEGO-IO is
                        output-folder: OUTFOLDER, AtS >
   => < luego : Luego | input: maybe, state: write&wait, output-folder: OUTFOLDER', AtS >
      write(stdout, luego, setFolderMsg(OUTFOLDER'))
-  if OUTFOLDER' := parseString(T) .
-
- *** TODO Add / at the end
+  if OUTFOLDER' := makeFolderString(parseString(T)) .
 
  crl [set-output-folder-error] :
      < luego : Luego | input: ('set`output`folder_.['token[T]]), state: processing, AtS >
@@ -277,6 +335,78 @@ mod LUEGO-IO is
   => < luego : Luego | input: maybe, state: write&wait, AtS >
      write(stdout, luego, noNatMsg)
   if not (parseNum(T) :: Nat) .
+
+ *********************
+ ***               ***
+ ***      Save     ***
+ ***               ***
+ *********************
+
+ crl [save] :
+     < luego : Luego | state: startSaving, traces: TR, output-folder: OUTFOLDER,
+                       output-file: OUTFILE, AtS >
+  => < luego : Luego | state: saving, traces: TR, output-folder: OUTFOLDER,
+                       output-file: OUTFILE, AtS >
+     openFile(fileManager, luego, S, "w")
+  if TR =/= empty /\
+     S := OUTFOLDER + OUTFILE + ".json" .
+
+ rl [save-end] :
+    < luego : Luego | state: startSaving, traces: empty, AtS >
+ => < luego : Luego | state: write&wait, traces: empty, AtS >
+    write(stdout, luego, saveFinishedMsg).
+
+ crl [save-first-trace] :
+     openedFile(luego, fileManager, FHOut)
+     < luego : Luego | state: saving, traces: (T, TR), AtS >
+  => < luego : Luego | state: saving, traces: TR, AtS >
+     write(FHOut, luego, S)
+  if S := downString(T) .
+
+ rl [first-trace-saved] :
+    wrote(luego, FHOut)
+    < luego : Luego | state: saving, output-file: OUTFILE, AtS >
+ => < luego : Luego | state: saving, output-file: (OUTFILE + "@"), AtS >
+    closeFile(FHOut, luego) .
+
+ rl [file-closed-save] :
+    closedFile(luego, FHOut)
+    < luego : Luego | state: saving, AtS >
+ => < luego : Luego | state: startSaving, AtS > .
+
+ **********************
+ ***                ***
+ ***      Start     ***
+ ***                ***
+ **********************
+
+ crl [start] :
+     < luego : Luego | input: ('start_.['bubble[T]]), state: processing,
+                       module: M, num-solutions: N, printFunction: Q,
+                       output-file: OUTFILE, traces: TR, AtS >
+  => < luego : Luego | input: maybe, state: startSaving, module: M,
+                       num-solutions: N, printFunction: Q,
+                       output-file: OUTFILE, traces: TL, AtS >
+  if OUTFILE =/= "" /\
+     {T', Ty} := parseBubbles(M, T) /\
+     TL := searchTerms(M, T', Ty, N, Q) .
+
+ rl [start-no-module] :
+    < luego : Luego | input: ('start_.['bubble[T]]), state: processing,
+                      module: maybe, AtS >
+ => < luego : Luego | input: maybe, state: write&wait, module: maybe, AtS >
+    write(stdout, luego, noModuleMsg) .
+
+ *********************
+ ***               ***
+ ***      Help     ***
+ ***               ***
+ *********************
+
+ rl [help] :
+    < luego : Luego | input: 'help.@Command@, state: processing, AtS >
+ => < luego : Luego | input: maybe, state: write&wait, AtS >
+    write(stdout, luego, helpMsg) .
 
  ********************
  ***              ***
@@ -336,8 +466,9 @@ mod LUEGO-IO is
  ***                              ***
  ************************************
  op initAtS : -> AttributeSet .
- eq initAtS = output-file: "", output-folder: "jsons/", input: maybe,
-              state: waiting, num-solutions: 1, module: maybe .
+ eq initAtS = output-file: "trace", output-folder: "jsons/", input: maybe,
+              state: waiting, num-solutions: 1, module: maybe,
+              printFunction: 'printTrace, traces: empty .
 
  op run : -> Configuration .
  eq run
