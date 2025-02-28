@@ -382,11 +382,11 @@ mod TEST is
            .
 endm
 
+eof
+
 set print attribute on .
 
 rew init .
-
-eof
 
 lapi
 rapi

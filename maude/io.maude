@@ -10,13 +10,18 @@ view Term from TRIV to META-TERM is
  sort Elt to Term .
 endv
 
+view Module from TRIV to META-MODULE is
+ sort Elt to Module .
+endv
+
 fmod COMMANDS is
 
  sorts @Token@ @NeTokenList@ @Bubble@ @Command@ .
 
- op set`solutions_. : @Token@ -> @Command@ [ctor] .
- op set`output`file_. : @Token@ -> @Command@ [ctor] .
  op set`output`folder_. : @Token@ -> @Command@ [ctor] .
+ op set`output`file_. : @Token@ -> @Command@ [ctor] .
+ op set`solutions_. : @Token@ -> @Command@ [ctor] .
+ op set`module_. : @Token@ -> @Command@ [ctor] .
  op quit : -> @Command@ [ctor] .
  op q : -> @Command@ [ctor] .
 endfm
@@ -29,6 +34,7 @@ fmod META-LUEGO-SIGN is
   var  EqS : EquationSet .
   var  ODS : OpDeclSet .
   var  MAS : MembAxSet .
+  var  RS : RuleSet .
   var  SS : SortSet .
   var  H : Header .
 
@@ -69,6 +75,8 @@ fmod META-LUEGO-SIGN is
   op addImports : ImportList Module -> Module .
   eq addImports(IL', fmod H is IL sorts SS . SSDS ODS MAS EqS endfm) =
                      fmod H is IL IL' sorts SS . SSDS ODS MAS EqS endfm .
+  eq addImports(IL', mod H is IL sorts SS . SSDS ODS MAS EqS RS endm) =
+                     mod H is IL IL' sorts SS . SSDS ODS MAS EqS RS endm .
 endfm
 
 fmod COMMAND-PROCESSING is
@@ -105,6 +113,7 @@ endfm
 mod LUEGO-IO is
  pr COMMAND-PROCESSING .
  pr META-LUEGO-SIGN .
+ pr MAYBE{Module} .
  pr MAYBE{Term} .
  inc STD-STREAM .
  pr LEXICAL .
@@ -112,11 +121,14 @@ mod LUEGO-IO is
 
  vars S OUTFILE OUTFILE' OUTFOLDER OUTFOLDER' : String .
  var  AtS : AttributeSet .
+ var  MM : Maybe{Module} .
+ var  M : Module .
  vars N N' : Nat .
  var  Ty : Type .
  var  T : Term .
  var  C : Char .
  var  O : Oid .
+ var  Q : Qid .
 
  ***            ***
  *** Attributes ***
@@ -132,6 +144,8 @@ mod LUEGO-IO is
  op state:_ : State -> Attribute [ctor] .
  *** Number of solutions
  op num-solutions:_ : Nat -> Attribute [ctor] .
+ *** Current module
+ op module:_ : Maybe{Module} -> Attribute [ctor] .
 
  ***            ***
  ***   States   ***
@@ -169,6 +183,12 @@ mod LUEGO-IO is
  op printRed : String -> String .
  eq printRed(S) = printTokens('\! '\r) + S + printTokens('\o) .
 
+ op errorModule : -> String .
+ eq errorModule = errorMsg + "Module does not exist.\n\n" .
+
+ op moduleMsg : Qid -> String .
+ eq moduleMsg(Q) = "\nModule " + printRed(string(Q)) + " selected.\n\n" .
+
  ***           ***
  *** CID & OID ***
  ***           ***
@@ -176,6 +196,28 @@ mod LUEGO-IO is
  *** Object and class definition
  op luego : -> Oid [ctor] .
  op Luego : -> Cid [ctor] .
+
+ **************************
+ ***                    ***
+ ***      Set module    ***
+ ***                    ***
+ **************************
+
+ crl [set-module] :
+     < luego : Luego | input: ('set`module_.['token[T]]), state: processing,
+                       module: MM, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, module: M, AtS >
+     write(stdout, luego, moduleMsg(Q))
+  if Q := downQid(T) /\
+     M := upModule(Q, true) .
+
+ crl [set-module] :
+     < luego : Luego | input: ('set`module_.['token[T]]), state: processing,
+                       module: MM, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, module: MM, AtS >
+     write(stdout, luego, errorModule)
+  if Q := downQid(T) /\
+     not (upModule(Q, true) :: Module) .
 
  *********************************
  ***                           ***
@@ -189,6 +231,8 @@ mod LUEGO-IO is
   => < luego : Luego | input: maybe, state: write&wait, output-folder: OUTFOLDER', AtS >
      write(stdout, luego, setFolderMsg(OUTFOLDER'))
   if OUTFOLDER' := parseString(T) .
+
+ *** TODO Add / at the end
 
  crl [set-output-folder-error] :
      < luego : Luego | input: ('set`output`folder_.['token[T]]), state: processing, AtS >
@@ -293,7 +337,7 @@ mod LUEGO-IO is
  ************************************
  op initAtS : -> AttributeSet .
  eq initAtS = output-file: "", output-folder: "jsons/", input: maybe,
-              state: waiting, num-solutions: 1 .
+              state: waiting, num-solutions: 1, module: maybe .
 
  op run : -> Configuration .
  eq run
@@ -302,5 +346,7 @@ mod LUEGO-IO is
 endm
 
 set print attribute on .
+set print conceal on .
+print conceal module:_ .
 
 erew run .
