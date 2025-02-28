@@ -14,7 +14,9 @@ fmod COMMANDS is
 
  sorts @Token@ @NeTokenList@ @Bubble@ @Command@ .
 
- op set`solutions_ : @Token@ -> @Command@ [ctor] .
+ op set`solutions_. : @Token@ -> @Command@ [ctor] .
+ op set`output`file_. : @Token@ -> @Command@ [ctor] .
+ op set`output`folder_. : @Token@ -> @Command@ [ctor] .
  op quit : -> @Command@ [ctor] .
  op q : -> @Command@ [ctor] .
 endfm
@@ -75,6 +77,7 @@ fmod COMMAND-PROCESSING is
 
  vars TL TL' : TermList .
  var  Ct : Constant .
+ var  S : String .
  var  T : Term .
  var  Q : Qid .
  var  N : Nat .
@@ -92,6 +95,11 @@ fmod COMMAND-PROCESSING is
  ceq parseNum(T) = N
   if Q := downQid(T) /\
      N := rat(string(Q), 10) .
+
+ op parseString : Term ~> String .
+ ceq parseString(T) = S
+  if Q := downQid(T) /\
+     S := string(Q) .
 endfm
 
 mod LUEGO-IO is
@@ -102,8 +110,8 @@ mod LUEGO-IO is
  pr LEXICAL .
  inc FILE .
 
+ vars S OUTFILE OUTFILE' OUTFOLDER OUTFOLDER' : String .
  var  AtS : AttributeSet .
- var  S : String .
  vars N N' : Nat .
  var  Ty : Type .
  var  T : Term .
@@ -134,14 +142,32 @@ mod LUEGO-IO is
 
  *** Messages ***
 
+ op errorMsg : -> String .
+ eq errorMsg = "\n" + printTokens('\! '\r) + "Error: " + printTokens('\o) .
+
  op noParseMsg : -> String .
- eq noParseMsg = "\n" + printTokens('\! '\r) + "Error: " + printTokens('\o) + "Command not parsed.\n" .
+ eq noParseMsg = errorMsg + "Command not parsed.\n\n" .
 
  op byeMsg : -> String .
- eq byeMsg = "\n" + printTokens('\o) + "Bye!\n\n" .
+ eq byeMsg = "\nBye!\n\n" .
 
  op setSolutionsMsg : Nat -> String .
- eq setSolutionsMsg(N) = "\nNumber of solutions set to " + printTokens('\! '\r) + string(N, 10) + printTokens('\o) + ".\n" .
+ eq setSolutionsMsg(N) = "\nNumber of solutions set to " + printRed(string(N, 10)) + ".\n\n" .
+
+ op noNatMsg : -> String .
+ eq noNatMsg = errorMsg + "Natural number expected.\n\n" .
+
+ op noStringMsg : -> String .
+ eq noStringMsg = errorMsg + "String expected.\n\n" .
+
+ op setFileMsg : String -> String .
+ eq setFileMsg(OUTFILE) = "\nOutput file selected: " + printRed(OUTFILE) + ".\n\n" .
+
+ op setFolderMsg : String -> String .
+ eq setFolderMsg(OUTFILE) = "\nOutput folder selected: " + printRed(OUTFILE) + ".\n\n" .
+
+ op printRed : String -> String .
+ eq printRed(S) = printTokens('\! '\r) + S + printTokens('\o) .
 
  ***           ***
  *** CID & OID ***
@@ -151,6 +177,44 @@ mod LUEGO-IO is
  op luego : -> Oid [ctor] .
  op Luego : -> Cid [ctor] .
 
+ *********************************
+ ***                           ***
+ ***      Set output folder    ***
+ ***                           ***
+ *********************************
+
+ crl [set-output-folder] :
+     < luego : Luego | input: ('set`output`folder_.['token[T]]), state: processing,
+                       output-folder: OUTFOLDER, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, output-folder: OUTFOLDER', AtS >
+     write(stdout, luego, setFolderMsg(OUTFOLDER'))
+  if OUTFOLDER' := parseString(T) .
+
+ crl [set-output-folder-error] :
+     < luego : Luego | input: ('set`output`folder_.['token[T]]), state: processing, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, AtS >
+     write(stdout, luego, noStringMsg)
+  if not (parseString(T) :: String) .
+
+ *******************************
+ ***                         ***
+ ***      Set output file    ***
+ ***                         ***
+ *******************************
+
+ crl [set-output-file] :
+     < luego : Luego | input: ('set`output`file_.['token[T]]), state: processing,
+                       output-file: OUTFILE, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, output-file: OUTFILE', AtS >
+     write(stdout, luego, setFileMsg(OUTFILE'))
+  if OUTFILE' := parseString(T) .
+
+ crl [set-output-file-error] :
+     < luego : Luego | input: ('set`output`file_.['token[T]]), state: processing, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, AtS >
+     write(stdout, luego, noStringMsg)
+  if not (parseString(T) :: String) .
+
  *****************************
  ***                       ***
  ***      Set solutions    ***
@@ -158,13 +222,17 @@ mod LUEGO-IO is
  *****************************
 
  crl [set-solutions] :
-     < luego : Luego | input: ('set`solutions_['token[T]]), state: processing,
+     < luego : Luego | input: ('set`solutions_.['token[T]]), state: processing,
                        num-solutions: N, AtS >
   => < luego : Luego | input: maybe, state: write&wait, num-solutions: N', AtS >
      write(stdout, luego, setSolutionsMsg(N'))
   if N' := parseNum(T) .
 
-  *** TODO: set solutions error
+ crl [set-solutions-error] :
+     < luego : Luego | input: ('set`solutions_.['token[T]]), state: processing, AtS >
+  => < luego : Luego | input: maybe, state: write&wait, AtS >
+     write(stdout, luego, noNatMsg)
+  if not (parseNum(T) :: Nat) .
 
  ********************
  ***              ***
