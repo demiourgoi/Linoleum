@@ -144,7 +144,7 @@ fmod COMMAND-PROCESSING is
   if N < N' /\
      {T', Ty', SB} := metaSearch(M, T, PAT, nil, '!, unbounded, N) /\
      {T'', Ty''} := metaReduce(M, Q[T']) /\
-     TL := obtainResults(M, T, PAT, s(N), N', Q) [print Ty''] .
+     TL := obtainResults(M, T, PAT, s(N), N', Q) .
  eq obtainResults(M, T, PAT, N, N', Q) = empty [owise] .
 
 endfm
