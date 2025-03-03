@@ -1,0 +1,94 @@
+fmod LUEGO-SYNTAX is
+ pr JSON-OPS .
+ pr CLOCK .
+
+ sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
+ sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
+ subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log Clock < Sys .
+ subsort Task < TaskList .
+ subsort TaskPair < TaskPairList .
+ subsort TaskPair < ClientTaskDB .
+
+ *** System specification
+ op none : -> Sys [ctor] .
+ op __ : Sys Sys -> Sys [ctor assoc comm id: none] .
+
+ *** Database for clients. Maps Task to TaskId
+ op mtCTDB : -> ClientTaskDB [ctor] .
+ op [_,_] : Task TaskId -> TaskPair [ctor] .
+ op _,_ : ClientTaskDB ClientTaskDB -> ClientTaskDB [ctor assoc comm id: mtCTDB] .
+
+ *** Clients and IDs
+ op c : Nat -> CId [ctor] .
+ op [_|_,_] : CId TaskList ClientTaskDB -> Client [ctor] .
+
+ *** Tasks, pairs, lists, and queues
+ op task : Nat -> Task [ctor] .
+ op taskId : Nat -> TaskId [ctor] .
+
+ op mtTL : -> TaskList [ctor] .
+ op __ : TaskList TaskList -> TaskList [ctor assoc id: mtTL] .
+
+ op mtTPL : -> TaskPairList [ctor] .
+ op _;_ : TaskPairList TaskPairList -> TaskPairList [ctor assoc id: mtTPL] .
+
+ op queue : TaskPairList -> Queue [ctor] .
+
+ *** Workers
+ op worker : TaskPairList -> Worker [ctor] .
+
+ *** Load balancer
+ op loadBalancer : -> LoadBalancer [ctor] .
+
+ *** Luego API
+ op lapi : -> LuegoAPI [ctor] .
+
+ *** REST API
+ op rapi : -> RESTAPI [ctor] .
+
+ *** Database
+ op mtDB : -> DBContents [ctor] .
+ op [_,_] : TaskId Result -> DBContents [ctor] .
+ op __ : DBContents DBContents -> DBContents [ctor assoc comm id: mtDB] .
+ op db : DBContents Nat -> Database [ctor] .
+
+ var  DBC : DBContents .
+ vars R R' : Result .
+ var  TID : TaskId .
+
+ op addKey : DBContents TaskId ~> DBContents .
+ ceq addKey(DBC, TID) = DBC [TID, noResult]
+  if not contains(DBC, TID) .
+
+ op add : DBContents TaskId Result -> DBContents .
+ eq add([TID, R] DBC, TID, R') = [TID, R'] DBC .
+ eq add(DBC, TID, R') = [TID, R'] DBC [owise] .
+
+ op contains : DBContents TaskId -> Bool .
+ eq contains([TID, R] DBC, TID) = true .
+ eq contains(DBC, TID) = false [owise] .
+
+ *** Results
+ op noResult : -> Result [ctor] .
+ op result : Nat -> Result [ctor] .
+
+ *** Log
+ op log : JL ClientTaskDB -> Log [ctor] .
+
+ *** Messages
+ op request-tid : CId Task -> Msg [ctor] .
+ op request-worker : Task TaskId -> Msg [ctor] .
+ op taskIdAssigned : CId Task TaskId -> Msg [ctor] .
+ op taskIdAssigned-lapi : CId Task TaskId -> Msg [ctor] .
+ op add-database : TaskId -> Msg [ctor] .
+ op work-done : TaskId Result -> Msg [ctor] .
+ op work-done-db : TaskId Result -> Msg [ctor] .
+
+ var CTDB : ClientTaskDB .
+ var S : Sys .
+ var JL : JL .
+
+ op printTrace : Sys -> String .
+ eq printTrace(S log(JL, CTDB)) = print*(JL) .
+ eq printTrace(S) = "" [owise] .
+endfm

@@ -131,21 +131,17 @@ fmod COMMAND-PROCESSING is
   if QIL := downQidList(T) /\
      {T', Ty} := metaParse(M, QIL, anyType) .
 
- op createVar : Type -> Variable .
- eq createVar(Ty) = qid("Foo:" + string(Ty)) .
+ op searchTerms : Module Term Nat Qid -> TermList .
+ ceq searchTerms(M, T, N, Q) = TL
+  if TL := obtainResults(M, T, 0, N, Q) .
 
- op searchTerms : Module Term Type Nat Qid -> TermList .
- ceq searchTerms(M, T, Ty, N, Q) = TL
-  if V := createVar(Ty) /\
-     TL := obtainResults(M, T, V, 0, N, Q) .
-
- op obtainResults : Module Term Term Nat Nat Qid -> TermList .
- ceq obtainResults(M, T, PAT, N, N', Q) = T'', TL
+ op obtainResults : Module Term Nat Nat Qid -> TermList .
+ ceq obtainResults(M, T, N, N', Q) = T'', TL
   if N < N' /\
-     {T', Ty', SB} := metaSearch(M, T, PAT, nil, '!, unbounded, N) /\
+     {T', Ty'} := metaSrewrite(M, T, all !, depthFirst, N) /\ *** metaRewrite(M, T, unbounded) /\
      {T'', Ty''} := metaReduce(M, Q[T']) /\
-     TL := obtainResults(M, T, PAT, s(N), N', Q) .
- eq obtainResults(M, T, PAT, N, N', Q) = empty [owise] .
+     TL := obtainResults(M, T, s(N), N', Q) .
+ eq obtainResults(M, T, N, N', Q) = empty [owise] .
 
 endfm
 
@@ -162,10 +158,10 @@ mod LUEGO-IO is
  var  AtS : AttributeSet .
  var  MM : Maybe{Module} .
  vars TL TR : TermList .
+ vars N N' COUNT : Nat .
  vars O FHOut : Oid .
  vars T T' : Term .
  var  M : Module .
- vars N N' : Nat .
  var  Ty : Type .
  var  C : Char .
  var  Q : Qid .
@@ -190,6 +186,8 @@ mod LUEGO-IO is
  op printFunction:_ : Qid -> Attribute [ctor] .
  *** Meta-represented traces
  op traces:_ : TermList -> Attribute [ctor gather (&)] .
+ *** Counter for file names
+ op counter:_ : Nat -> Attribute [ctor gather (&)] .
 
  ***            ***
  ***   States   ***
@@ -247,7 +245,7 @@ mod LUEGO-IO is
               printRed("\nhelp")                                           + "\t\t\t\t-> Displays this help.\n\n" .
 
  op saveFinishedMsg : -> String .
- eq saveFinishedMsg = "\nFile saved successfully.\n" .
+ eq saveFinishedMsg = "\nFile(s) saved successfully.\n" .
 
  ***           ***
  *** CID & OID ***
@@ -344,12 +342,12 @@ mod LUEGO-IO is
 
  crl [save] :
      < luego : Luego | state: startSaving, traces: TR, output-folder: OUTFOLDER,
-                       output-file: OUTFILE, AtS >
+                       output-file: OUTFILE, counter: COUNT, AtS >
   => < luego : Luego | state: saving, traces: TR, output-folder: OUTFOLDER,
-                       output-file: OUTFILE, AtS >
+                       output-file: OUTFILE, counter: s(COUNT), AtS >
      openFile(fileManager, luego, S, "w")
   if TR =/= empty /\
-     S := OUTFOLDER + OUTFILE + ".json" .
+     S := OUTFOLDER + OUTFILE + string(COUNT, 10) + ".jsonl" .
 
  rl [save-end] :
     < luego : Luego | state: startSaving, traces: empty, AtS >
@@ -365,8 +363,8 @@ mod LUEGO-IO is
 
  rl [first-trace-saved] :
     wrote(luego, FHOut)
-    < luego : Luego | state: saving, output-file: OUTFILE, AtS >
- => < luego : Luego | state: saving, output-file: (OUTFILE + "@"), AtS >
+    < luego : Luego | state: saving, AtS >
+ => < luego : Luego | state: saving, AtS >
     closeFile(FHOut, luego) .
 
  rl [file-closed-save] :
@@ -383,13 +381,13 @@ mod LUEGO-IO is
  crl [start] :
      < luego : Luego | input: ('start_.['bubble[T]]), state: processing,
                        module: M, num-solutions: N, printFunction: Q,
-                       output-file: OUTFILE, traces: TR, AtS >
+                       output-file: OUTFILE, traces: TR, counter: COUNT, AtS >
   => < luego : Luego | input: maybe, state: startSaving, module: M,
-                       num-solutions: N, printFunction: Q,
-                       output-file: OUTFILE, traces: TL, AtS >
+                       num-solutions: N, printFunction: Q, output-file: OUTFILE,
+                       traces: TL, counter: 1, AtS >
   if OUTFILE =/= "" /\
      {T', Ty} := parseBubbles(M, T) /\
-     TL := searchTerms(M, T', Ty, N, Q) .
+     TL := searchTerms(M, T', N, Q) .
 
  rl [start-no-module] :
     < luego : Luego | input: ('start_.['bubble[T]]), state: processing,
@@ -468,7 +466,7 @@ mod LUEGO-IO is
  op initAtS : -> AttributeSet .
  eq initAtS = output-file: "trace", output-folder: "jsons/", input: maybe,
               state: waiting, num-solutions: 1, module: maybe,
-              printFunction: 'printTrace, traces: empty .
+              printFunction: 'printTrace, traces: empty, counter: 1 .
 
  op run : -> Configuration .
  eq run

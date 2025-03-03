@@ -1,0 +1,60 @@
+{"attributes" : {"foo" : "bar"}, "durationMs" : 11697, "spanId" : {"spanId" : "root1", "traceId" : "trace1"}, "spanName" : "root1", "startTimeOffsetMs" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 8481, "parentId" : "root1", "spanId" : {"spanId" : "child11", "traceId" : "trace1"}, "spanName" : "child11", "startTimeOffsetMs" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 244, "parentId" : "child11", "spanId" : {"spanId" : "child111", "traceId" : "trace1"}, "spanName" : "child111", "startTimeOffsetMs" : 0}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 13189, "spanId" : {"spanId" : "root2", "traceId" : "trace2"}, "spanName" : "root2", "startTimeOffsetMs" : 244}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 8556, "parentId" : "root2", "spanId" : {"spanId" : "child21", "traceId" : "trace2"}, "spanName" : "child21", "startTimeOffsetMs" : 244}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 439, "parentId" : "child21", "spanId" : {"spanId" : "child211", "traceId" : "trace2"}, "spanName" : "child211", "startTimeOffsetMs" : 244}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 14212, "spanId" : {"spanId" : "root3", "traceId" : "trace3"}, "spanName" : "root3", "startTimeOffsetMs" : 683}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 8708, "parentId" : "root3", "spanId" : {"spanId" : "child31", "traceId" : "trace3"}, "spanName" : "child31", "startTimeOffsetMs" : 683}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 333, "parentId" : "child31", "spanId" : {"spanId" : "child311", "traceId" : "trace3"}, "spanName" : "child311", "startTimeOffsetMs" : 683}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 16594, "spanId" : {"spanId" : "root4", "traceId" : "trace4"}, "spanName" : "root4", "startTimeOffsetMs" : 1016}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 8829, "parentId" : "root4", "spanId" : {"spanId" : "child41", "traceId" : "trace4"}, "spanName" : "child41", "startTimeOffsetMs" : 1016}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 360, "parentId" : "child41", "spanId" : {"spanId" : "child411", "traceId" : "trace4"}, "spanName" : "child411", "startTimeOffsetMs" : 1016}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 17294, "spanId" : {"spanId" : "root5", "traceId" : "trace5"}, "spanName" : "root5", "startTimeOffsetMs" : 1376}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 8693, "parentId" : "root5", "spanId" : {"spanId" : "child51", "traceId" : "trace5"}, "spanName" : "child51", "startTimeOffsetMs" : 1376}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 363, "parentId" : "child51", "spanId" : {"spanId" : "child511", "traceId" : "trace5"}, "spanName" : "child511", "startTimeOffsetMs" : 1376}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 579, "parentId" : "child11", "spanId" : {"spanId" : "child112", "traceId" : "trace1"}, "spanName" : "child112", "startTimeOffsetMs" : 1739}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 427, "parentId" : "child11", "spanId" : {"spanId" : "child113", "traceId" : "trace1"}, "spanName" : "child113", "startTimeOffsetMs" : 2318}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 303, "parentId" : "child21", "spanId" : {"spanId" : "child212", "traceId" : "trace2"}, "spanName" : "child212", "startTimeOffsetMs" : 2745}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 497, "parentId" : "child21", "spanId" : {"spanId" : "child213", "traceId" : "trace2"}, "spanName" : "child213", "startTimeOffsetMs" : 3048}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 283, "parentId" : "child31", "spanId" : {"spanId" : "child312", "traceId" : "trace3"}, "spanName" : "child312", "startTimeOffsetMs" : 3545}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 301, "parentId" : "child31", "spanId" : {"spanId" : "child313", "traceId" : "trace3"}, "spanName" : "child313", "startTimeOffsetMs" : 3828}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 266, "parentId" : "child41", "spanId" : {"spanId" : "child412", "traceId" : "trace4"}, "spanName" : "child412", "startTimeOffsetMs" : 4129}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 556, "parentId" : "child41", "spanId" : {"spanId" : "child413", "traceId" : "trace4"}, "spanName" : "child413", "startTimeOffsetMs" : 4395}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 399, "parentId" : "child51", "spanId" : {"spanId" : "child512", "traceId" : "trace5"}, "spanName" : "child512", "startTimeOffsetMs" : 4951}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 478, "parentId" : "child51", "spanId" : {"spanId" : "child513", "traceId" : "trace5"}, "spanName" : "child513", "startTimeOffsetMs" : 5350}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 576, "parentId" : "child11", "spanId" : {"spanId" : "child114", "traceId" : "trace1"}, "spanName" : "child114", "startTimeOffsetMs" : 5828}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 256, "parentId" : "child21", "spanId" : {"spanId" : "child214", "traceId" : "trace2"}, "spanName" : "child214", "startTimeOffsetMs" : 6404}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 468, "parentId" : "child31", "spanId" : {"spanId" : "child314", "traceId" : "trace3"}, "spanName" : "child314", "startTimeOffsetMs" : 6660}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 594, "parentId" : "child41", "spanId" : {"spanId" : "child414", "traceId" : "trace4"}, "spanName" : "child414", "startTimeOffsetMs" : 7128}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 233, "parentId" : "child51", "spanId" : {"spanId" : "child514", "traceId" : "trace5"}, "spanName" : "child514", "startTimeOffsetMs" : 7722}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 526, "parentId" : "child11", "spanId" : {"spanId" : "child115", "traceId" : "trace1"}, "spanName" : "child115", "startTimeOffsetMs" : 7955}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 319, "parentId" : "child21", "spanId" : {"spanId" : "child215", "traceId" : "trace2"}, "spanName" : "child215", "startTimeOffsetMs" : 8481}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 591, "parentId" : "child31", "spanId" : {"spanId" : "child315", "traceId" : "trace3"}, "spanName" : "child315", "startTimeOffsetMs" : 8800}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 454, "parentId" : "child41", "spanId" : {"spanId" : "child415", "traceId" : "trace4"}, "spanName" : "child415", "startTimeOffsetMs" : 9391}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 224, "parentId" : "child51", "spanId" : {"spanId" : "child515", "traceId" : "trace5"}, "spanName" : "child515", "startTimeOffsetMs" : 9845}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 441, "parentId" : "root1", "spanId" : {"spanId" : "child12", "traceId" : "trace1"}, "spanName" : "child12", "startTimeOffsetMs" : 10069}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 441, "parentId" : "child12", "spanId" : {"spanId" : "child121", "traceId" : "trace1"}, "spanName" : "child121", "startTimeOffsetMs" : 10069}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 269, "parentId" : "child12", "spanId" : {"spanId" : "child122", "traceId" : "trace1"}, "spanName" : "child122", "startTimeOffsetMs" : 10510}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 369, "parentId" : "child12", "spanId" : {"spanId" : "child123", "traceId" : "trace1"}, "spanName" : "child123", "startTimeOffsetMs" : 10779}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 549, "parentId" : "child12", "spanId" : {"spanId" : "child124", "traceId" : "trace1"}, "spanName" : "child124", "startTimeOffsetMs" : 11148}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 480, "parentId" : "root2", "spanId" : {"spanId" : "child22", "traceId" : "trace2"}, "spanName" : "child22", "startTimeOffsetMs" : 11697}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 480, "parentId" : "child22", "spanId" : {"spanId" : "child221", "traceId" : "trace2"}, "spanName" : "child221", "startTimeOffsetMs" : 11697}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 481, "parentId" : "child22", "spanId" : {"spanId" : "child222", "traceId" : "trace2"}, "spanName" : "child222", "startTimeOffsetMs" : 12177}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 412, "parentId" : "child22", "spanId" : {"spanId" : "child223", "traceId" : "trace2"}, "spanName" : "child223", "startTimeOffsetMs" : 12658}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 363, "parentId" : "child22", "spanId" : {"spanId" : "child224", "traceId" : "trace2"}, "spanName" : "child224", "startTimeOffsetMs" : 13070}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 360, "parentId" : "root3", "spanId" : {"spanId" : "child32", "traceId" : "trace3"}, "spanName" : "child32", "startTimeOffsetMs" : 13433}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 360, "parentId" : "child32", "spanId" : {"spanId" : "child321", "traceId" : "trace3"}, "spanName" : "child321", "startTimeOffsetMs" : 13433}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 395, "parentId" : "child32", "spanId" : {"spanId" : "child322", "traceId" : "trace3"}, "spanName" : "child322", "startTimeOffsetMs" : 13793}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 285, "parentId" : "child32", "spanId" : {"spanId" : "child323", "traceId" : "trace3"}, "spanName" : "child323", "startTimeOffsetMs" : 14188}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 422, "parentId" : "child32", "spanId" : {"spanId" : "child324", "traceId" : "trace3"}, "spanName" : "child324", "startTimeOffsetMs" : 14473}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 599, "parentId" : "root4", "spanId" : {"spanId" : "child42", "traceId" : "trace4"}, "spanName" : "child42", "startTimeOffsetMs" : 14895}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 599, "parentId" : "child42", "spanId" : {"spanId" : "child421", "traceId" : "trace4"}, "spanName" : "child421", "startTimeOffsetMs" : 14895}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 311, "parentId" : "child42", "spanId" : {"spanId" : "child422", "traceId" : "trace4"}, "spanName" : "child422", "startTimeOffsetMs" : 15494}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 488, "parentId" : "root5", "spanId" : {"spanId" : "child52", "traceId" : "trace5"}, "spanName" : "child52", "startTimeOffsetMs" : 15805}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 488, "parentId" : "child52", "spanId" : {"spanId" : "child521", "traceId" : "trace5"}, "spanName" : "child521", "startTimeOffsetMs" : 15805}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 378, "parentId" : "child42", "spanId" : {"spanId" : "child423", "traceId" : "trace4"}, "spanName" : "child423", "startTimeOffsetMs" : 16293}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 443, "parentId" : "child52", "spanId" : {"spanId" : "child522", "traceId" : "trace5"}, "spanName" : "child522", "startTimeOffsetMs" : 16671}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 496, "parentId" : "child42", "spanId" : {"spanId" : "child424", "traceId" : "trace4"}, "spanName" : "child424", "startTimeOffsetMs" : 17114}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 489, "parentId" : "child52", "spanId" : {"spanId" : "child523", "traceId" : "trace5"}, "spanName" : "child523", "startTimeOffsetMs" : 17610}
+{"attributes" : {"foo" : "bar"}, "durationMs" : 571, "parentId" : "child52", "spanId" : {"spanId" : "child524", "traceId" : "trace5"}, "spanName" : "child524", "startTimeOffsetMs" : 18099}

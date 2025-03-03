@@ -1,10 +1,9 @@
-load json.maude
-
 fmod LUEGO-SYNTAX is
  pr JSON-OPS .
+ pr CLOCK .
 
  sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
- sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log Clock .
+ sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
  subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log Clock < Sys .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
@@ -76,9 +75,6 @@ fmod LUEGO-SYNTAX is
  *** Log
  op log : JL ClientTaskDB -> Log [ctor] .
 
- *** Global time, time elapsed since last step, max
- op clock : Nat Nat Nat -> Clock [ctor] .
-
  *** Messages
  op request-tid : CId Task -> Msg [ctor] .
  op request-worker : Task TaskId -> Msg [ctor] .
@@ -93,7 +89,7 @@ fmod LUEGO-SYNTAX is
  var JL : JL .
 
  op printTrace : Sys -> String .
- eq printTrace(S log(JL, CTDB)) = print(JL) .
+ eq printTrace(S log(JL, CTDB)) = print*(JL) .
  eq printTrace(S) = "" [owise] .
 endfm
 
@@ -134,7 +130,7 @@ fmod ID-HANDLING is
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
-       "startTimeOffsetMS" |-> v(START-TIME),
+       "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(DURATION),
        "attributes"        |-> v(MSV))) .
 
@@ -149,7 +145,7 @@ fmod ID-HANDLING is
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
-       "startTimeOffsetMS" |-> v(START-TIME),
+       "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
@@ -183,7 +179,7 @@ fmod ID-HANDLING is
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
-       "startTimeOffsetMS" |-> v(START-TIME),
+       "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
@@ -193,7 +189,7 @@ fmod ID-HANDLING is
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
        "parentId"          |-> v(PARENT-ID),
-       "startTimeOffsetMS" |-> v(START-TIME),
+       "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(DURATION),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
@@ -203,7 +199,7 @@ fmod ID-HANDLING is
                                   "spanId"  |-> v(SPAN-ID))),
        "spanName"          |-> v(SPAN-ID),
        "parentId"          |-> v(PARENT-ID),
-       "startTimeOffsetMS" |-> v(START-TIME),
+       "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
@@ -213,11 +209,11 @@ fmod ID-HANDLING is
  op updateTime1 : JL String Nat -> JL .
  eq updateTime1(JL $ v(("durationMs"        |-> v(0),
                         "spanName"          |-> v(SPAN-ID),
-                        "startTimeOffsetMS" |-> v(START-TIME),
+                        "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL', SPAN-ID, TIME) =
                 JL $ v(("durationMs"        |-> v(sd(TIME, START-TIME)),
                         "spanName"          |-> v(SPAN-ID),
-                        "startTimeOffsetMS" |-> v(START-TIME),
+                        "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL' .
  eq updateTime1(JL, SPAN-ID, TIME) = JL [owise] .
 
@@ -227,34 +223,34 @@ fmod ID-HANDLING is
  op updateTime2 : JL String Nat -> JL .
  eq updateTime2(JL $ v(("durationMs"        |-> v(0),
                         "spanName"          |-> v(SPAN-ID),
-                        "startTimeOffsetMS" |-> v(START-TIME),
+                        "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL', SPAN-ID, TIME) =
                 JL $ v(("durationMs"        |-> v(sd(TIME, START-TIME)),
                         "spanName"          |-> v(SPAN-ID),
-                        "startTimeOffsetMS" |-> v(START-TIME),
+                        "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL' .
  eq updateTime2(JL, SPAN-ID, TIME) = JL [owise] .
 
  op updateRoot : JL String Nat -> JL .
  eq updateRoot(JL $ v(("durationMs"        |-> v(0),
                        "spanName"          |-> v(SPAN-ID),
-                       "startTimeOffsetMS" |-> v(START-TIME),
+                       "startTimeOffsetMs" |-> v(START-TIME),
                        MSV)) $ JL', SPAN-ID, TIME) =
                JL $ v(("durationMs"        |-> v(sd(TIME, START-TIME)),
                        "spanName"          |-> v(SPAN-ID),
-                       "startTimeOffsetMS" |-> v(START-TIME),
+                       "startTimeOffsetMs" |-> v(START-TIME),
                        MSV)) $ JL' .
  eq updateRoot(JL, SPAN-ID, TIME) = JL [owise] .
 endfm
 
 mod LUEGO-SEMANTICS is
  pr ID-HANDLING .
- pr COUNTER .
+ *** pr COUNTER .
  pr RANDOM .
 
+ vars N TIME ELAPSED MAX counter : Nat .
  vars MSV MSV' : Map{String, Value} .
  vars CTDB LCTDB : ClientTaskDB .
- vars N TIME ELAPSED MAX : Nat .
  var  TPL : TaskPairList .
  var  DBC : DBContents .
  var  TL : TaskList .
@@ -269,108 +265,108 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
     request-tid(CID, T)
     log(JL $ createInitialTrace(T, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [request-reaches-db] :
     request-tid(CID, T)
     db(DBC, N)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => db(addKey(DBC, taskId(N)), s(N))
     taskIdAssigned-lapi(CID, T, taskId(N))
     log(JL $ createTraceChild(T, 1, 12, TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX)  .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter))  .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => *** loadBalancer
     lapi
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
     log(JL $ createTraceChild(T, 1, 13, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
     [CID | TL, CTDB]
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => [CID | TL, (CTDB, [T, TID])]
     log(JL $ createTraceChild(T, 1, 14, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [add-queue] :
     request-worker(T, TID)
     queue(TPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => queue([T, TID] ; TPL)
     log(updateTime1(JL $ createTraceChild(T, 1, 15, TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [worker-gets-task] :
     queue(TPL ; [T, TID])
     worker(mtTPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => queue(TPL)
     worker([T, TID])
     log(JL $ createTraceChild(T, 2, TIME, ELAPSED)
            $ createTraceChild(T, 2, 21, TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [work-done] :
     worker([task(N), TID])
     rapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => worker(mtTPL)
     rapi
     work-done(TID, result(N))
     log(JL $ createTraceChild(T, 2, 22, TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [work-done-lapi] :
     work-done(TID, result(N))
     lapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => lapi
     work-done-db(TID, result(N))
     log(JL $ createTraceChild(T, 2, 23, TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 
  rl [work-done-db] :
     work-done-db(TID, R)
     db(DBC, N)
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX)
+    clock(TIME, ELAPSED, MAX, counter)
  => db(add(DBC, TID, R), N)
     log(updateTime2(JL $ createTraceChild(T, 2, 24, TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, random(counter) rem MAX, MAX) .
+    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
 endm
 
 mod TEST is
  pr LUEGO-SEMANTICS .
 
  op max : -> Nat .
- eq max = 10000 .
+ eq max = 400 .
 
  op init : -> Sys .
- eq init = *** [c(0) | task(1) task(2) task(3), mtCTDB] *** Client 0, with three tasks
-           *** [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
-           [c(0) | task(1), mtCTDB] *** Client 0, with three tasks
-           [c(1) | task(4), mtCTDB]         *** Client 1, with two tasks
+ eq init = [c(0) | task(1) task(2) task(3), mtCTDB] *** Client 0, with three tasks
+           [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
+           *** [c(0) | task(1), mtCTDB]             *** Client 0, with three tasks
+           *** [c(1) | task(4), mtCTDB]             *** Client 1, with two tasks
            *** loadBalancer                         *** Load balancer
            lapi                                     *** Luego API, initial counter for generating task IDs
            db(mtDB, 0)                              *** Database
@@ -379,170 +375,10 @@ mod TEST is
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
            log(mtJL, mtCTDB)                        *** Log
-           clock(0, random(counter) rem max, max)   *** Clock
+           clock(0, (random(0) rem max) + 200, max, 1)      *** Clock
            .
 endm
 
-search [c(0) | task(1), mtCTDB] rapi lapi  =>* S:Sys .
-
-search [1] init =>* init .
-
 eof
 
-set print attribute on .
-
 rew init .
-
-lapi
-rapi
-queue(mtTPL)
-worker(mtTPL)
-worker(mtTPL)
-db([taskId(0), result(1)]
-   [taskId(1), result(4)], 2)
-log(v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(57745),
-       "spanId" |-> v(("spanId" |-> v("root1"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("root1"),
-       "startTimeOffsetMS" |-> v(0))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(31939),
-       "parentId" |-> v("root1"),
-       "spanId" |-> v(("spanId" |-> v("child11"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child11"),
-       "startTimeOffsetMS" |-> v(0))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(6044),
-       "parentId" |-> v("child11"),
-       "spanId" |-> v(("spanId" |-> v("child111"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child111"),
-       "startTimeOffsetMS" |-> v(0))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(8239),
-       "parentId" |-> v("child11"),
-       "spanId" |-> v(("spanId" |-> v("child112"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child112"),
-       "startTimeOffsetMS" |-> v(6044))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(4933),
-       "parentId" |-> v("child11"),
-       "spanId" |-> v(("spanId" |-> v("child113"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child113"),
-       "startTimeOffsetMS" |-> v(14283))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(3760),
-       "parentId" |-> v("child11"),
-       "spanId" |-> v(("spanId" |-> v("child114"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child114"),
-       "startTimeOffsetMS" |-> v(19216))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(8963),
-       "parentId" |-> v("child11"),
-       "spanId" |-> v(("spanId" |-> v("child115"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child115"),
-       "startTimeOffsetMS" |-> v(22976))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(8379),
-       "parentId" |-> v("root1"),
-       "spanId" |-> v(("spanId" |-> v("child12"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child12"),
-       "startTimeOffsetMS" |-> v(31939))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(8379),
-       "parentId" |-> v("child12"),
-       "spanId" |-> v(("spanId" |-> v("child121"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child121"),
-       "startTimeOffsetMS" |-> v(31939))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(5427),
-       "parentId" |-> v("child12"),
-       "spanId" |-> v(("spanId" |-> v("child122"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child122"),
-       "startTimeOffsetMS" |-> v(40318))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(8503),
-       "parentId" |-> v("child12"),
-       "spanId" |-> v(("spanId" |-> v("child123"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child123"),
-       "startTimeOffsetMS" |-> v(45745))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(3497),
-       "parentId" |-> v("child12"),
-       "spanId" |-> v(("spanId" |-> v("child124"), "traceId" |-> v("trace1"))),
-       "spanName" |-> v("child124"),
-       "startTimeOffsetMS" |-> v(54248))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(36983),
-       "spanId" |-> v(("spanId" |-> v("root4"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("root4"),
-       "startTimeOffsetMS" |-> v(57745))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(20805),
-       "parentId" |-> v("root4"),
-       "spanId" |-> v(("spanId" |-> v("child41"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child41"),
-       "startTimeOffsetMS" |-> v(57745))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-      "durationMs" |-> v(5683),
-      "parentId" |-> v("child41"),
-      "spanId" |-> v(("spanId" |-> v("child411"), "traceId" |-> v("trace4"))),
-      "spanName" |-> v("child411"),
-      "startTimeOffsetMS" |-> v(57745))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(4101),
-       "parentId" |-> v("child41"),
-       "spanId" |-> v(("spanId" |-> v("child412"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child412"),
-       "startTimeOffsetMS" |-> v(63428))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(6866),
-       "parentId" |-> v("child41"),
-       "spanId" |-> v(("spanId" |-> v("child413"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child413"),
-       "startTimeOffsetMS" |-> v(67529))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(2756),
-       "parentId" |-> v("child41"),
-       "spanId" |-> v(("spanId" |-> v("child414"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child414"),
-       "startTimeOffsetMS" |-> v(74395))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(1399),
-       "parentId" |-> v("child41"),
-       "spanId" |-> v(("spanId" |-> v("child415"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child415"),
-       "startTimeOffsetMS" |-> v(77151))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(5878),
-       "parentId" |-> v("root4"),
-       "spanId" |-> v(("spanId" |-> v("child42"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child42"),
-       "startTimeOffsetMS" |-> v(78550))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(5878),
-       "parentId" |-> v("child42"),
-       "spanId" |-> v(("spanId" |-> v("child421"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child421"),
-       "startTimeOffsetMS" |-> v(78550))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(376),
-       "parentId" |-> v("child42"),
-       "spanId" |-> v(("spanId" |-> v("child422"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child422"),
-       "startTimeOffsetMS" |-> v(84428))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(56),
-       "parentId" |-> v("child42"),
-       "spanId" |-> v(("spanId" |-> v("child423"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child423"),
-       "startTimeOffsetMS" |-> v(84804))) $
-    v(("attributes" |-> v("foo" |-> v("bar")),
-       "durationMs" |-> v(9868),
-       "parentId" |-> v("child42"),
-       "spanId" |-> v(("spanId" |-> v("child424"), "traceId" |-> v("trace4"))),
-       "spanName" |-> v("child424"),
-       "startTimeOffsetMS" |-> v(84860))),
-    [task(1),taskId(0)], [task(4), taskId(1)])
-[c(0) | mtTL, [task(1), taskId(0)]] [c(1) | mtTL, [task(4), taskId(1)]]
-clock(94728, 8794, 10000)
-
