@@ -49,3 +49,28 @@ jaeger/podman/start: jaeger/podman/stop  ### Launch a test Jaeger all-in-one con
 .PHONY: jaeger/podman/logs
 jaeger/podman/logs:  ### Show the logs of the test Jaeger container
 	podman container logs $(JAEGER_CONTAINER)
+
+
+MONGODB_CONTAINER ?= mongodb-community-server-local
+# https://hub.docker.com/r/mongodb/mongodb-community-server/tags
+# https://www.mongodb.com/resources/products/mongodb-version-history#mdbsevenzero
+MONGODB_IMAGE ?= mongodb/mongodb-community-server:7.0.17-rc1-ubi9
+# https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/
+mongodb/podman/start: mongodb/podman/stop  ### Launch a test MongoDB server container
+	echo "Running local MongoDB, all previous state will be lost"
+	podman run -d --name $(MONGODB_CONTAINER) \
+    	-p 27017:27017 $(MONGODB_IMAGE)
+	echo
+	echo 'Run `make mongodb/podman/bash` to open mongosh'
+
+.PHONY: mongodb/podman/stop
+mongodb/podman/stop:  ### Stop the test MongoDB container
+	echo "Stopping Test MongoDB container"
+	podman container stop -i $(MONGODB_CONTAINER) || true
+	podman container rm -i $(MONGODB_CONTAINER) || true
+	echo "Test MongoDB container stopped with success"
+
+.PHONY: mongodb/podman/bash
+mongodb/podman/bash:  ### Run a bash shell in the MongoDB container
+	echo 'Use `mongosh --port 2017` or just `mongosh` to open a Mongo shell'
+	podman exec -it $(MONGODB_CONTAINER) bash
