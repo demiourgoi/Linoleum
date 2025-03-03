@@ -27,6 +27,7 @@ release: clean build	### run all release checks
 
 clean:	### cleanup the build
 	$(GRADLE) clean
+	rm -rf $(ROOT_DIR)/bin
 
 # Run with `EXTRA_BUILD_ARGS=--scan` to send a gradle build scan, e.g.
 # `make release EXTRA_BUILD_ARGS=--scan`
