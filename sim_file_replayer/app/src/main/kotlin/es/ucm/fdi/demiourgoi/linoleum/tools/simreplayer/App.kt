@@ -17,6 +17,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.*
 import kotlin.system.exitProcess
+import kotlin.math.absoluteValue
 import kotlin.math.max
 
 private const val SCOPE_NAME = "es.ucm.fdi.demiourgoi.linoleum.tools.simreplayer"
@@ -149,6 +150,7 @@ class SpanSimFilePlayer(
                 thread
             }
         }
+        private val MAX_SCHEDULE_DELAY_LATENESS = Duration.ofMillis(200)
     }
     /**
      * Replay a json lines file with a SimSpan per line.
@@ -193,6 +195,12 @@ class SpanSimFilePlayer(
         val delay = span.startTimeOffsetMs - replayStartTime.elapsedTime().toMillis()
         // Allow delayed schedules, to support child spans just at the start of their parent
         // check(delay > 0){"Schedule delay for span with id ${span.spanId} is negative: too late to schedule"}
+        if (delay < 0) {
+            check(delay.absoluteValue <= MAX_SCHEDULE_DELAY_LATENESS.toMillis()){
+                "Schedule delay $delay for span with id ${span.spanId} is late more than ${MAX_SCHEDULE_DELAY_LATENESS.toMillis()} ms: too late to schedule"
+            }
+            logger.warn("Late schedule of span with id ${span.spanId}: using delay of 0 instead of expected $delay")
+        }
         Duration.ofMillis(max(delay, 0L))
     }
 
@@ -230,7 +238,7 @@ class SpanSimFilePlayer(
             fun scheduleSpanReplay(context: Context, spanTree: SimSpanTree, spanComplete: CountDownLatch?=null) {
                 val span = spanTree.root
                 spanScheduleDelay(replayStartTime, span).fold({spanDelay ->
-                    logger.info("Scheduling $span with delay $spanDelay  ")
+                    logger.info("Scheduling $span with delay $spanDelay")
                     scheduler.schedule({
                         val spanStartTime = Instant.now()
                         val emittedSpan = span.start(tracer, context)

@@ -94,7 +94,7 @@ class CreateExampleSimFileTest : FunSpec({
             .copy(attributes = mapOf("foo" to "bar"))
         val child11 = SimSpan.new(
             traceId = traceId1, spanId = "child11", parentSpan = root1,
-            startTimeOffsetMs = 2 * stepSizeMs, durationMs = stepSizeMs * 3)
+            startTimeOffsetMs = 0, durationMs = stepSizeMs * 3)
             .copy(attributes = mapOf("bar" to "baz"))
         val child111 = SimSpan.new(
             traceId = traceId1, spanId = "child111", parentSpan = child11,
