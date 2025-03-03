@@ -37,6 +37,7 @@ Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
   - Optional: 5000 by default
 
 __Simulation precision__: with 500ms of granularity we already get a 1% error in the timing of the replayed spans. As a workaround we can scale the simulation to use longer times, while respecting the causal relationships between events, and their relative durations.  
+Also, the replayer goes ahead for spans that are starting too late, scheduling them immediately instead of failing. This is to support spans to start just at the beginning of their parent trace or span. This introduces inaccuracies of milliseconds (1 digit). To cope with that, use a time scale large enough so those errors are negligible.  
 
 ## Design
 

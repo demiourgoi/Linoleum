@@ -17,6 +17,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.*
 import kotlin.system.exitProcess
+import kotlin.math.max
 
 private const val SCOPE_NAME = "es.ucm.fdi.demiourgoi.linoleum.tools.simreplayer"
 private const val SCOPE_VERSION = "0.1.0"
@@ -184,14 +185,15 @@ class SpanSimFilePlayer(
     }
 
     /** How much should the scheduler wait before creating a span, relative to `replayStartTime`
-     * Fails if the time is negative, because that implies we are too late to
-     * schedule the span
+     * Returns 0 if the time is negative, which introduces an scheduling inaccuracy. This is to support
+     * child spans at the start of the parent trace or span
      * */
     private fun spanScheduleDelay(replayStartTime: Instant, span: SimSpan): Result<Duration> = runCatching {
         // discount the time that has passed since replayStartTime
         val delay = span.startTimeOffsetMs - replayStartTime.elapsedTime().toMillis()
-        check(delay > 0){"Schedule delay for span with id ${span.spanId} is negative: too late to schedule"}
-        Duration.ofMillis(delay)
+        // Allow delayed schedules, to support child spans just at the start of their parent
+        // check(delay > 0){"Schedule delay for span with id ${span.spanId} is negative: too late to schedule"}
+        Duration.ofMillis(max(delay, 0L))
     }
 
     /**
@@ -283,7 +285,7 @@ class SpanSimFilePlayer(
         // Add some padding to the span to cover the delay until we start scheduling
         val schedulePadding = Duration.ofSeconds(1)
         val paddedSpans = spans.map{ it.copy(startTimeOffsetMs = it.startTimeOffsetMs + schedulePadding.toMillis())}
-        logger.info("Added $schedulePadding schedule padding of to all spans")
+        logger.info("Added schedule padding of $schedulePadding to all spans")
 
         // Build all span tress
         val spanTrees = paddedSpans.groupBy{ it.spanId.traceId }.values
