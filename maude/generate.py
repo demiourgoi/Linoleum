@@ -18,10 +18,10 @@ print(out_name)
 
 def random_irreducible_term(t: maude.Term, max_iter=10000):
     while (True):
-        options = list(t.apply(None))  # posibles reescrituras en un paso aplicando cualquier regla
+        options = list(t.apply(None))  # possible rewrite in one step with any rule
         if not options:  # irreducible
             return t
-        t, subs, ctx, rule = random.choice(options)  # escoge una reescritura al azar
+        t, subs, ctx, rule = random.choice(options)  # chooses a random rule
 
 maude.init()
 maude.load('./random.maude')
