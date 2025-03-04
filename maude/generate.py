@@ -1,6 +1,20 @@
 import maude
 import random
+import sys
 
+print(sys.argv)
+
+try:
+    num_files = int(sys.argv[1])
+except:
+    print("Natural number expected as first argument")
+
+try:
+    out_name = sys.argv[2]
+except:
+    print("Path expected as second argument")
+
+print(out_name)
 
 def random_irreducible_term(t: maude.Term, max_iter=10000):
     while (True):
@@ -14,9 +28,8 @@ maude.load('./random.maude')
 
 m = maude.getModule('TEST')
 t = m.parseTerm('init')
-out_name = "jsons/py_solution"
 
-final_states = [random_irreducible_term(t) for _ in range(10)]
+final_states = [random_irreducible_term(t) for _ in range(num_files)]
 
 symbols = m.getSymbols()
 for symbol in symbols:
