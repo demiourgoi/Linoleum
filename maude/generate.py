@@ -2,8 +2,6 @@ import maude
 import random
 import sys
 
-print(sys.argv)
-
 try:
     num_files = int(sys.argv[1])
 except:
