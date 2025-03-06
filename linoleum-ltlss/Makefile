@@ -11,8 +11,9 @@ GRADLE := $(ROOT_DIR)/gradlew $(EXTRA_BUILD_ARGS)
 
 default: help
 
+.PHONY: run help build clean release build/clean jaeger/podman/logs jaeger/podman/start jaeger/podman/stop mongodb/podman/bash mongodb/podman/start mongodb/podman/stop
+
 # https://news.ycombinator.com/item?id=11939200
-.PHONY: help
 help:	### list main targets
 ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
