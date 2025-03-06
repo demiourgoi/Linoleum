@@ -35,10 +35,10 @@ jobs:
           ref: '0.5.1-scala'
 
       - name: Build sscheck-core
-        run: sbt clean publishLocal
+        run: sbt clean publishM2
 
       - name: Checkout current branch
         uses: actions/checkout@v4
 
       - name: Build with SBT
-        run: cd ./linoleum-ltlss && make clean jaeger/podman/start && sbt clean compile scalafixEnable "scalafixAll --check" test
+        run: cd ./linoleum-ltlss && make clean jaeger/podman/start && make build

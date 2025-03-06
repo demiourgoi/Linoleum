@@ -5,12 +5,15 @@ SHELL := /bin/bash
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
+# Only publish build scan when explicitly asking, e.g. on CI
+EXTRA_BUILD_ARGS ?= --no-scan
+GRADLE := $(ROOT_DIR)/gradlew $(EXTRA_BUILD_ARGS)
 
 default: help
 
 # https://news.ycombinator.com/item?id=11939200
 .PHONY: help
-help:	### List main targets
+help:	### list main targets
 ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -19,8 +22,36 @@ else
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
 
-.PHONY: clean
-clean:	jaeger/podman/stop ### Cleanup the build
+
+####################
+# Code build
+####################
+
+release: clean build	### run all release checks
+	echo "PASS all release checks"
+
+clean: build/clean jaeger/podman/stop mongodb/podman/stop	### cleanup everything
+	$(GRADLE) clean
+	rm -rf $(ROOT_DIR)/bin
+
+build/clean:	### cleanup the build
+	$(GRADLE) clean
+	rm -rf $(ROOT_DIR)/bin
+
+# Run with `EXTRA_BUILD_ARGS=--scan` to send a gradle build scan, e.g.
+# `make release EXTRA_BUILD_ARGS=--scan`
+# https://docs.gradle.org/current/userguide/build_scans.html
+build:	### build app (this also runs unit tests)
+	$(GRADLE) build
+	echo "See app jar at $(ROOT_DIR)/app/build/libs/*.jar"
+
+run: ### run app with example flags
+	$(GRADLE) run
+
+
+####################
+# Local fakes
+####################
 
 JAEGER_CONTAINER ?= jaeger-local-all-in-one
 

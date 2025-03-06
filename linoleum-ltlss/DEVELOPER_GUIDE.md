@@ -4,9 +4,10 @@
 
 Prerequisites:
 
-- [SBT](https://www.scala-sbt.org/1.x/docs/Setup.html)
 - [Podman](https://podman.io/docs/installation)
 - `make`
+
+Also install `sscheck-core` in your local maven repo, see [linoleum-ltlss.yml](../.github/workflows/linoleum-ltlss.yml) for how this works on Github actions
 
 ## Local fakes
 
