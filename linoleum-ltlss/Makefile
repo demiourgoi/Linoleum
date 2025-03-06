@@ -28,7 +28,7 @@ endif
 # Code build
 ####################
 
-release: clean build	### run all release checks
+release: clean jaeger/podman/start build	### run all release checks
 	echo "PASS all release checks"
 
 clean: build/clean jaeger/podman/stop mongodb/podman/stop	### cleanup everything

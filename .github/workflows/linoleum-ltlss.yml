@@ -40,5 +40,6 @@ jobs:
       - name: Checkout current branch
         uses: actions/checkout@v4
 
-      - name: Build with SBT
-        run: cd ./linoleum-ltlss && chmod +x gradlew && make clean jaeger/podman/start && make build
+      # See the Gradle build scan link in the "build summary" of the github actions run
+      - name: Build with with Gradle Wrapper
+        run: cd ./linoleum-ltlss && chmod +x gradlew && make release EXTRA_BUILD_ARGS=--scan
