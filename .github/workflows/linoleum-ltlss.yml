@@ -41,4 +41,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build with SBT
-        run: cd ./linoleum-ltlss && make clean jaeger/podman/start && make build
+        run: cd ./linoleum-ltlss && chmod +x gradlew && make clean jaeger/podman/start && make build
