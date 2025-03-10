@@ -1,11 +1,11 @@
-*.class
-*.log
-.bloop
-.bsp/
+# Ignore Gradle project-specific cache directory
 .gradle
+
+# Ignore Gradle build output directory
+build
+
 .idea
-.metals
+
+app/bin
 .vscode
-target
-project/metals.sbt
-project/project
+project
