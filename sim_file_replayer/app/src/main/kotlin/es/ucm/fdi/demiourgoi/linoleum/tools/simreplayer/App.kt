@@ -50,10 +50,10 @@ data class SimSpan(
 
         fun new(spanId: String, traceId: String,
                 startTimeOffsetMs: Long, durationMs: Long,
-                parentSpan: SimSpan?=null) = SimSpan(
+                spanName: String?=null, parentSpan: SimSpan?=null) = SimSpan(
             spanId = SpanId(traceId = traceId, spanId=spanId),
             parentId = parentSpan?.spanId?.spanId,
-            spanName = spanId,
+            spanName = spanName ?: spanId,
             startTimeOffsetMs = startTimeOffsetMs, durationMs = durationMs)
 
         fun waitForSpanRecording(span: Span) {
