@@ -12,8 +12,6 @@ try:
 except:
     print("Path expected as second argument")
 
-print(out_name)
-
 def random_irreducible_term(t: maude.Term, max_iter=10000):
     while (True):
         options = list(t.apply(None))  # possible rewrite in one step with any rule

@@ -19,10 +19,9 @@ fmod ID-HANDLING is
  op createInitialTrace : Task Nat Nat -> JL .
  ceq createInitialTrace(T, START-TIME, DURATION) =
                                      createTrace(T, START-TIME) $
-                                     createTraceChild(TRACE-ID, CHILD-ID, mkRootId(T), START-TIME)
+                                     createTraceChild(TRACE-ID, CHILD-ID, "first-half", mkRootId(T), START-TIME)
   if TRACE-ID := mkTraceId(T) /\
-     CHILD-ID := mkChildId(T, 1) /\
-     CHILD-ID' := mkChildId(T, 11) .
+     CHILD-ID := mkChildId(T, 1) .
 
  op createTrace : Task String Nat Nat Map{String, Value} -> JSON .
  ceq createTrace(T, SPAN-ID, START-TIME, DURATION, MSV) =
@@ -64,23 +63,30 @@ fmod ID-HANDLING is
   if TRACE-ID := mkTraceId(T) /\
      SPAN-ID := mkRootId(T) .
 
- op createTraceChild : Task Nat Nat Nat -> JSON .
- ceq createTraceChild(T, N, START-TIME, DURATION) =
-      createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION)
+ op createTraceChild : Task Nat Nat Nat String -> JSON .
+ ceq createTraceChild(T, N, START-TIME, DURATION, SPAN-NAME) =
+      createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME, DURATION)
   if TRACE-ID := mkTraceId(T) /\
      PARENT-ID := mkRootId(T) /\
      SPAN-ID := mkChildId(T, N) .
 
- op createTraceChild : Task Nat Nat Nat Nat -> JSON .
- ceq createTraceChild(T, N, N', START-TIME, DURATION) =
-      createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION)
+ op createTraceChild : Task Nat Nat String Nat Nat -> JSON .
+ ceq createTraceChild(T, N, N', SPAN-NAME, START-TIME, DURATION) =
+      createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME, DURATION)
   if TRACE-ID := mkTraceId(T) /\
      PARENT-ID := mkChildId(T, N) /\
      SPAN-ID := mkChildId(T, N') .
 
- op createTraceChild : Task Nat String Nat Nat -> JSON .
- ceq createTraceChild(T, N, SPAN-ID, START-TIME, DURATION) =
-      createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION)
+ op createTraceChild : Task Nat Nat String Nat Nat -> JSON . *** TODO
+ ceq createTraceChild(T, N, N', SPAN-NAME, START-TIME, DURATION) =
+      createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME, DURATION)
+  if TRACE-ID := mkTraceId(T) /\
+     PARENT-ID := mkChildId(T, N) /\
+     SPAN-ID := mkChildId(T, N') .
+
+ op createTraceChild : Task Nat String String Nat Nat -> JSON .
+ ceq createTraceChild(T, N, SPAN-ID, SPAN-NAME, START-TIME, DURATION) =
+      createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME, DURATION)
   if TRACE-ID := mkTraceId(T) /\
      PARENT-ID := mkChildId(T, N) .
 
@@ -93,21 +99,21 @@ fmod ID-HANDLING is
        "durationMs"        |-> v(0),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
- op createTraceChild : String String String Nat Nat -> JSON .
- eq createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME, DURATION) =
+ op createTraceChild : String String String String Nat Nat -> JSON .
+ eq createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME, DURATION) =
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
-       "spanName"          |-> v(SPAN-ID),
+       "spanName"          |-> v(SPAN-NAME),
        "parentId"          |-> v(PARENT-ID),
        "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(DURATION),
        "attributes"        |-> v("foo" |-> v("bar")))) .
 
- op createTraceChild : String String String Nat -> JSON .
- eq createTraceChild(TRACE-ID, SPAN-ID, PARENT-ID, START-TIME) =
+ op createTraceChild : String String String String Nat -> JSON .
+ eq createTraceChild(TRACE-ID, SPAN-ID, SPAN-NAME, PARENT-ID, START-TIME) =
     v(("spanId"            |-> v(("traceId" |-> v(TRACE-ID),
                                   "spanId"  |-> v(SPAN-ID))),
-       "spanName"          |-> v(SPAN-ID),
+       "spanName"          |-> v(SPAN-NAME),
        "parentId"          |-> v(PARENT-ID),
        "startTimeOffsetMs" |-> v(START-TIME),
        "durationMs"        |-> v(0),
@@ -118,11 +124,13 @@ fmod ID-HANDLING is
 
  op updateTime1 : JL String Nat -> JL .
  eq updateTime1(JL $ v(("durationMs"        |-> v(0),
-                        "spanName"          |-> v(SPAN-ID),
+                        "spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                                   "spanId"  |-> v(SPAN-ID))),
                         "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL', SPAN-ID, TIME) =
                 JL $ v(("durationMs"        |-> v(sd(TIME, START-TIME)),
-                        "spanName"          |-> v(SPAN-ID),
+                        "spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                                   "spanId"  |-> v(SPAN-ID))),
                         "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL' .
  eq updateTime1(JL, SPAN-ID, TIME) = JL [owise] .
@@ -132,11 +140,13 @@ fmod ID-HANDLING is
 
  op updateTime2 : JL String Nat -> JL .
  eq updateTime2(JL $ v(("durationMs"        |-> v(0),
-                        "spanName"          |-> v(SPAN-ID),
+                        "spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                                   "spanId"  |-> v(SPAN-ID))),
                         "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL', SPAN-ID, TIME) =
                 JL $ v(("durationMs"        |-> v(sd(TIME, START-TIME)),
-                        "spanName"          |-> v(SPAN-ID),
+                        "spanId"            |-> v(("traceId" |-> v(TRACE-ID),
+                                                   "spanId"  |-> v(SPAN-ID))),
                         "startTimeOffsetMs" |-> v(START-TIME),
                         MSV)) $ JL' .
  eq updateTime2(JL, SPAN-ID, TIME) = JL [owise] .
@@ -152,3 +162,5 @@ fmod ID-HANDLING is
                        MSV)) $ JL' .
  eq updateRoot(JL, SPAN-ID, TIME) = JL [owise] .
 endfm
+
+set print attribute on .
