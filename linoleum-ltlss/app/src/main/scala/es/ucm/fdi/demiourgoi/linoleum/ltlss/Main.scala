@@ -4,13 +4,14 @@ import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
 import org.specs2.matcher.MustMatchers._
 import com.google.protobuf.Timestamp
 import io.grpc.{Channel, ManagedChannelBuilder}
+import io.grpc.stub.StreamObserver
 import io.jaegertracing.api_v3.{QueryServiceGrpc, QueryServiceOuterClass}
+import io.opentelemetry.proto.trace.v1.TracesData
 
 import java.time.{Duration, Instant}
 import scala.jdk.CollectionConverters._
 import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.java.tuple.Tuple2
-import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
 import org.apache.flink.util.Collector
@@ -42,17 +43,10 @@ object Main {
             builder.usePlaintext() // FIXME configurable, local jaeger is htt
             builder.build()
         }
-        val client = QueryServiceGrpc.newBlockingStub(channel)
-        val now = Instant.now()
+        val asyncClient = QueryServiceGrpc.newStub(channel)
 
         // https://github.com/jaegertracing/jaeger-idl/blob/main/proto/api_v3/query_service.proto
-        val request = QueryServiceOuterClass.GetTraceRequest.newBuilder()
-          .setTraceId("adcd471c2419a12256c99086474f0e1b").build()
-        val tracesData = client.getTrace(request)
-        tracesData forEachRemaining  { response =>
-            println(response)
-        }
-
+        val now = Instant.now()
         val findTracesRequest = QueryServiceOuterClass.FindTracesRequest.newBuilder()
           .setQuery(
               QueryServiceOuterClass.TraceQueryParameters.newBuilder()
@@ -63,11 +57,40 @@ object Main {
                 .setStartTimeMax(instantToTimestamp(now))
                 .build()
           ).build()
-        val searchResponse = client.findTraces(findTracesRequest).asScala.toList
-        println(s"Found ${searchResponse.size} traces")
-        searchResponse foreach { response =>
-            println(response)
-        }
+
+        asyncClient.findTraces(findTracesRequest, new StreamObserver[TracesData]{
+            // Per https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html
+            // this class must be thread-compatible, "This might mean surrounding every
+            // method call with a synchronized block or creating a wrapper object where
+            // every method is synchronized (like Collections.synchronizedList())"
+            private var numSpans = 0
+
+            override def onNext(traces: TracesData): Unit = {
+                // https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/trace/v1/trace.proto
+                traces.getResourceSpansList.forEach{ resourceSpans => {
+                    val resource = resourceSpans.getResource
+                    val scopeSpansList = resourceSpans.getScopeSpansList
+                    println(s"Received ${scopeSpansList.size()} scope span lists for resource ${resource}")
+                    scopeSpansList.forEach{scopeSpan =>
+                        val spanList = scopeSpan.getSpansList
+                        val scope = scopeSpan.getScope
+                        println(s"Received ${spanList.size()} spans for instrumentation scope $scope")
+                        spanList.forEach{span =>
+                            val spanInfo = SpanInfo(span, scope, scopeSpan.getSchemaUrl, resource, resourceSpans.getSchemaUrl)
+                            println(s"Received span with trace id ${spanInfo.hexTraceId} and span id ${spanInfo.hexSpanId}: $spanInfo")
+                            numSpans += 1
+                        }
+                    }
+                }}
+
+            }
+
+            override def onError(t: Throwable): Unit =
+                println(s"ERROR: Received terminating error from the stream: $t")
+
+            override def onCompleted(): Unit =
+                println(s"Received $numSpans spans with success")
+        })
 
         val formula = always{ x: Int => x must be_>(0) } during 10
         Console.println(s"Hello ${formula}")
