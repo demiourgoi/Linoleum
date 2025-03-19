@@ -59,6 +59,8 @@ object Main {
           ).build()
 
         asyncClient.findTraces(findTracesRequest, new StreamObserver[TracesData]{
+            import grpc._
+
             // Per https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html
             // this class must be thread-compatible, "This might mean surrounding every
             // method call with a synchronized block or creating a wrapper object where
@@ -76,7 +78,10 @@ object Main {
                         val scope = scopeSpan.getScope
                         println(s"Received ${spanList.size()} spans for instrumentation scope $scope")
                         spanList.forEach{span =>
-                            val spanInfo = SpanInfo(span, scope, scopeSpan.getSchemaUrl, resource, resourceSpans.getSchemaUrl)
+                            val spanInfo = SpanInfo.newBuilder()
+                              .setSpan(span).setScope(scope).setScopeSchemaUrl(scopeSpan.getSchemaUrl)
+                              .setResource(resource).setResourceSchemaUrl(resourceSpans.getSchemaUrl)
+                              .build()
                             println(s"Received span with trace id ${spanInfo.hexTraceId} and span id ${spanInfo.hexSpanId}: $spanInfo")
                             numSpans += 1
                         }
