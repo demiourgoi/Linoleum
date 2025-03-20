@@ -59,7 +59,7 @@ object Main {
           ).build()
 
         asyncClient.findTraces(findTracesRequest, new StreamObserver[TracesData]{
-            import grpc._
+            import messages._
 
             // Per https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html
             // this class must be thread-compatible, "This might mean surrounding every
