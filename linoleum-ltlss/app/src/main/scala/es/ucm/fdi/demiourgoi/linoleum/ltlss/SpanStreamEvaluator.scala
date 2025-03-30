@@ -49,8 +49,10 @@ package object formulas {
 
   /**
    * @param name human-readable description for the formula
+   * @param formula sscheck formula to evaluate. The formula must not perform any
+   *                side effect when evaluated.
    * */
-  case class LinoleumFormula(formula: Formula[Letter], name: String)
+  case class LinoleumFormula(name: String, formula: Formula[Letter])
 }
 
 object FormulaValue {
@@ -88,6 +90,7 @@ package evaluator {
   import org.apache.flink.streaming.api.windowing.windows.TimeWindow
   import org.apache.flink.util.Collector
 
+  import java.util
   import scala.collection.mutable.ListBuffer
 
   /**
@@ -107,7 +110,7 @@ package evaluator {
                                         allowedLateness: Duration = Duration.ofMillis(0))
 
 /**
- * For each span in a trace we a emit a SpanStart and SpanEnd event, and order all the events using the
+ * For each span in a trace we emit a SpanStart and SpanEnd event, and order all the events using the
  * span start time for SpanStart events and the end time for SpanEnd events.
  * We then discretize the ordered sequence using tumbling windows of `tickPeriod` duration.
  * The first letter always starts with `SpanStart(rootSpan)` and events before that are discarded as errors.
@@ -115,6 +118,10 @@ package evaluator {
  * Note a limitation is that if the clocks in the different hosts that emit the spans are too skewed then we
  * could lose the happens-before relation between parent and child spans when we order by event timestamp, that is
  * inherited from the span timestamps. This is a known limitation to be tackled on https://github.com/juanrh/Linoleum/issues/4
+ *
+ * If a span gets into the event more than once (two SpanInfo have the same spanId) then we only process one of them.
+ * One of the replicas is chosen arbitrarily, so this assumes the trace instrumentation libraries only use the same
+ * span id for identical spans.
  * */
   class SpanStreamEvaluator(
                              @transient private val params: SpanStreamEvaluatorParams
@@ -153,23 +160,30 @@ package evaluator {
                             out: Collector[EvaluatedTrace]): Unit = {
         // Build letters starting from the root span
         var rootSpanOpt: Option[SpanInfo] = None
-        val eventsHeap = new PriorityQueue[LinoleumEvent]
+        val eventsHeap = new PriorityQueue[LinoleumEvent](linoleumEventOrdering)
+        val seenSpans = new util.HashSet[ByteString]()
         val eventFactories = List(SpanStart, SpanEnd)
         spanInfos.forEach { spanInfo =>
-          (spanInfo.isRoot, rootSpanOpt) match {
-            case (true, None) =>
-              rootSpanOpt = Some(spanInfo)
+          val spanId = spanInfo.getSpan.getSpanId
+          if (seenSpans.contains(spanId)) {
+            log.debug("Skipping duplicate occurrence of span {}", spanInfo)
+          } else {
+            seenSpans.add(spanId)
+            (spanInfo.isRoot, rootSpanOpt) match {
+              case (true, None) =>
+                rootSpanOpt = Some(spanInfo)
 
-            case (true, Some(rootSpanInfo)) =>
-              // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
-              log.error("Multiple root spans found for trace with id {}: {}, {}",
-                rootSpanInfo.hexTraceId, rootSpanInfo, spanInfo
-              )
+              case (true, Some(rootSpanInfo)) =>
+                // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
+                log.error("Multiple root spans found for trace with id {}: {}, {}",
+                  rootSpanInfo.hexTraceId, rootSpanInfo, spanInfo
+                )
 
-            case _ =>
-              eventFactories.foreach { createEvent: (SpanInfo => LinoleumEvent) =>
-                eventsHeap.add(createEvent(spanInfo))
-              }
+              case _ =>
+                eventFactories.foreach { createEvent: (SpanInfo => LinoleumEvent) =>
+                  eventsHeap.add(createEvent(spanInfo))
+                }
+            }
           }
         }
 
