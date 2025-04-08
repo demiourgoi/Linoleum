@@ -18,39 +18,19 @@ Use the Makefile to launch the local service targets
 make
 
 # launch a local jaeger service without auth
-make jaeger/podman/start
+make compose/start
 
 # delete all containers
-make clean
+make compose/stop
 ```
 
 ## How to build the code
 
-Use SBT to build the code.
+Use make to build the code, that configured using gradle.
 
 ```bash
-# Launch SBT shell
-sbt
-
-# list targets
-tasks
-# reload sbt config
-reload
-
-clean
-compile
-test
-run
-
-# run linter: see CI target on .github\workflows\sscheck_core.yml
-scalafixEnable
-scalafixAll --check
-
-help
-exit
-
-# non interactive: slower
-sbt -no-colors compile
+make build
+make release
 ```
 
 ## Troubleshooting 

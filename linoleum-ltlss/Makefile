@@ -11,7 +11,7 @@ GRADLE := $(ROOT_DIR)/gradlew $(EXTRA_BUILD_ARGS)
 
 default: help
 
-.PHONY: run help build clean release build/clean jaeger/podman/logs jaeger/podman/start jaeger/podman/stop mongodb/podman/bash mongodb/podman/start mongodb/podman/stop
+.PHONY: run help build clean release build/clean jaeger/container/logs mongodb/container/bash compose/start compose/stop
 
 # https://news.ycombinator.com/item?id=11939200
 help:	### list main targets
@@ -23,15 +23,13 @@ else
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
 
-
 ####################
 # Code build
 ####################
-
-release: clean jaeger/podman/start build	### run all release checks
+release: clean jaeger/container/start build	### run all release checks
 	echo "PASS all release checks"
 
-clean: build/clean jaeger/podman/stop mongodb/podman/stop	### cleanup everything
+clean: build/clean compose/stop ### cleanup everything
 	$(GRADLE) clean
 	rm -rf $(ROOT_DIR)/bin
 
@@ -54,55 +52,35 @@ run: ### run app with example flags
 # Local fakes
 ####################
 
-JAEGER_CONTAINER ?= jaeger-local-all-in-one
-
-.PHONY: jaeger/podman/stop
-jaeger/podman/stop:  ### Stop the test Jaeger container
-	podman container stop -i $(JAEGER_CONTAINER) || true
-	podman container rm -i $(JAEGER_CONTAINER) || true
-	echo "Test Jaeger container stopped with success"
-
-.PHONY: jaeger/podman/start
-jaeger/podman/start: jaeger/podman/stop  ### Launch a test Jaeger all-in-one container
-	# https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one
-	# Jaeger UI on http://localhost:16686
-	echo "Running local Jaeger, all previous state will be lost"
-	podman container run -d --name $(JAEGER_CONTAINER) \
-	  	-p 16686:16686 \
-  		-p 4317:4317 \
-		-p 4318:4318 \
-  		-p 5778:5778 \
-  		-p 9411:9411 \
-  		-p 16685:16685 \
-  		jaegertracing/jaeger:2.3.0
-	echo
+compose/start: compose/stop   ### launch all dev containers using the compose file
+	podman compose --file $(ROOT_DIR)/devenv/compose.yaml up --detach
 	echo "See Jaeger UI at http://localhost:16686"
+ 
+compose/stop:  ### stop amnd delete all dev containers using the compose file
+	podman compose --file $(ROOT_DIR)/devenv/compose.yaml down
 
-.PHONY: jaeger/podman/logs
-jaeger/podman/logs:  ### Show the logs of the test Jaeger container
+JAEGER_CONTAINER ?= jaeger-local-all-in-one
+.PHONY: jaeger/container/logs
+jaeger/container/logs:  ### Show the logs of the test Jaeger container
 	podman container logs $(JAEGER_CONTAINER)
 
+OTEL_COLLECTOR_CONTAINER ?= otel-collector-local
+otel-collector/container/logs:  ### Show the logs of the test OTEL collector container
+	podman container logs $(OTEL_COLLECTOR_CONTAINER)
+
+KAFKA_CONTAINER ?= kafka-local
+kafka/container/logs:  ### Show the logs of the test kafka container
+	podman container logs $(KAFKA_CONTAINER)
+
+kafka/container/bash:  ### Run a bash shell in the kafka container
+	echo
+	echo 'Get cluster id: /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server :9092'
+	echo 'Publish to demo topic: /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server :9092 --topic demo'
+	echo 'Consume demo topic: /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server :9092 --topic demo --from-beginning'
+	echo
+	podman exec -it $(KAFKA_CONTAINER) bash
 
 MONGODB_CONTAINER ?= mongodb-community-server-local
-# https://hub.docker.com/r/mongodb/mongodb-community-server/tags
-# https://www.mongodb.com/resources/products/mongodb-version-history#mdbsevenzero
-MONGODB_IMAGE ?= mongodb/mongodb-community-server:7.0.17-rc1-ubi9
-# https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/
-mongodb/podman/start: mongodb/podman/stop  ### Launch a test MongoDB server container
-	echo "Running local MongoDB, all previous state will be lost"
-	podman run -d --name $(MONGODB_CONTAINER) \
-    	-p 27017:27017 $(MONGODB_IMAGE)
-	echo
-	echo 'Run `make mongodb/podman/bash` to open mongosh'
-
-.PHONY: mongodb/podman/stop
-mongodb/podman/stop:  ### Stop the test MongoDB container
-	echo "Stopping Test MongoDB container"
-	podman container stop -i $(MONGODB_CONTAINER) || true
-	podman container rm -i $(MONGODB_CONTAINER) || true
-	echo "Test MongoDB container stopped with success"
-
-.PHONY: mongodb/podman/bash
-mongodb/podman/bash:  ### Run a bash shell in the MongoDB container
+mongodb/container/bash:  ### Run a bash shell in the MongoDB container
 	echo 'Use `mongosh --port 2017` or just `mongosh` to open a Mongo shell'
 	podman exec -it $(MONGODB_CONTAINER) bash
