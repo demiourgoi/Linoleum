@@ -16,22 +16,10 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
 import org.apache.flink.util.Collector
 
-object TimeUtils {
-    def instantToTimestamp(instant: Instant): Timestamp =
-        Timestamp.newBuilder()
-          .setSeconds(instant.getEpochSecond)
-          .setNanos(instant.getNano)
-          .build()
-
-    def timestampToInstant(timestamp: Timestamp): Instant =
-        Instant.ofEpochSecond(timestamp.getSeconds, timestamp.getNanos)
-}
-
 class Splitter extends FlatMapFunction[String, Tuple2[String, Integer]] {
     override def flatMap(sentence: String, out: Collector[Tuple2[String, Integer]]): Unit =
         sentence.split("\\s+").foreach{ word: String => out.collect(new Tuple2(word, 1)) }
 }
-
 
 object Main {
     import TimeUtils._

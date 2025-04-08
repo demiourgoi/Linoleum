@@ -123,10 +123,12 @@ package evaluator {
  * One of the replicas is chosen arbitrarily, so this assumes the trace instrumentation libraries only use the same
  * span id for identical spans.
  * */
+
+  @SerialVersionUID(1L)
   class SpanStreamEvaluator(
                              @transient private val params: SpanStreamEvaluatorParams
                            )
-    extends Function[SpanInfoStream, VerifiedTraceStream] {
+    extends Function[SpanInfoStream, VerifiedTraceStream] with Serializable {
 
     import SpanStreamEvaluator._
 
