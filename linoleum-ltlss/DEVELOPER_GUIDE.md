@@ -22,6 +22,8 @@ make compose/start
 
 # delete all containers
 make compose/stop
+
+make run 2>&1 | tee run.log
 ```
 
 and then:
