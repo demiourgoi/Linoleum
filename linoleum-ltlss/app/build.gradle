@@ -18,11 +18,11 @@ version = '0.1.0-SNAPSHOT'
 description = """Linoleum LTLss flink job"""
 
 ext {
-    javaVersion = '11'
-    flinkVersion = '2.0.0'
+    javaVersion = '1.8'
+    flinkVersion = '1.20.1'
     scalaBinaryVersion = '_2.13'
     slf4jVersion = '1.7.36'
-    log4jVersion = '2.24.1'
+    log4jVersion = '2.17.1'
     sscheckVersion = '0.5.1-SNAPSHOT'
     grpcVersion = '1.70.0'
 }
@@ -94,11 +94,9 @@ dependencies {
     // Dependencies that should be part of the shadow jar, e.g.
     // connectors. These must be in the flinkShadowJar configuration!
     // --------------------------------------------------------------
-    //flinkShadowJar "org.apache.flink:flink-connector-kafka:${flinkVersion}"
+    flinkShadowJar "org.apache.flink:flink-connector-kafka:3.4.0-1.20"
 
     testImplementation "org.apache.flink:flink-test-utils:${flinkVersion}"
-
-
 
     runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
@@ -139,5 +137,5 @@ application {
     // Define the main class for the application.
     mainClass = "es.ucm.fdi.demiourgoi.linoleum.ltlss.Main"
 
-    applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=log4j2.properties"]
+    applicationDefaultJvmArgs = []
 }
