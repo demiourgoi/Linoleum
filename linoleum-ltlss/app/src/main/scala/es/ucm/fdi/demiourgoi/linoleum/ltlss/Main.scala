@@ -8,21 +8,16 @@ import io.grpc.stub.StreamObserver
 import io.jaegertracing.api_v3.{QueryServiceGrpc, QueryServiceOuterClass}
 import io.opentelemetry.proto.trace.v1.TracesData
 import io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest
-
 import org.slf4j.LoggerFactory
-
-
 import java.time.{Duration, Instant}
 import scala.jdk.CollectionConverters._
 import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.java.tuple.Tuple2
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
+
 import org.apache.flink.util.Collector
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
-import org.apache.flink.api.common.serialization.DeserializationSchema
-import org.apache.flink.api.common.typeinfo.TypeInformation
 import  org.apache.flink.api.common.eventtime.WatermarkStrategy
 
 class Splitter extends FlatMapFunction[String, Tuple2[String, Integer]] {
@@ -30,28 +25,20 @@ class Splitter extends FlatMapFunction[String, Tuple2[String, Integer]] {
         sentence.split("\\s+").foreach{ word: String => out.collect(new Tuple2(word, 1)) }
 }
 
-object ExportTraceServiceRequestProtoDeserializer {
-    private val log = LoggerFactory.getLogger(ExportTraceServiceRequestProtoDeserializer.getClass.getName)
-}
-@SerialVersionUID(1L)
-class ExportTraceServiceRequestProtoDeserializer
-  extends DeserializationSchema[ExportTraceServiceRequest] with Serializable {
-    import ExportTraceServiceRequestProtoDeserializer._
+object TimeUtils {
+    def instantToTimestamp(instant: Instant): Timestamp =
+        Timestamp.newBuilder()
+          .setSeconds(instant.getEpochSecond)
+          .setNanos(instant.getNano)
+          .build()
 
-    override def deserialize(bytes: Array[Byte]): ExportTraceServiceRequest = {
-        val request = ExportTraceServiceRequest.parseFrom(bytes)
-        log.debug("Parsed request {}", request)
-        request
-    }
-
-    override def isEndOfStream(t: ExportTraceServiceRequest): Boolean = false
-
-    override def getProducedType: TypeInformation[ExportTraceServiceRequest] =
-        TypeInformation.of(classOf[ExportTraceServiceRequest])
+    def timestampToInstant(timestamp: Timestamp): Instant =
+        Instant.ofEpochSecond(timestamp.getSeconds, timestamp.getNanos)
 }
 
 object Main {
     import TimeUtils._
+    import source._
     import evaluator._
 
     private val log = LoggerFactory.getLogger(Main.getClass.getName)

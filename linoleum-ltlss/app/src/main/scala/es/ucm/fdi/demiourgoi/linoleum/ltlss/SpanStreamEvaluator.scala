@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.math.pow
-import sources.SpanInfoStream
+import source.SpanInfoStream
 
 import com.google.protobuf.ByteString
 import java.time.Duration
