@@ -12,8 +12,14 @@ exporters:
     tls:
       insecure: true
 
+  kafka:
+    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
+    brokers:
+      - "kafka:9093"
+    topic: otlp_spans
+
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlp/jaeger]
+      exporters: [otlp/jaeger, kafka]

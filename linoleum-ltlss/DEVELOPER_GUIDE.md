@@ -24,6 +24,11 @@ make compose/start
 make compose/stop
 ```
 
+and then:
+ 
+- See Jaeger UI at http://localhost:16686
+- See Kafka UI at  http://localhost:9090
+
 ## How to build the code
 
 Use make to build the code, that configured using gradle.

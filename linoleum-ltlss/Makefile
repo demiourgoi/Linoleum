@@ -26,7 +26,7 @@ endif
 ####################
 # Code build
 ####################
-release: clean jaeger/container/start build	### run all release checks
+release: build	### run all release checks
 	echo "PASS all release checks"
 
 clean: build/clean compose/stop ### cleanup everything
@@ -54,7 +54,9 @@ run: ### run app with example flags
 
 compose/start: compose/stop   ### launch all dev containers using the compose file
 	podman compose --file $(ROOT_DIR)/devenv/compose.yaml up --detach
+	echo
 	echo "See Jaeger UI at http://localhost:16686"
+	echo "See Kafka UI at  http://localhost:9090"
  
 compose/stop:  ### stop amnd delete all dev containers using the compose file
 	podman compose --file $(ROOT_DIR)/devenv/compose.yaml down
@@ -71,14 +73,6 @@ otel-collector/container/logs:  ### Show the logs of the test OTEL collector con
 KAFKA_CONTAINER ?= kafka-local
 kafka/container/logs:  ### Show the logs of the test kafka container
 	podman container logs $(KAFKA_CONTAINER)
-
-kafka/container/bash:  ### Run a bash shell in the kafka container
-	echo
-	echo 'Get cluster id: /opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server :9092'
-	echo 'Publish to demo topic: /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server :9092 --topic demo'
-	echo 'Consume demo topic: /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server :9092 --topic demo --from-beginning'
-	echo
-	podman exec -it $(KAFKA_CONTAINER) bash
 
 MONGODB_CONTAINER ?= mongodb-community-server-local
 mongodb/container/bash:  ### Run a bash shell in the MongoDB container
