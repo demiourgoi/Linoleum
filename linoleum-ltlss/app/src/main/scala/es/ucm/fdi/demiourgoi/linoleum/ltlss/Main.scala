@@ -7,6 +7,10 @@ import io.grpc.{Channel, ManagedChannelBuilder}
 import io.grpc.stub.StreamObserver
 import io.jaegertracing.api_v3.{QueryServiceGrpc, QueryServiceOuterClass}
 import io.opentelemetry.proto.trace.v1.TracesData
+import io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest
+
+import org.slf4j.LoggerFactory
+
 
 import java.time.{Duration, Instant}
 import scala.jdk.CollectionConverters._
@@ -15,16 +19,68 @@ import org.apache.flink.api.java.tuple.Tuple2
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows
 import org.apache.flink.util.Collector
+import org.apache.flink.connector.kafka.source.KafkaSource
+import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
+import org.apache.flink.api.common.serialization.DeserializationSchema
+import org.apache.flink.api.common.typeinfo.TypeInformation
+import  org.apache.flink.api.common.eventtime.WatermarkStrategy
 
 class Splitter extends FlatMapFunction[String, Tuple2[String, Integer]] {
     override def flatMap(sentence: String, out: Collector[Tuple2[String, Integer]]): Unit =
         sentence.split("\\s+").foreach{ word: String => out.collect(new Tuple2(word, 1)) }
 }
 
+object ExportTraceServiceRequestProtoDeserializer {
+    private val log = LoggerFactory.getLogger(ExportTraceServiceRequestProtoDeserializer.getClass.getName)
+}
+@SerialVersionUID(1L)
+class ExportTraceServiceRequestProtoDeserializer
+  extends DeserializationSchema[ExportTraceServiceRequest] with Serializable {
+    import ExportTraceServiceRequestProtoDeserializer._
+
+    override def deserialize(bytes: Array[Byte]): ExportTraceServiceRequest = {
+        val request = ExportTraceServiceRequest.parseFrom(bytes)
+        log.debug("Parsed request {}", request)
+        request
+    }
+
+    override def isEndOfStream(t: ExportTraceServiceRequest): Boolean = false
+
+    override def getProducedType: TypeInformation[ExportTraceServiceRequest] =
+        TypeInformation.of(classOf[ExportTraceServiceRequest])
+}
+
 object Main {
     import TimeUtils._
+    import evaluator._
+
+    private val log = LoggerFactory.getLogger(Main.getClass.getName)
 
     def main(args: Array[String]): Unit = {
+        log.warn("Starting program")
+        val env = StreamExecutionEnvironment.getExecutionEnvironment
+        // FIXME configurable
+        val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()
+          .setBootstrapServers("localhost:9092")
+          .setTopics("otlp_spans")
+          .setGroupId("linolenum-cg")
+          .setStartingOffsets(OffsetsInitializer.earliest())
+          .setValueOnlyDeserializer(new ExportTraceServiceRequestProtoDeserializer())
+          .build()
+
+         val dataStream = env.fromSource(kafkaSource,
+            WatermarkStrategy.noWatermarks(), // FIXME
+            "otlpSpans")
+
+        dataStream.print()
+
+        env.execute("hello worldcount")
+
+        log.warn("Ending program")
+        println("bye")
+    }
+
+    def fixme() {
         val (host, port) = ("localhost", 16685)
         val channel: Channel = {
             val builder = ManagedChannelBuilder.forAddress(host, port)
@@ -84,22 +140,5 @@ object Main {
             override def onCompleted(): Unit =
                 println(s"Received $numSpans spans with success")
         })
-
-        val formula = always{ x: Int => x must be_>(0) } during 10
-        Console.println(s"Hello ${formula}")
-
-        val env = StreamExecutionEnvironment.getExecutionEnvironment
-        val dataStream = env
-          .fromData(List("hello it's me, I've been waiting", "hey how are you").asJava)
-          .flatMap(new Splitter())
-          .keyBy((v: Tuple2[String, Integer]) => v.f0)
-          .window(TumblingProcessingTimeWindows.of(Duration.ofSeconds(5)))
-          .sum(1)
-
-        dataStream.print()
-
-        env.execute("hello worldcount")
-
-        println("bye")
     }
 }
