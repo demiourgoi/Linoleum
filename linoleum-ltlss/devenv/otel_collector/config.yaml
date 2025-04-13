@@ -13,10 +13,16 @@ exporters:
       insecure: true
 
   kafka:
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter
+    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.123.0/exporter/kafkaexporter
     brokers:
       - "kafka:9093"
+    protocol_version: 2.1.0
     topic: otlp_spans
+    # payload is Protobuf serialized from ExportTraceServiceRequest
+    # ExportTraceServiceRequest https://github.com/open-telemetry/opentelemetry-proto/blob/4ca4f0335c63cda7ab31ea7ed70d6553aee14dce/opentelemetry/proto/collector/trace/v1/trace_service.proto
+    # is repeated ResourceSpans https://github.com/open-telemetry/opentelemetry-proto/blob/4ca4f0335c63cda7ab31ea7ed70d6553aee14dce/opentelemetry/proto/trace/v1/trace.proto
+    # wrapped as SpanInfo https://github.com/demiourgoi/jaeger-idl/blob/linoleum-ltlss-idl/proto/linoleum-ltlss/tracing.proto
+    encoding: otlp_proto
 
 service:
   pipelines:
