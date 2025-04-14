@@ -15,6 +15,7 @@ import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.java.tuple.Tuple2
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 
+import org.apache.flink.configuration.{Configuration,PipelineOptions}
 import org.apache.flink.util.Collector
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
@@ -45,7 +46,18 @@ object Main {
 
     def main(args: Array[String]): Unit = {
         log.warn("Starting program")
-        val env = StreamExecutionEnvironment.getExecutionEnvironment
+        // FIXME to method in source package
+        val env = {
+            // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
+            val config = new Configuration()
+            val protoSerdeOption = "{type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
+            config.set(PipelineOptions.SERIALIZATION_CONFIG,
+                List(
+                    s"io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: $protoSerdeOption"
+                ).asJava
+            )
+            StreamExecutionEnvironment.getExecutionEnvironment(config)
+        }
         // FIXME configurable
         val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()
           .setBootstrapServers("localhost:9092")
@@ -56,10 +68,10 @@ object Main {
           .build()
 
          val dataStream = env.fromSource(kafkaSource,
-            WatermarkStrategy.noWatermarks(), // FIXME
+            WatermarkStrategy.noWatermarks(), // FIXME to event time assigner after splitting events, in source package
             "otlpSpans")
 
-        dataStream.print()
+        dataStream.map{ req => s"Found ${req.getResourceSpansList.size()} spans" }.print()
 
         env.execute("hello worldcount")
 
