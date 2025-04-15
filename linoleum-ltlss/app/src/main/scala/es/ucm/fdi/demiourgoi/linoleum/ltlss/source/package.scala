@@ -6,16 +6,104 @@ import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.slf4j.LoggerFactory
+import java.{util=>jutil}
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.api.common.eventtime.WatermarkStrategy
+import org.apache.flink.connector.kafka.source.KafkaSource
+import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
+import org.apache.flink.api.common.functions.FlatMapFunction
+
+import  org.apache.flink.util.Collector
+import scala.jdk.CollectionConverters._
 
 package object source {
   type SpanInfoStream = DataStream[SpanInfo]
 }
-
 package source {
+
+  import org.apache.flink.configuration.{Configuration, PipelineOptions}
+
+  // TODO fields and YAML serde
+  case class LinoleumConfig(
+    kafkaBootstrapServers: String = "localhost:9092",
+    kafkaTopics: String = "otlp_spans",
+    kafkaGroupIdPrefix: String = "linolenum-cg"
+  )
+
+  object LinoleumSrc {
+    private val log = LoggerFactory.getLogger(LinoleumSrc.getClass.getName)
+    private val protoSerdeOption = "{type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
+
+    def flinkEnv(): StreamExecutionEnvironment = {
+      // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
+      val config = new Configuration()
+      addSerdeOptions(config)
+      StreamExecutionEnvironment.getExecutionEnvironment(config)
+    }
+
+    private def addSerdeOptions(config: Configuration): Configuration = {
+      config.set(PipelineOptions.SERIALIZATION_CONFIG,
+        List(
+          s"io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: $protoSerdeOption",
+          s"es.ucm.fdi.demiourgoi.linoleum.ltlss.SpanInfo: $protoSerdeOption",
+        ).asJava
+      )
+      config
+    }
+  }
+
+  @SerialVersionUID(1L)
+  class LinoleumSrc(@transient val cfg: LinoleumConfig)
+    extends FlatMapFunction[ExportTraceServiceRequest, SpanInfo] with Serializable {
+    import LinoleumSrc._
+    import messages._
+
+    def apply(env: StreamExecutionEnvironment): SpanInfoStream = {
+      val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()
+        .setBootstrapServers(cfg.kafkaBootstrapServers)
+        .setTopics(cfg.kafkaTopics)
+        .setGroupId(s"${cfg.kafkaGroupIdPrefix}-${jutil.UUID.randomUUID()}")
+        .setStartingOffsets(OffsetsInitializer.earliest())
+        .setValueOnlyDeserializer(new ExportTraceServiceRequestProtoDeserializer())
+        .build()
+
+      val exportTracesRequests = env.fromSource(kafkaSource,
+        // no watermarks as we'll override this after extracting this per record
+        WatermarkStrategy.noWatermarks(),
+        "exportTracesRequests")
+
+      val spanInfos = exportTracesRequests.flatMap[SpanInfo](this)
+
+      // FIXME event time
+      spanInfos
+    }
+
+    override def flatMap(exportTracesRequest: ExportTraceServiceRequest, out: Collector[SpanInfo]): Unit = {
+      exportTracesRequest.getResourceSpansList.forEach{ resourceSpans =>
+        val resource = resourceSpans.getResource
+        val scopeSpansList = resourceSpans.getScopeSpansList
+        log.debug("Received {} scope span lists for resource {}", scopeSpansList.size(), resource)
+        scopeSpansList.forEach{scopeSpan =>
+          val spanList = scopeSpan.getSpansList
+          val scope = scopeSpan.getScope
+          log.debug("Received {} spans for instrumentation scope {}", spanList.size(), scope)
+          spanList.forEach{span =>
+            val spanInfo = SpanInfo.newBuilder()
+              .setSpan(span).setScope(scope).setScopeSchemaUrl(scopeSpan.getSchemaUrl)
+              .setResource(resource).setResourceSchemaUrl(resourceSpans.getSchemaUrl)
+              .build()
+            log.debug("Received span with trace id {} and span id {}: {}",
+              spanInfo.hexTraceId, spanInfo.hexSpanId, spanInfo)
+            out.collect(spanInfo)
+          }
+        }
+      }
+    }
+  }
+
   object ExportTraceServiceRequestProtoDeserializer {
     private val log = LoggerFactory.getLogger(ExportTraceServiceRequestProtoDeserializer.getClass.getName)
   }
-
   @SerialVersionUID(1L)
   class ExportTraceServiceRequestProtoDeserializer
     extends DeserializationSchema[ExportTraceServiceRequest] with Serializable {

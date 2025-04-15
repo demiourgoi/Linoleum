@@ -86,10 +86,12 @@ package object evaluator {
 }
 package evaluator {
 
+  import com.google.protobuf.Timestamp
   import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
   import org.apache.flink.streaming.api.windowing.windows.TimeWindow
   import org.apache.flink.util.Collector
 
+  import java.time.Instant
   import java.util
   import scala.collection.mutable.ListBuffer
 
@@ -279,5 +281,16 @@ package evaluator {
         FormulaValue(currentFormula)
       }
     }
+  }
+
+  object TimeUtils {
+    def instantToTimestamp(instant: Instant): Timestamp =
+      Timestamp.newBuilder()
+        .setSeconds(instant.getEpochSecond)
+        .setNanos(instant.getNano)
+        .build()
+
+    def timestampToInstant(timestamp: Timestamp): Instant =
+      Instant.ofEpochSecond(timestamp.getSeconds, timestamp.getNanos)
   }
 }
