@@ -48,7 +48,7 @@ package object formulas {
   type TimedLetter = (SscheckTime, Letter)
 
   /**
-   * @param name human-readable description for the formula
+   * @param name    human-readable description for the formula
    * @param formula sscheck formula to evaluate. The formula must not perform any
    *                side effect when evaluated.
    * */
@@ -111,20 +111,20 @@ package evaluator {
                                         sessionGap: Duration,
                                         allowedLateness: Duration = Duration.ofMillis(0))
 
-/**
- * For each span in a trace we emit a SpanStart and SpanEnd event, and order all the events using the
- * span start time for SpanStart events and the end time for SpanEnd events.
- * We then discretize the ordered sequence using tumbling windows of `tickPeriod` duration.
- * The first letter always starts with `SpanStart(rootSpan)` and events before that are discarded as errors.
- *
- * Note a limitation is that if the clocks in the different hosts that emit the spans are too skewed then we
- * could lose the happens-before relation between parent and child spans when we order by event timestamp, that is
- * inherited from the span timestamps. This is a known limitation to be tackled on https://github.com/juanrh/Linoleum/issues/4
- *
- * If a span gets into the event more than once (two SpanInfo have the same spanId) then we only process one of them.
- * One of the replicas is chosen arbitrarily, so this assumes the trace instrumentation libraries only use the same
- * span id for identical spans.
- * */
+  /**
+   * For each span in a trace we emit a SpanStart and SpanEnd event, and order all the events using the
+   * span start time for SpanStart events and the end time for SpanEnd events.
+   * We then discretize the ordered sequence using tumbling windows of `tickPeriod` duration.
+   * The first letter always starts with `SpanStart(rootSpan)` and events before that are discarded as errors.
+   *
+   * Note a limitation is that if the clocks in the different hosts that emit the spans are too skewed then we
+   * could lose the happens-before relation between parent and child spans when we order by event timestamp, that is
+   * inherited from the span timestamps. This is a known limitation to be tackled on https://github.com/juanrh/Linoleum/issues/4
+   *
+   * If a span gets into the event more than once (two SpanInfo have the same spanId) then we only process one of them.
+   * One of the replicas is chosen arbitrarily, so this assumes the trace instrumentation libraries only use the same
+   * span id for identical spans.
+   * */
 
   @SerialVersionUID(1L)
   class SpanStreamEvaluator(
@@ -146,6 +146,7 @@ package evaluator {
 
   private object SpanStreamEvaluator {
     private val log = LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
+
     private def nanosToMs(nanos: Long) = (nanos / pow(10, 6)).longValue
 
     private class ProcessWindow[W <: TimeWindow](
@@ -200,7 +201,7 @@ package evaluator {
             log.warn("Found late window for trace with id {}, skipping events {}, ... ",
               someEvents.head.span.hexTraceId, someEvents.mkString(", "))
           }
-        }){ rootSpan =>
+        }) { rootSpan =>
           log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
           val evaluatedTrace = EvaluatedTrace(rootSpan.getSpan.getTraceId, formula.name,
             evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, eventsHeap))
@@ -234,7 +235,9 @@ package evaluator {
 
           private def flushCurrentLetter(eventOpt: Option[LinoleumEvent]): TimedLetter = {
             val nextLetter = currentLetter.toList
-            currentLetter = eventOpt.fold[ListBuffer[LinoleumEvent]](ListBuffer.empty){ ListBuffer(_) }
+            currentLetter = eventOpt.fold[ListBuffer[LinoleumEvent]](ListBuffer.empty) {
+              ListBuffer(_)
+            }
             letterToTimedLetter(nextLetter)
           }
 
@@ -243,18 +246,18 @@ package evaluator {
           override def next(): TimedLetter = {
             for (event <- eventsIt) {
               val eventOffset = event.epochUnixNano - currentLetter.head.epochUnixNano
-               val (eventIsLate, isLetterComplete) = (eventOffset < 0, eventOffset >= tickPeriod.toNanos)
-               (eventIsLate, isLetterComplete) match {
-                 case (true, _) =>
-                 // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
-                 log.error("Dropping event {} happening before root letter start {}", event, currentLetter.head)
+              val (eventIsLate, isLetterComplete) = (eventOffset < 0, eventOffset >= tickPeriod.toNanos)
+              (eventIsLate, isLetterComplete) match {
+                case (true, _) =>
+                  // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
+                  log.error("Dropping event {} happening before root letter start {}", event, currentLetter.head)
 
-                 case(false, true) =>
-                   return flushCurrentLetter(Some(event))
+                case (false, true) =>
+                  return flushCurrentLetter(Some(event))
 
-                 case (false, false) =>
-                   currentLetter.addOne(event)
-               }
+                case (false, false) =>
+                  currentLetter.addOne(event)
+              }
             }
 
             if (currentLetter.nonEmpty) {
