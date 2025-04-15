@@ -147,8 +147,6 @@ package evaluator {
   private object SpanStreamEvaluator {
     private val log = LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
 
-    private def nanosToMs(nanos: Long) = (nanos / pow(10, 6)).longValue
-
     private class ProcessWindow[W <: TimeWindow](
                                                   @transient private val formula: formulas.LinoleumFormula,
                                                   @transient private val tickPeriod: Duration)
@@ -156,6 +154,7 @@ package evaluator {
 
       import formulas._
       import messages._
+      import TimeUtils._
       import scala.util.control.Breaks._
 
       override def process(
@@ -287,6 +286,10 @@ package evaluator {
   }
 
   object TimeUtils {
+    private val million = pow(10, 6)
+
+    def nanosToMs(nanos: Long): Long = (nanos / million).longValue
+
     def instantToTimestamp(instant: Instant): Timestamp =
       Timestamp.newBuilder()
         .setSeconds(instant.getEpochSecond)

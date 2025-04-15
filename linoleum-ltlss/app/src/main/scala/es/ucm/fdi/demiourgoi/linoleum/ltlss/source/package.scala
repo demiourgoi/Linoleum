@@ -12,6 +12,7 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
 import org.apache.flink.api.common.functions.FlatMapFunction
+import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner
 
 import  org.apache.flink.util.Collector
 import scala.jdk.CollectionConverters._
@@ -23,11 +24,14 @@ package source {
 
   import org.apache.flink.configuration.{Configuration, PipelineOptions}
 
+  import java.time.Duration
+
   // TODO fields and YAML serde
   case class LinoleumConfig(
     kafkaBootstrapServers: String = "localhost:9092",
     kafkaTopics: String = "otlp_spans",
-    kafkaGroupIdPrefix: String = "linolenum-cg"
+    kafkaGroupIdPrefix: String = "linolenum-cg",
+    eventsMaxOutOfOrderness: Duration = Duration.ofMillis(500)
   )
 
   object LinoleumSrc {
@@ -54,9 +58,12 @@ package source {
 
   @SerialVersionUID(1L)
   class LinoleumSrc(@transient val cfg: LinoleumConfig)
-    extends FlatMapFunction[ExportTraceServiceRequest, SpanInfo] with Serializable {
+    extends FlatMapFunction[ExportTraceServiceRequest, SpanInfo]
+      with SerializableTimestampAssigner[SpanInfo]
+      with Serializable {
     import LinoleumSrc._
     import messages._
+    import evaluator.TimeUtils.nanosToMs
 
     def apply(env: StreamExecutionEnvironment): SpanInfoStream = {
       val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()
@@ -73,32 +80,39 @@ package source {
         "exportTracesRequests")
 
       val spanInfos = exportTracesRequests.flatMap[SpanInfo](this)
-
-      // FIXME event time
-      spanInfos
+      spanInfos.assignTimestampsAndWatermarks(
+        WatermarkStrategy.forBoundedOutOfOrderness(cfg.eventsMaxOutOfOrderness)
+          .withTimestampAssigner(this)
+      )
     }
 
     override def flatMap(exportTracesRequest: ExportTraceServiceRequest, out: Collector[SpanInfo]): Unit = {
       exportTracesRequest.getResourceSpansList.forEach{ resourceSpans =>
         val resource = resourceSpans.getResource
         val scopeSpansList = resourceSpans.getScopeSpansList
-        log.debug("Received {} scope span lists for resource {}", scopeSpansList.size(), resource)
+        log.debug("Received {} scope span lists for a resource", scopeSpansList.size())
         scopeSpansList.forEach{scopeSpan =>
           val spanList = scopeSpan.getSpansList
           val scope = scopeSpan.getScope
-          log.debug("Received {} spans for instrumentation scope {}", spanList.size(), scope)
+          log.debug("Received {} spans for instrumentation scope with name {}", spanList.size(), scope.getName)
           spanList.forEach{span =>
             val spanInfo = SpanInfo.newBuilder()
               .setSpan(span).setScope(scope).setScopeSchemaUrl(scopeSpan.getSchemaUrl)
               .setResource(resource).setResourceSchemaUrl(resourceSpans.getSchemaUrl)
               .build()
-            log.debug("Received span with trace id {} and span id {}: {}",
-              spanInfo.hexTraceId, spanInfo.hexSpanId, spanInfo)
+            log.debug("Received span with trace id {} and span id {}",
+              spanInfo.hexTraceId, spanInfo.hexSpanId)
             out.collect(spanInfo)
           }
         }
       }
     }
+
+    /** Timestamps can be an arbitrary long value, but all built-in implementations represent
+     *  it as the milliseconds since the Epoch (midnight, January 1, 1970 UTC), the same way
+     *  as System.currentTimeMillis() does it.*/
+    override def extractTimestamp(spanInfo: SpanInfo, recordTimestamp: Long): Long =
+      nanosToMs(spanInfo.getSpan.getStartTimeUnixNano)
   }
 
   object ExportTraceServiceRequestProtoDeserializer {
@@ -111,7 +125,7 @@ package source {
 
     override def deserialize(bytes: Array[Byte]): ExportTraceServiceRequest = {
       val request = ExportTraceServiceRequest.parseFrom(bytes)
-      log.debug("Parsed request {}", request)
+      log.debug("Parsed request with {} spans", request.getResourceSpansCount)
       request
     }
 
