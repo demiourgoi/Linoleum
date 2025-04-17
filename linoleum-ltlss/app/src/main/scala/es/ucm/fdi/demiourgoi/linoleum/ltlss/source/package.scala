@@ -28,6 +28,7 @@ package source {
 
   // TODO fields and YAML serde
   case class LinoleumConfig(
+    localFlinkEnv: Boolean,
     kafkaBootstrapServers: String = "localhost:9092",
     kafkaTopics: String = "otlp_spans",
     kafkaGroupIdPrefix: String = "linolenum-cg",
@@ -38,11 +39,19 @@ package source {
     private val log = LoggerFactory.getLogger(LinoleumSrc.getClass.getName)
     private val protoSerdeOption = "{type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
 
-    def flinkEnv(): StreamExecutionEnvironment = {
+    def flinkEnv(linolenumCfg: LinoleumConfig): StreamExecutionEnvironment = {
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
       val config = new Configuration()
       addSerdeOptions(config)
-      StreamExecutionEnvironment.getExecutionEnvironment(config)
+      val env = if (linolenumCfg.localFlinkEnv) {
+        // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
+        log.warn("Open Flink web UI at http://localhost:8081/#/overview")
+        StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(config)
+      }
+      else StreamExecutionEnvironment.getExecutionEnvironment(config)
+      // Event time is now the default
+      // https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/streaming/api/environment/StreamExecutionEnvironment.html#setStreamTimeCharacteristic-org.apache.flink.streaming.api.TimeCharacteristic-
+      env
     }
 
     private def addSerdeOptions(config: Configuration): Configuration = {
@@ -76,12 +85,14 @@ package source {
 
       val exportTracesRequests = env.fromSource(kafkaSource,
         // no watermarks as we'll override this after extracting this per record
-        WatermarkStrategy.noWatermarks(),
+        WatermarkStrategy.forBoundedOutOfOrderness(cfg.eventsMaxOutOfOrderness),
         "exportTracesRequests")
 
       val spanInfos = exportTracesRequests.flatMap[SpanInfo](this)
       spanInfos.assignTimestampsAndWatermarks(
         WatermarkStrategy.forBoundedOutOfOrderness(cfg.eventsMaxOutOfOrderness)
+          // https://stackoverflow.com/questions/73825459/why-flink-1-15-2-showing-no-watermark-watermarks-are-only-available-if-eventtim
+          .withIdleness(cfg.eventsMaxOutOfOrderness) // FIXME split into 2 settings, or rename
           .withTimestampAssigner(this)
       )
     }

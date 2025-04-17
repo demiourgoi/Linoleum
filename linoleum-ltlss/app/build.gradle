@@ -97,6 +97,8 @@ dependencies {
     implementation "org.apache.flink:flink-streaming-java:${flinkVersion}"
     implementation "org.apache.flink:flink-clients:${flinkVersion}"
     implementation "org.apache.flink:flink-connector-base:${flinkVersion}"
+    // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
+    implementation "org.apache.flink:flink-runtime-web:${flinkVersion}"
 
     // --------------------------------------------------------------
     // Dependencies that should be part of the shadow jar, e.g.
