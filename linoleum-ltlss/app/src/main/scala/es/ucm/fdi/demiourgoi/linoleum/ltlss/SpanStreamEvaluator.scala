@@ -15,6 +15,7 @@ import source.SpanInfoStream
 import com.google.protobuf.ByteString
 import java.time.Duration
 import java.util.PriorityQueue
+import java.util.function.Supplier
 import java.{lang => jlang}
 
 package object formulas {
@@ -47,12 +48,16 @@ package object formulas {
 
   type TimedLetter = (SscheckTime, Letter)
 
+  type SscheckFormula = Formula[Letter]
+
+  // Note: trying to avoid serializing sscheck formulas by requiring a formula supplier
+  // that should be a stateless class that is trivial to serialize
   /**
    * @param name    human-readable description for the formula
-   * @param formula sscheck formula to evaluate. The formula must not perform any
-   *                side effect when evaluated.
+   * @param formula supplier for the sscheck formula to evaluate. 
+   *                The formula must not perform any side effect when evaluated.
    * */
-  case class LinoleumFormula(name: String, formula: Formula[Letter])
+  case class LinoleumFormula(name: String, formula: Supplier[SscheckFormula])
 }
 
 object FormulaValue {
@@ -77,9 +82,7 @@ case object Undecided extends FormulaValue with Serializable
  *
  * @param formulaName Name of the formula that was evaluated on the trace
  * */
-case class EvaluatedTrace(traceId: ByteString, formulaName: String, formulaValue: FormulaValue) {
-  val hexTraceId: String = messages.byteString2HexString(traceId)
-}
+case class EvaluatedTrace(hexTraceId: String, formulaName: String, formulaValue: FormulaValue)
 
 package object evaluator {
   type VerifiedTraceStream = DataStream[EvaluatedTrace]
@@ -147,9 +150,10 @@ package evaluator {
   private object SpanStreamEvaluator {
     private val log = LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
 
+    @SerialVersionUID(1L)
     private class ProcessWindow[W <: TimeWindow](
-                                                  @transient private val formula: formulas.LinoleumFormula,
-                                                  @transient private val tickPeriod: Duration)
+        private val formula: formulas.LinoleumFormula,
+        private val tickPeriod: Duration)
       extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
 
       import formulas._
@@ -170,11 +174,12 @@ package evaluator {
         spanInfos.forEach { spanInfo =>
           val spanId = spanInfo.getSpan.getSpanId
           if (seenSpans.contains(spanId)) {
-            log.debug("Skipping duplicate occurrence of span {}", spanInfo)
+            log.warn("Skipping duplicate occurrence of span {}", spanInfo)
           } else {
             seenSpans.add(spanId)
             (spanInfo.isRoot, rootSpanOpt) match {
               case (true, None) =>
+                log.info("Found root span with span id {}, for trace with id {}", spanInfo.hexSpanId, spanInfo.hexTraceId)
                 rootSpanOpt = Some(spanInfo)
 
               case (true, Some(rootSpanInfo)) =>
@@ -202,7 +207,7 @@ package evaluator {
           }
         }) { rootSpan =>
           log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
-          val evaluatedTrace = EvaluatedTrace(rootSpan.getSpan.getTraceId, formula.name,
+          val evaluatedTrace = EvaluatedTrace(rootSpan.hexTraceId, formula.name,
             evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, eventsHeap))
           )
           log.info(s"Evaluated trace with id {} to {}", rootSpan.hexTraceId, evaluatedTrace)
@@ -219,6 +224,8 @@ package evaluator {
        * */
       private[evaluator] def buildLetters(rootSpan: SpanInfo, eventsHeap: PriorityQueue[LinoleumEvent]): Iterator[TimedLetter] = {
         eventsHeap.add(SpanEnd(rootSpan))
+        log.debug("Building letters for trace {} with rootSpan {} and eventsHeap {}", 
+          rootSpan.hexTraceId, rootSpan.hexSpanId, eventsHeap)
         val startEvent = SpanStart(rootSpan)
 
         // traverse starting with startEvent and discarding later events, emitting errors accordingly
@@ -270,11 +277,11 @@ package evaluator {
       }
 
       private[evaluator] def evaluateFormula(traceId: String, letters: Iterator[TimedLetter]): FormulaValue = {
-        val currentFormula = formula.formula.nextFormula
+        var currentFormula = formula.formula.get().nextFormula
         breakable {
           letters.foreach { timedLetter =>
             val (letterTime, letter) = timedLetter
-            currentFormula.consume(letterTime)(letter)
+            currentFormula = currentFormula.consume(letterTime)(letter)
             log.debug("Current formula for trace id {} at time {} is {}",
               traceId, letterTime, currentFormula)
             if (currentFormula.result.isDefined) break()
