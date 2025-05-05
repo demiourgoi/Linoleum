@@ -412,12 +412,12 @@ mod LUEGO-IO is
  ***              ***
  ********************
 
- rl [parse-command] :
+ rl [quite-large] :
     < luego : Luego | input: 'quit.@Command@, state: processing, AtS >
  => < luego : Luego | input: maybe, state: write&end, AtS >
     write(stdout, luego, byeMsg) .
 
- rl [parse-command] :
+ rl [quit-short] :
     < luego : Luego | input: 'q.@Command@, state: processing, AtS >
  => < luego : Luego | input: maybe, state: write&end, AtS >
     write(stdout, luego, byeMsg) .
