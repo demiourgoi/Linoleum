@@ -1,0 +1,31 @@
+# https://opentelemetry.io/docs/collector/configuration
+receivers:
+  # Data sources: traces, metrics, logs
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  otlp/jaeger:
+    endpoint: http://jaeger:4317
+    tls:
+      insecure: true
+
+  kafka:
+    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.123.0/exporter/kafkaexporter
+    brokers:
+      - "kafka:9093"
+    protocol_version: 2.1.0
+    topic: otlp_spans
+    # payload is Protobuf serialized from ExportTraceServiceRequest
+    # ExportTraceServiceRequest https://github.com/open-telemetry/opentelemetry-proto/blob/4ca4f0335c63cda7ab31ea7ed70d6553aee14dce/opentelemetry/proto/collector/trace/v1/trace_service.proto
+    # is repeated ResourceSpans https://github.com/open-telemetry/opentelemetry-proto/blob/4ca4f0335c63cda7ab31ea7ed70d6553aee14dce/opentelemetry/proto/trace/v1/trace.proto
+    # wrapped as SpanInfo https://github.com/demiourgoi/jaeger-idl/blob/linoleum-ltlss-idl/proto/linoleum-ltlss/tracing.proto
+    encoding: otlp_proto
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger, kafka]

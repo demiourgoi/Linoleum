@@ -1,0 +1,18 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        // https://github.com/scalameta/metals-vscode?tab=readme-ov-file#via-a-launchjson-configuration
+        {
+            "type": "scala",
+            "request": "launch",
+            "name": "Debug Main",
+            "mainClass": "es.ucm.fdi.demiourgoi.linoleum.ltlss.Main",
+            "args": [],
+            "jvmOptions": ["-Dcom.google.protobuf.use_unsafe_pre22_gencode"],
+            "env": {}
+        }
+    ]
+}

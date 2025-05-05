@@ -1,0 +1,82 @@
+# https://github.com/compose-spec/compose-spec/blob/main/spec.md#compose-file
+# https://podman-desktop.io/docs/compose/running-compose
+# https://docs.docker.com/compose/how-tos/startup-order/
+
+services:
+  # https://docs.docker.com/guides/kafka/
+  # https://hub.docker.com/r/apache/kafka/tags
+  # https://hub.docker.com/r/apache/kafka-native/tags
+  kafka:
+    container_name: kafka-local
+    image: apache/kafka-native:3.8.0
+    ports:
+      - 9092:9092
+    environment:
+     # Configure listeners for both docker and host communication
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+
+      # Settings required for KRaft mode
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+
+      # Listener to use for broker-to-broker communication
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+
+      # Required for a single node cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-ui:
+    image: kafbat/kafka-ui:main
+    ports:
+      - 9090:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+    depends_on:
+      - kafka
+
+  # https://hub.docker.com/r/mongodb/mongodb-community-server/tags
+  # https://www.mongodb.com/resources/products/mongodb-version-history#mdbsevenzero
+  # https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/
+  # FIXME
+  # mongodb:
+  #   container_name: mongodb-community-server-local
+  #   image: mongodb/mongodb-community-server:7.0.17-rc1-ubi9
+  #   ports:
+  #     - 27017:27017
+
+  # Note avoiding host ports 4317 and 4318 to avoid collision with OTEL Collector, vs
+  # typical values as in https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
+  # https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one
+	# Jaeger UI on http://localhost:16686
+  jaeger:
+    container_name: jaeger-local-all-in-one
+    image: jaegertracing/jaeger:2.3.0
+    ports:
+      - 16686:16686
+      - 5317:4317
+      - 5318:4318
+      - 5778:5778
+      - 9411:9411
+      - 16685:16685
+
+  # https://opentelemetry.io/docs/collector/installation/
+  otel-collector:
+    container_name: otel-collector-local
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    depends_on:
+      jaeger:
+        condition: service_started
+      kafka:
+        condition: service_started
+    volumes:
+      - ${PWD}/devenv/otel_collector/config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - 4317:4317
+      - 4318:4318
+      - 55679:55679 
