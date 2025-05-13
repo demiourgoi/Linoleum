@@ -3,4 +3,6 @@ load clock_fixed.maude
 load syntax.maude
 load id_handling.maude
 load semantics_fixed.maude
-load io.maude
+load model-checker.maude
+load analysis.maude
+*** load io.maude
