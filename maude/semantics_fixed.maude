@@ -24,7 +24,7 @@ mod LUEGO-SEMANTICS is
     lapi
     request-tid(CID, T)
     log(JL $ createInitialTrace(T, TIME, ELAPSED) $
-             createTraceChild(TRACE-ID, "request-reaches-balancer", CHILD-ID, START-TIME, DURATION), LCTDB)
+             createTraceChild(T, 1, 11, "request-reaches-balancer", TIME, ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [request-reaches-db] :
@@ -34,7 +34,7 @@ mod LUEGO-SEMANTICS is
     clock(TIME, ELAPSED)
  => db(addKey(DBC, taskId(N)), s(N))
     taskIdAssigned-lapi(CID, T, taskId(N))
-    log(JL $ createTraceChild(T, 1, 12, TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
+    log(JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
     clock(TIME + ELAPSED, ELAPSED)  .
 
  rl [taskId-reaches-balancer] :
@@ -47,7 +47,7 @@ mod LUEGO-SEMANTICS is
     lapi
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
-    log(JL $ createTraceChild(T, 1, 13, TIME, ELAPSED), LCTDB)
+    log(JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [client-taskId-assigned] :
@@ -56,7 +56,7 @@ mod LUEGO-SEMANTICS is
     log(JL, LCTDB)
     clock(TIME, ELAPSED)
  => [CID | TL, (CTDB, [T, TID])]
-    log(JL $ createTraceChild(T, 1, 14, TIME, ELAPSED), LCTDB)
+    log(JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [add-queue] :
@@ -65,7 +65,7 @@ mod LUEGO-SEMANTICS is
     log(JL, LCTDB)
     clock(TIME, ELAPSED)
  => queue([T, TID] ; TPL)
-    log(updateTime1(JL $ createTraceChild(T, 1, 15, TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
+    log(updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [worker-gets-task] :
@@ -75,8 +75,8 @@ mod LUEGO-SEMANTICS is
     clock(TIME, ELAPSED)
  => queue(TPL)
     worker([T, TID])
-    log(JL $ createTraceChild(T, 2, TIME, ELAPSED)
-           $ createTraceChild(T, 2, 21, TIME, ELAPSED), LCTDB)
+    log(JL $ createTraceChild(T, 2, TIME, 0, "second-half")
+           $ createTraceChild(T, 2, 21, "worker-gets-task", TIME, ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [work-done] :
@@ -87,7 +87,7 @@ mod LUEGO-SEMANTICS is
  => worker(mtTPL)
     rapi
     work-done(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 22, TIME, ELAPSED), (CTDB, [T, TID]))
+    log(JL $ createTraceChild(T, 2, 22, "work-done", TIME, ELAPSED), (CTDB, [T, TID]))
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [work-done-lapi] :
@@ -97,7 +97,7 @@ mod LUEGO-SEMANTICS is
     clock(TIME, ELAPSED)
  => lapi
     work-done-db(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 23, TIME, ELAPSED), (CTDB, [T, TID]))
+    log(JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED), (CTDB, [T, TID]))
     clock(TIME + ELAPSED, ELAPSED) .
 
  rl [work-done-db] :
@@ -106,7 +106,7 @@ mod LUEGO-SEMANTICS is
     log(JL, (CTDB, [T, TID]))
     clock(TIME, ELAPSED)
  => db(add(DBC, TID, R), N)
-    log(updateTime2(JL $ createTraceChild(T, 2, 24, TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
+    log(updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
     clock(TIME + ELAPSED, ELAPSED) .
 endm
 

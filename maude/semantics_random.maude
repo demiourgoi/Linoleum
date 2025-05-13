@@ -1,6 +1,5 @@
 mod LUEGO-SEMANTICS is
  pr ID-HANDLING .
- *** pr COUNTER .
  pr RANDOM .
 
  vars N TIME ELAPSED MAX counter : Nat .
