@@ -18,9 +18,15 @@ help:	### list main targets
 ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+PODMAN := docker
+PODMAN_COMPOSE := docker-compose
 else
 	@awk -F ':.*###' '$$0 ~ FS {printf "%15s%s\n", $$1 ":", $$2}' \
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
+
+PODMAN := podman
+PODMAN_COMPOSE := podman compose
 endif
 
 ####################
@@ -53,28 +59,28 @@ run: ### run app with example flags
 ####################
 
 compose/start: compose/stop   ### launch all dev containers using the compose file
-	podman compose --file $(ROOT_DIR)/devenv/compose.yaml up --detach
+	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml up --detach
 	echo
 	echo "See Jaeger UI at http://localhost:16686"
 	echo "See Kafka UI at  http://localhost:9090"
  
 compose/stop:  ### stop amnd delete all dev containers using the compose file
-	podman compose --file $(ROOT_DIR)/devenv/compose.yaml down
+	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml down
 
 JAEGER_CONTAINER ?= jaeger-local-all-in-one
 .PHONY: jaeger/container/logs
 jaeger/container/logs:  ### Show the logs of the test Jaeger container
-	podman container logs $(JAEGER_CONTAINER)
+	$(PODMAN) container logs $(JAEGER_CONTAINER)
 
 OTEL_COLLECTOR_CONTAINER ?= otel-collector-local
 otel-collector/container/logs:  ### Show the logs of the test OTEL collector container
-	podman container logs $(OTEL_COLLECTOR_CONTAINER)
+	$(PODMAN) container logs $(OTEL_COLLECTOR_CONTAINER)
 
 KAFKA_CONTAINER ?= kafka-local
 kafka/container/logs:  ### Show the logs of the test kafka container
-	podman container logs $(KAFKA_CONTAINER)
+	$(PODMAN) container logs $(KAFKA_CONTAINER)
 
 MONGODB_CONTAINER ?= mongodb-community-server-local
 mongodb/container/bash:  ### Run a bash shell in the MongoDB container
 	echo 'Use `mongosh --port 2017` or just `mongosh` to open a Mongo shell'
-	podman exec -it $(MONGODB_CONTAINER) bash
+	$(PODMAN) exec -it $(MONGODB_CONTAINER) bash

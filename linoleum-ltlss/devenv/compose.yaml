@@ -53,7 +53,7 @@ services:
   # Note avoiding host ports 4317 and 4318 to avoid collision with OTEL Collector, vs
   # typical values as in https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
   # https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one
-	# Jaeger UI on http://localhost:16686
+  # Jaeger UI on http://localhost:16686
   jaeger:
     container_name: jaeger-local-all-in-one
     image: jaegertracing/jaeger:2.3.0

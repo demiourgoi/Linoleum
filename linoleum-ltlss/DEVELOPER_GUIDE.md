@@ -4,7 +4,19 @@
 
 Prerequisites:
 
-- [Podman](https://podman.io/docs/installation)
+- Container runtime:
+  - For windows: [Podman](https://podman.io/docs/installation)
+  - For Ubuntu
+
+```bash
+sudo snap install docker-credential-pass --beta
+# if the credential store it´s not initialized on `make compose/start`
+# https://github.com/docker/docker-credential-helpers/issues/140
+systemctl stop docker
+rm ~/.docker/config.json
+systemctl start docker
+```
+
 - `make`
 
 Also install `sscheck-core` in your local maven repo, see [linoleum-ltlss.yml](../.github/workflows/linoleum-ltlss.yml) for how this works on Github actions
