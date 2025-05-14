@@ -21,12 +21,7 @@ object Main {
     @SerialVersionUID(1L)
     private class HelloFormula extends Supplier[SscheckFormula] with Serializable { 
         def get(): SscheckFormula = {
-            // FIXME eventually doesn´t work
-            // now{ events: Letter =>
-            //     val found = events.find{_.epochUnixNano < 0} 
-            //     found must beSome
-            // }
-            always { events: Letter =>
+            later { events: Letter =>
                 // FIXME idiomatic: events must contain(beLike{event: LinoleumEvent => event.epochUnixNano > 0 })
                 events.find{_.epochUnixNano < 0} must beSome
             } during 1

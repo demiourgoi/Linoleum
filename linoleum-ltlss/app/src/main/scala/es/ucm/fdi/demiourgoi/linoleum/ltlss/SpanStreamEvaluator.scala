@@ -159,7 +159,6 @@ package evaluator {
       import formulas._
       import messages._
       import TimeUtils._
-      import scala.util.control.Breaks._
 
       override def process(
                             key: ByteString,
@@ -277,17 +276,12 @@ package evaluator {
       }
 
       private[evaluator] def evaluateFormula(traceId: String, letters: Iterator[TimedLetter]): FormulaValue = {
-        var currentFormula = formula.formula.get().nextFormula
-        breakable {
-          letters.foreach { timedLetter =>
-            val (letterTime, letter) = timedLetter
-            currentFormula = currentFormula.consume(letterTime)(letter)
-            log.debug("Current formula for trace id {} at time {} is {}",
-              traceId, letterTime, currentFormula)
-            if (currentFormula.result.isDefined) break()
-          }
-        }
-        FormulaValue(currentFormula)
+        val initialFormula = formula.formula.get().nextFormula
+        val finalFormula = initialFormula.evaluate(letters, (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
+          val (letterTime, letter) = timedLetter
+          log.debug("Current formula for trace id {} at time {} is {}", traceId, letterTime, currentFormula)
+        })
+        FormulaValue(finalFormula)
       }
     }
   }
