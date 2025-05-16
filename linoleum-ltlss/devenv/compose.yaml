@@ -43,12 +43,11 @@ services:
   # https://hub.docker.com/r/mongodb/mongodb-community-server/tags
   # https://www.mongodb.com/resources/products/mongodb-version-history#mdbsevenzero
   # https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/
-  # FIXME
-  # mongodb:
-  #   container_name: mongodb-community-server-local
-  #   image: mongodb/mongodb-community-server:7.0.17-rc1-ubi9
-  #   ports:
-  #     - 27017:27017
+  mongodb:
+     container_name: mongodb-community-server-local
+     image: mongodb/mongodb-community-server:7.0.17-rc1-ubi9
+     ports:
+       - 27017:27017
 
   # Note avoiding host ports 4317 and 4318 to avoid collision with OTEL Collector, vs
   # typical values as in https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/

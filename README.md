@@ -1,6 +1,6 @@
 # Linoleum
 
-Linoleum is an experiment for using observability signals for runtime verification of distributed systems
+[Linoleum](https://www.youtube.com/watch?v=d9ORimXBXLw) is an experiment for using observability signals for runtime verification of distributed systems
 
 ## References
 
