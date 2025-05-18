@@ -10,6 +10,7 @@ Prerequisites:
 
 ```bash
 sudo snap install docker-credential-pass --beta
+sudo apt install gnupg2 pass
 # if the credential store it´s not initialized on `make compose/start`
 # https://github.com/docker/docker-credential-helpers/issues/140
 systemctl stop docker
@@ -42,6 +43,7 @@ and then:
  
 - See Jaeger UI at http://localhost:16686
 - See Kafka UI at  http://localhost:9090
+- Install and launch [MongoDB Compass UI](https://www.mongodb.com/try/download/compass), connecting to the URI `mongodb://localhost:27017`.
 
 ## VsCode
 

@@ -49,6 +49,18 @@ services:
      ports:
        - 27017:27017
 
+  # Debug with `docker container logs mongodb-community-server-local-init`
+  mongodb-init:
+    container_name: mongodb-community-server-local-init
+    image: mongodb/mongodb-community-server:7.0.17-rc1-ubi9
+    depends_on:
+      - mongodb
+    volumes:
+      - ./mongosh:/usr/share/mongosh
+    environment:
+      - MONGO_HOST=mongodb
+    command: bash /usr/share/mongosh/setup_db.sh
+
   # Note avoiding host ports 4317 and 4318 to avoid collision with OTEL Collector, vs
   # typical values as in https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
   # https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one

@@ -19,14 +19,15 @@ ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-PODMAN := docker
 PODMAN_COMPOSE := docker-compose
+PODMAN := docker
+
 else
 	@awk -F ':.*###' '$$0 ~ FS {printf "%15s%s\n", $$1 ":", $$2}' \
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 
-PODMAN := podman
 PODMAN_COMPOSE := podman compose
+PODMAN := podman
 endif
 
 ####################
@@ -63,6 +64,7 @@ compose/start: compose/stop   ### launch all dev containers using the compose fi
 	echo
 	echo "See Jaeger UI at http://localhost:16686"
 	echo "See Kafka UI at  http://localhost:9090"
+	echo "Use MongoDB Compass UI to connect to mongoDB at mongodb://localhost:27017"
  
 compose/stop:  ### stop amnd delete all dev containers using the compose file
 	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml down
@@ -81,6 +83,20 @@ kafka/container/logs:  ### Show the logs of the test kafka container
 	$(PODMAN) container logs $(KAFKA_CONTAINER)
 
 MONGODB_CONTAINER ?= mongodb-community-server-local
-mongodb/container/bash:  ### Run a bash shell in the MongoDB container
-	echo 'Use `mongosh --port 2017` or just `mongosh` to open a Mongo shell'
+mongodb/container/bash:  ### Run a bash shell in the MongoDB server container
+	echo 'Use `mongosh --port 27017` or just `mongosh` to open a Mongo shell'
 	$(PODMAN) exec -it $(MONGODB_CONTAINER) bash
+
+#  netstat -tulpn | grep 27017
+# NOTE: should be the same as in "mongodb" service on devenv/compose.yaml
+# NOTE: using host networking to be able to connect to the port exposed to the 
+# host on the compose file
+MONGO_SERVER_IMG := mongodb/mongodb-community-server:7.0.17-rc1-ubi9
+mongoc/container/bash:  ### Run a bash shell a the MongoDB client container
+	echo 'Use `mongosh --port 27017` to open a Mongo shell'
+	echo 'See mounted scripts on /usr/share/mongosh'
+	$(PODMAN) container run --rm -it \
+	--network=host \
+	-v $(ROOT_DIR)/devenv/mongosh:/usr/share/mongosh \
+	 $(MONGO_SERVER_IMG) bash
+
