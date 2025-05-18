@@ -72,7 +72,7 @@ package source {
       with Serializable {
     import LinoleumSrc._
     import messages._
-    import evaluator.TimeUtils.nanosToMs
+    import TimeUtils.nanosToMs
 
     def apply(env: StreamExecutionEnvironment): SpanInfoStream = {
       val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()

@@ -15,14 +15,15 @@ MONGO_PORT=${MONGO_PORT:-27017}
 MONGO_HOST=${MONGO_HOST:-localhost}
 
 echo "Using MONGO_PORT=[${MONGO_PORT}], MONGO_HOST=[${MONGO_HOST}]"
-
+# as mongo sometimes takes a while to connect
+sleep 2
 mongosh --host ${MONGO_HOST} --port ${MONGO_PORT} <<END
 use linoleum
 db.createCollection(
    "evaluatedTraces",
    {
       timeseries: {
-         timeField: "date",
+         timeField: "traceStartDate",
          metaField: "formulaName",
          granularity: "seconds"
       }
@@ -32,3 +33,19 @@ END
 
 echo
 echo "Server initialized with success"
+
+# Example write and query
+#
+# db.evaluatedTraces.insertMany([
+#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:59:00.000Z"), close: 252.47, volume: 55046.00},
+#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:58:00.000Z"), close: 252.93, volume: 44042.00},
+#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:57:00.000Z"), close: 253.61, volume: 40182.00},
+#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:56:00.000Z"), close: 253.63, volume: 27890.00},
+#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:55:00.000Z"), close: 254.03, volume: 40270.00}
+# ])
+#
+# db.evaluatedTraces.find( { formulaName: "MDB" } )
+# db.evaluatedTraces.find({ traceStartDate : {
+#    $gte : ISODate("2021-12-18T15:50:00.000Z"),
+#    $lte : ISODate("2021-12-18T15:56:00.000Z")}
+# });

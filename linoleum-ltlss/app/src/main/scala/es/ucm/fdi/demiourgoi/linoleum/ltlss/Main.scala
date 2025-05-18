@@ -8,6 +8,10 @@ import org.specs2.matcher.MustMatchers._
 import java.time.Duration
 import java.util.function.Supplier
 
+import org.apache.flink.connector.base.DeliveryGuarantee
+import org.apache.flink.connector.mongodb.sink.MongoSink
+import com.mongodb.client.model.InsertOneModel
+
 object Main {
     import source._
     import evaluator._
@@ -46,6 +50,27 @@ object Main {
         val evaluatedSpans = spamEvaluator(spanInfos)
 
         evaluatedSpans.print()
+
+        // FIXME to new LinoleumSink object
+        // FIXME configurable in LinoleumConfig
+        val mongoSink: MongoSink[EvaluatedTrace] = MongoSink.builder[EvaluatedTrace]()
+            .setUri("mongodb://localhost:27017")
+            .setDatabase("linoleum")
+            .setCollection("evaluatedTraces")
+            .setBatchSize(10)
+            .setBatchIntervalMs(1000L)
+            .setMaxRetries(3)
+            .setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
+            .setSerializationSchema(
+                (evaluatedTrace, context) => {
+                    log.info("Writing evaluated trace {} to MongoDB", evaluatedTrace)
+                    new InsertOneModel(evaluatedTrace.toBsonDocument())
+                }
+            )
+            .build()
+
+        evaluatedSpans.sinkTo(mongoSink)
+
         env.execute("hello spans")
 
         log.warn("Ending program")

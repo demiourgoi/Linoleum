@@ -30,13 +30,17 @@ Use the Makefile to launch the local service targets
 # see all targets
 make
 
-# launch a local jaeger service without auth
+# launch local services without auth
+# this resets the previous state of all services
 make compose/start
+
+# Send some traces: this also creates the Kafka topic, otherwise the job fails
+cd ../sim_file_replayer && make run
+
+make run 2>&1 | tee run.log
 
 # delete all containers
 make compose/stop
-
-make run 2>&1 | tee run.log
 ```
 
 and then:
