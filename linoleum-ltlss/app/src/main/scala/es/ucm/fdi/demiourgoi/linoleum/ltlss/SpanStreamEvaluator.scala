@@ -50,6 +50,11 @@ package object formulas {
   /** Formulas use a list of LinoleumEvent ordered by linoleumEventOrdering */
   type Letter = List[LinoleumEvent]
 
+  implicit class LetterOps(self: Letter) {
+    def findMatchingSpan(matching: PartialFunction[LinoleumEvent, SpanInfo]): Option[SpanInfo] =
+      self.collectFirst(matching)
+  }
+
   type TimedLetter = (SscheckTime, Letter)
 
   type SscheckFormula = Formula[Letter]

@@ -49,6 +49,24 @@ and then:
 - See Kafka UI at  http://localhost:9090
 - Install and launch [MongoDB Compass UI](https://www.mongodb.com/try/download/compass), connecting to the URI `mongodb://localhost:27017`.
 
+Note on a remove SSH session with VsCode this works because VsCode auto forwards all the corresponding ports, check the "Ports" section of VsCode to debug potentially missing ports
+
+## Run a simple simulation
+
+```bash
+make compose/start
+
+# one shell
+cd ../maude
+rm -rf json_tmp &&  ./generate.sh 2 json_tmp
+
+# another shell
+cd ../sim_file_replayer
+make run SIM_FILE_PATH=$(pwd)/../maude/json_tmp/trace0.jsonl
+
+make run 2>&1 | tee run.log
+```
+
 ## VsCode
 
 I was able to debug on VsCode with [Gradle support for Metals](https://scalameta.org/metals/docs/build-tools/gradle/).  

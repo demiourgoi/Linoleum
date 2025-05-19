@@ -5,12 +5,14 @@ import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
 // FIXME make specs2 matchers automatically imported in the scope
 // of LinoleumFormula
 import org.specs2.matcher.MustMatchers._
+import org.specs2.matcher.StandardMatchResults.ok
 import java.time.Duration
 import java.util.function.Supplier
 
 import org.apache.flink.connector.base.DeliveryGuarantee
 import org.apache.flink.connector.mongodb.sink.MongoSink
 import com.mongodb.client.model.InsertOneModel
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages.LinoleumSpanInfo
 
 object Main {
     import source._
@@ -22,18 +24,35 @@ object Main {
     // FIXME new trait with both formula supplier and serializable
     // FIXME investigate using an annonymous class for this so Suppliers are invisible and the
     // formula is inline on the instantiation of LinoleumFormula
+
+    /**
+     * Sscheck version of Maude's
+     * 
+     * red modelCheck(init, [] (clientHasTask(task(1)) -> <> dbHasResult(task(1)) )) .
+     * 
+    */
     @SerialVersionUID(1L)
     private class HelloFormula extends Supplier[SscheckFormula] with Serializable { 
         def get(): SscheckFormula = {
-            later { events: Letter =>
-                // FIXME idiomatic: events must contain(beLike{event: LinoleumEvent => event.epochUnixNano > 0 })
-                events.find{_.epochUnixNano < 0} must beSome
-            } during 1
+            val clientHasTaskSpanName = "client-taskId-assigned"
+            val workDoneInDBSpanName = "work-done-db"
+
+            ifMatches[Letter, SpanInfo]{ _.findMatchingSpan{
+                case SpanStart(span) if span.isNamed(clientHasTaskSpanName) => {
+                    log.info("Found span for task assigned for trace id {} and span id {}", span.hexTraceId, span.hexSpanId)
+                    span
+                }
+              }
+            } ==> { taskAssignedSpan =>
+                later { events: Letter =>
+                    events.findMatchingSpan{case SpanEnd(span) if span.isNamed(workDoneInDBSpanName) => span} must beSome
+                } on 10
+            }
         }
     }
 
     def main(args: Array[String]): Unit = {
-        val formula = LinoleumFormula("Hello Linoleum", new HelloFormula())
+        val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
 
         log.warn("Starting program for formula {}", formula)
         val linolenumCfg = LinoleumConfig(localFlinkEnv = true)
