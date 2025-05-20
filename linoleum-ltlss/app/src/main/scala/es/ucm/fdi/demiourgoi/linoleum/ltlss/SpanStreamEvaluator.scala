@@ -23,6 +23,7 @@ import com.google.protobuf.Timestamp
 import org.bson.BsonDocument
 
 package object formulas {
+  import messages._
   sealed trait LinoleumEvent {
     /**
      * Returns UNIX Epoch time in nanoseconds positioning this event on the window
@@ -32,14 +33,20 @@ package object formulas {
     def epochUnixNano: Long
 
     def span: SpanInfo
+
+    def shortToString: String
   }
 
   case class SpanStart(span: SpanInfo) extends LinoleumEvent {
     override def epochUnixNano: Long = span.getSpan.getStartTimeUnixNano
+
+    override def shortToString: String = s"SpanStart($epochUnixNano, ${span.shortToString})"
   }
 
   case class SpanEnd(span: SpanInfo) extends LinoleumEvent {
     override def epochUnixNano: Long = span.getSpan.getEndTimeUnixNano
+  
+    override def shortToString: String = s"SpanEnd($epochUnixNano, ${span.shortToString})"
   }
 
   /** Positions start events based on the span start, and end events
@@ -226,6 +233,7 @@ package evaluator {
       import formulas._
       import messages._
       import TimeUtils._
+      import System.lineSeparator
 
       override def process(
                             key: ByteString,
@@ -291,7 +299,7 @@ package evaluator {
       private[evaluator] def buildLetters(rootSpan: SpanInfo, eventsHeap: PriorityQueue[LinoleumEvent]): Iterator[TimedLetter] = {
         eventsHeap.add(SpanEnd(rootSpan))
         log.debug("Building letters for trace {} with rootSpan {} and eventsHeap {}", 
-          rootSpan.hexTraceId, rootSpan.hexSpanId, eventsHeap)
+          rootSpan.hexTraceId, rootSpan.hexSpanId, eventsHeap.iterator().map{_.shortToString}.mkString(lineSeparator))
         val startEvent = SpanStart(rootSpan)
 
         // traverse starting with startEvent and discarding later events, emitting errors accordingly

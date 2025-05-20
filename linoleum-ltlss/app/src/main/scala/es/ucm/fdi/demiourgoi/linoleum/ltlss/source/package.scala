@@ -159,6 +159,7 @@ package object messages {
      * */
     val isRoot: Boolean = self.getSpan.getParentSpanId.isEmpty
     def isNamed(name: String): Boolean = self.getSpan.getName == name
+    def shortToString = s"(${self.getSpan.getName}, $hexSpanId, $hexTraceId)"
   }
   // From https://stackoverflow.com/questions/2756166/what-is-are-the-scala-ways-to-implement-this-java-byte-to-hex-class
   def byteString2HexString(byteString: ByteString): String =

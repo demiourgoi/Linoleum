@@ -37,17 +37,19 @@ object Main {
             val clientHasTaskSpanName = "client-taskId-assigned"
             val workDoneInDBSpanName = "work-done-db"
 
-            ifMatches[Letter, SpanInfo]{ _.findMatchingSpan{
-                case SpanStart(span) if span.isNamed(clientHasTaskSpanName) => {
-                    log.info("Found span for task assigned for trace id {} and span id {}", span.hexTraceId, span.hexSpanId)
-                    span
+            always {
+                ifMatches[Letter, SpanInfo]{ _.findMatchingSpan{
+                    case SpanStart(span) if span.isNamed(clientHasTaskSpanName) => {
+                        log.info("Found span for assigned task with trace id {} and span id {}", span.hexTraceId, span.hexSpanId)
+                        span
+                    }
+                  }
+                } ==> { taskAssignedSpan =>
+                    later { events: Letter =>
+                        events.findMatchingSpan{case SpanEnd(span) if span.isNamed(workDoneInDBSpanName) => span} must beSome
+                    } on 10
                 }
-              }
-            } ==> { taskAssignedSpan =>
-                later { events: Letter =>
-                    events.findMatchingSpan{case SpanEnd(span) if span.isNamed(workDoneInDBSpanName) => span} must beSome
-                } on 10
-            }
+            } during 5
         }
     }
 
