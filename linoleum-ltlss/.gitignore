@@ -1,6 +1,11 @@
 # Ignore Gradle project-specific cache directory
 .gradle
 
+app/target
+target
+.bloop
+.metals
+
 # Ignore Gradle build output directory
 build
 

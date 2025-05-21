@@ -14,7 +14,6 @@ import source.SpanInfoStream
 
 import com.google.protobuf.ByteString
 import java.time.Duration
-import java.util.PriorityQueue
 import java.util.function.Supplier
 import java.{lang => jlang}
 import java.time.Instant
@@ -242,7 +241,7 @@ package evaluator {
                             out: Collector[EvaluatedTrace]): Unit = {
         // Build letters starting from the root span
         var rootSpanOpt: Option[SpanInfo] = None
-        val eventsHeap = new PriorityQueue[LinoleumEvent](linoleumEventOrdering)
+        val events = new ListBuffer[LinoleumEvent]
         val seenSpans = new util.HashSet[ByteString]()
         val eventFactories = List(SpanStart, SpanEnd)
         spanInfos.forEach { spanInfo =>
@@ -263,9 +262,7 @@ package evaluator {
                 )
 
               case _ =>
-                eventFactories.foreach { createEvent: (SpanInfo => LinoleumEvent) =>
-                  eventsHeap.add(createEvent(spanInfo))
-                }
+                events.addAll(eventFactories.map{_.apply(spanInfo)})
             }
           }
         }
@@ -274,14 +271,14 @@ package evaluator {
           // If the root span is missing then this is a window for a late span not added to the first session,
           // so we just discard this window
           // Per https://opentelemetry.io/docs/concepts/signals/traces/ there is always a single root span on every trace
-          val someEvents = eventsHeap.iterator().take(5).toList
+          val someEvents = events.take(5)
           if (someEvents.nonEmpty) {
             log.warn("Found late window for trace with id {}, skipping events {}, ... ",
               someEvents.head.span.hexTraceId, someEvents.mkString(", "))
           }
         }) { rootSpan =>
           log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
-          val formulaValue = evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, eventsHeap))
+          val formulaValue = evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, events))
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId, rootSpan.getSpan.getStartTimeUnixNano, formula.name, formulaValue)
           log.info(s"Evaluated trace with id {} to {}", rootSpan.hexTraceId, evaluatedTrace)
@@ -294,17 +291,18 @@ package evaluator {
        * tumbling windows of tickPeriod duration. The first letter always starts with `SpanStart(rootSpan)` and
        * events before that are discarded as errors.
        *
-       * Precondition: events for rootSpan are NOT added to eventsHeap
+       * Precondition: events for rootSpan are NOT added to events
        * */
-      private[evaluator] def buildLetters(rootSpan: SpanInfo, eventsHeap: PriorityQueue[LinoleumEvent]): Iterator[TimedLetter] = {
-        eventsHeap.add(SpanEnd(rootSpan))
-        log.debug("Building letters for trace {} with rootSpan {} and eventsHeap {}", 
-          rootSpan.hexTraceId, rootSpan.hexSpanId, eventsHeap.iterator().map{_.shortToString}.mkString(lineSeparator))
+      private[evaluator] def buildLetters(rootSpan: SpanInfo, events: ListBuffer[LinoleumEvent]): Iterator[TimedLetter] = {
+        events.addOne(SpanEnd(rootSpan))
+        val orderedEvents = events.sorted(linoleumEventOrdering).toList
+        log.debug("Building letters for trace {} with rootSpan {} and orderedEvents {}", 
+          rootSpan.hexTraceId, rootSpan.hexSpanId, orderedEvents.map{_.shortToString}.mkString(lineSeparator))
         val startEvent = SpanStart(rootSpan)
 
         // traverse starting with startEvent and discarding later events, emitting errors accordingly
         new Iterator[TimedLetter]() {
-          private val eventsIt = eventsHeap.iterator()
+          private val eventsIt = orderedEvents.iterator
           // Invariant: if this iterator has next then current letter is not empty
           private var currentLetter: ListBuffer[LinoleumEvent] = ListBuffer(startEvent)
 
