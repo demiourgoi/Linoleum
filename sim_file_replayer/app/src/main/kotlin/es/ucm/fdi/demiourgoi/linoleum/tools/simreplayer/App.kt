@@ -339,9 +339,10 @@ class SpanSimFilePlayer(
             }
 
         // Schedule all spans
+        val traceScheduled : MutableList<Future<*>> = mutableListOf()
         val traceReplayErrors = spanTrees.flatMap {
             it.fold({ spanTree ->
-                scheduler.execute{replayTrace(spanTree)}
+                traceScheduled.add(scheduler.submit{replayTrace(spanTree)})
                 emptyList()
             },{ exception ->
                 listOf(exception)
@@ -350,6 +351,7 @@ class SpanSimFilePlayer(
         if (traceReplayErrors.isNotEmpty()) {
             return Result.failure(SpanErrorsException(traceReplayErrors))
         }
+        traceScheduled.forEach{it.get(timeout.toMillis()/traceScheduled.size, TimeUnit.MILLISECONDS)}
 
         // Wait for all spans to complete
         runCatching {
