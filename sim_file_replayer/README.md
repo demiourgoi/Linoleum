@@ -23,6 +23,24 @@ Basic gradle targets
 
 Gradle build is configured in `app/build.gradle.kts` and `settings.gradle.kts`
 
+VsCode setup
+
+- Install a JDK higher than 20, and locate if. For Ubuntu you can use `update-alternatives --list java`
+- Add the following to .vscode/settings.json:
+
+```json
+{
+    "kotlin.compiler.jvm.target": "20",
+    "java.configuration.runtimes": [
+        // adjust this to your JDK version
+        {
+           "name": "JavaSE-21",
+           "path": "/usr/lib/jvm/java-21-openjdk-amd64"
+        }
+    ],
+}
+```
+
 ## How to run a simulation
 
 `./gradlew run` __runs a simulation__, taking its _parameters_ from the following _environment variables:
