@@ -240,6 +240,27 @@ package evaluator {
                             spanInfos: jlang.Iterable[SpanInfo],
                             out: Collector[EvaluatedTrace]): Unit = {
         // Build letters starting from the root span
+        val (rootSpanOpt, events) = collectLinoleumEvents(spanInfos)
+        rootSpanOpt.fold({
+          // If the root span is missing then this is a window for a late span not added to the first session,
+          // so we just discard this window
+          // Per https://opentelemetry.io/docs/concepts/signals/traces/ there is always a single root span on every trace
+          val someEvents = events.take(5)
+          if (someEvents.nonEmpty) {
+            log.warn("Found late window for trace with id {}, skipping events {}, ... ",
+              someEvents.head.span.hexTraceId, someEvents.mkString(", "))
+          }
+        }) { rootSpan =>
+          log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
+          val formulaValue = evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, events))
+          val evaluatedTrace = EvaluatedTrace(
+            rootSpan.hexTraceId, rootSpan.getSpan.getStartTimeUnixNano, formula.name, formulaValue)
+          log.info(s"Evaluated trace with id {} to {}", rootSpan.hexTraceId, evaluatedTrace)
+          out.collect(evaluatedTrace)
+        }
+      }
+
+      private[evaluator] def collectLinoleumEvents(spanInfos: jlang.Iterable[SpanInfo]): (Option[SpanInfo], ListBuffer[LinoleumEvent]) = {
         var rootSpanOpt: Option[SpanInfo] = None
         val events = new ListBuffer[LinoleumEvent]
         val seenSpans = new util.HashSet[ByteString]()
@@ -267,23 +288,7 @@ package evaluator {
           }
         }
 
-        rootSpanOpt.fold({
-          // If the root span is missing then this is a window for a late span not added to the first session,
-          // so we just discard this window
-          // Per https://opentelemetry.io/docs/concepts/signals/traces/ there is always a single root span on every trace
-          val someEvents = events.take(5)
-          if (someEvents.nonEmpty) {
-            log.warn("Found late window for trace with id {}, skipping events {}, ... ",
-              someEvents.head.span.hexTraceId, someEvents.mkString(", "))
-          }
-        }) { rootSpan =>
-          log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
-          val formulaValue = evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, events))
-          val evaluatedTrace = EvaluatedTrace(
-            rootSpan.hexTraceId, rootSpan.getSpan.getStartTimeUnixNano, formula.name, formulaValue)
-          log.info(s"Evaluated trace with id {} to {}", rootSpan.hexTraceId, evaluatedTrace)
-          out.collect(evaluatedTrace)
-        }
+        (rootSpanOpt, events)
       }
 
       /**
