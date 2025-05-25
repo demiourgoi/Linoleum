@@ -58,12 +58,18 @@ make compose/start
 
 # one shell
 cd ../maude
-rm -rf json_tmp &&  ./generate.sh 2 json_tmp
+rm -rf json_tmp &&  ./generate.sh 10 json_tmp
 
 # another shell
 cd ../sim_file_replayer
-make run SIM_FILE_PATH=$(pwd)/../maude/json_tmp/trace0.jsonl
+## make run SIM_FILE_PATH=$(pwd)/../maude/json_tmp/trace0.jsonl
+make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 
+# NOTE: will fail if the source Kafka topic it's not created. The OTEL collector
+#       creates the topic on the first replay
+# NOTE: for small trace batches (e.g. 10) we have to run the replayer twice to
+#       get a second Kafka message with the batch of topic, so Linoleum actually
+#       evaluates the first batch. This could be improved tunning the Flink job parameters
 make run 2>&1 | tee run.log
 ```
 
