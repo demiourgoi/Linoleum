@@ -341,7 +341,7 @@ class SpanSimFilePlayer(
         // Schedule all spans
         val traceReplayErrors = spanTrees.flatMap {
             it.fold({ spanTree ->
-                replayTrace(spanTree)
+                scheduler.execute{replayTrace(spanTree)}
                 emptyList()
             },{ exception ->
                 listOf(exception)
