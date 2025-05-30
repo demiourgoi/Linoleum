@@ -60,3 +60,30 @@ Also, the replayer goes ahead for spans that are starting too late, scheduling t
 ## Design
 
 This commands sends data directly to an OTEL tracing endpoint, and does not rely on any variant the OTEL collector. This is because this is a development and simulation tool, not intended for production usage, so a simpler setup is more convenient (at least until we find a limitation on this approach).
+
+## References
+
+- Kotlin
+  - [Kotlin in Action, 2E](https://livebook.manning.com/book/kotlin-in-action-second-edition)
+  - [Quick reference](https://kotlin-quick-reference.com/)
+  - [Gradle for Kotlin](https://kotlinlang.org/docs/gradle.html)
+  - [Coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
+  - [KDoc](https://kotlinlang.org/docs/kotlin-doc.html)
+  - [Klint](https://www.baeldung.com/kotlin/ktlint-code-formatting)
+  - Serialization
+    - [High level guide](https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json)
+    - [Low level details](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/serializers.md): the plugin mentioned on the high level guide is what generates serilizer implemenations for classes marked as `Serializable`
+    - [High level details](https://github.com/Kotlin/kotlinx.serialization/blob/master/docs/basic-serialization.md#basics)
+    - [ContextualSerializer](https://kotlinlang.org/api/kotlinx.serialization/kotlinx-serialization-core/kotlinx.serialization/-contextual-serializer/): a mechanism for using custom serialization for specific fields and combine it with the serializer implemented by the plugin. E.g. when using a type defiend in another library.
+  - [Properties](https://kotlinlang.org/docs/properties.html): "In Kotlin, a field is only used as a part of a property to hold its value in memory. __Fields cannot be declared directly__. However, when a property needs a _backing field_, Kotlin provides it automatically. This backing field can be referenced in the accessors using the `field` identifier". Nevertheless, a `private` class property (declared either as constructor params or in the constructor body) doesn't get public gettters and setters generated
+  - Logging
+    - [Idiomatic way of logging in Kotlin](https://stackoverflow.com/questions/34416869/idiomatic-way-of-logging-in-kotlin)
+    - [java.util.logging](https://docs.oracle.com/javase/8/docs/api/java/util/logging/package-summary.html)
+  - [Sequences](https://kotlinlang.org/api/core/kotlin-stdlib/kotlin.sequences/-sequence/): [analogous to Java 8 streams](https://www.baeldung.com/kotlin/java-8-stream-vs-kotlin), seem closer to Scala streams but dependencing on the implementation may only be iterated once.
+  - Testing
+    - [kotlin-test](https://kotlinlang.org/api/core/kotlin-test/), included in the standard library, has integration with standard Java test frameworks
+    - [Kotest](https://kotest.io/) is an a test framework with PBT capabilities, an assertion library, and several testing styles including BDD and data driven testing
+      - [Kotest IntelliJ plugin](https://kotest.io/docs/intellij/intellij-plugin.html)
+        - Until https://github.com/kotest/kotest/issues/4261 is solved this only works when [disabling K2 Kotlin compiler mode on IntelliJ](https://blog.jetbrains.com/idea/2024/03/k2-kotlin-mode-alpha-in-intellij-idea/)
+      - [Baeldung examples](https://github.com/Baeldung/kotlin-tutorials/tree/master/kotlin-kotest)
+    - [jqwik](https://jqwik.net/) is a Property-Based Testing (PBT) for the JVM, targeting Kotlin among others
