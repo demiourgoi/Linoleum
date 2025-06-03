@@ -155,7 +155,7 @@ class SpanSimFilePlayer(
                 thread
             }
         }
-        private val MAX_SCHEDULE_DELAY_LATENESS = Duration.ofMillis(200)
+        private val MAX_SCHEDULE_DELAY_LATENESS = Duration.ofMillis(500)
     }
     /**
      * Replay a json lines file with a SimSpan per line.

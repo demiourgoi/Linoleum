@@ -73,6 +73,42 @@ make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 make run 2>&1 | tee run.log
 ```
 
+### Simple local benchmarking
+
+A _crude_ local benchmarking can be run as follows. 
+
+The sim file replayer [doesn't scale well](https://github.com/demiourgoi/Linoleum/issues/7), so we cannot replay more than 100 sim files at once. So here we replay 100 sim files with 12 spans each 10 times, and then launch Linoleum, that starts from the start of the Kafka topic and catches up. Note after a new `make compose/start` the Kafka topic for the spans it's missing, until the replayer sends some traces and the OTEL collector creates it, only then we can launch Linoleum ---otherwise the Flink job will fail due to an error connecting to the Kafka source. 
+
+
+```bash
+# generate 100 sim files
+cd ../maude
+rm -rf json_tmp &&  ./generate.sh 100 json_tmp_100
+
+# replay the 100 sim files 10 times
+cd ../sim_file_replayer
+for i in $(seq 10)
+do
+  echo "Replaying file $i"
+  MAX_THREAD_POOL_SIZE=10000 SIM_FILE_DIR_PATH=$(pwd)/../../../../maude/json_tmp_100 ./app/bin/app 2>&1 > "replay_$i.log" 
+done
+## ensure there are no replay errors
+grep xcept replay_*
+
+make run 2>&1 | tee run_1000.log
+```
+
+Note this only processes 900 traces due to the windowing configuration we have in Flink.  
+With Flink local mode on an AMD Ryzen Embedded V1605B 3.6 GHz with 4 cores and 16 GB RAM, Linoleum processes 900 traces in 5 seconds (substracting the Flink job setup time).
+
+```bash
+09:50:17,343 WARN  es.ucm.fdi.demiourgoi.linoleum.ltlss.Main$                   [] - Starting program for formula LinoleumFormula(Luego basic liveness,es.ucm.fdi.demiourgoi.linoleum.ltlss.Main$HelloFormula@1139b2f3)
+09:50:17,431 WARN  es.ucm.fdi.demiourgoi.linoleum.ltlss.source.LinoleumSrc$     [] - Open Flink web UI at http://localhost:8081/#/overview
+09:50:23,382 DEBUG es.ucm.fdi.demiourgoi.linoleum.ltlss.source.ExportTraceServiceRequestProtoDeserializer$ [] - Parsed request with 1 spans
+...
+09:50:28,760 INFO  es.ucm.fdi.demiourgoi.linoleum.ltlss.Main$                   [] - Writing evaluated trace EvaluatedTrace(1a164375b7463f1e8ddfe4a55e01cb5d,1748677780405407993,Luego basic liveness,True) to MongoDB
+```
+
 ## VsCode
 
 I was able to debug on VsCode with [Gradle support for Metals](https://scalameta.org/metals/docs/build-tools/gradle/).  
