@@ -2,7 +2,8 @@
 
 ## One time setup
 
-Install a JDK.
+Install a JDK 11 or higher.  
+Regarding IDEs, I've only been able to debug the tests with IntelliJ, after installing the "Kotest" plugin.
 
 ## Development
 
