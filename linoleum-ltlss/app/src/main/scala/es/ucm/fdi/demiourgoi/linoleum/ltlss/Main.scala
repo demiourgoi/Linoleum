@@ -5,7 +5,6 @@ import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
 // FIXME make specs2 matchers automatically imported in the scope
 // of LinoleumFormula
 import org.specs2.matcher.MustMatchers._
-import org.specs2.matcher.StandardMatchResults.ok
 import java.time.Duration
 import java.util.function.Supplier
 
@@ -85,7 +84,7 @@ object Main {
             .setSerializationSchema(
                 (evaluatedTrace, context) => {
                     log.info("Writing evaluated trace {} to MongoDB", evaluatedTrace)
-                    new InsertOneModel(evaluatedTrace.toBsonDocument())
+                    new InsertOneModel(evaluatedTrace.toBsonDocument)
                 }
             )
             .build()

@@ -158,6 +158,7 @@ package object messages {
      * must be empty"
      * */
     val isRoot: Boolean = self.getSpan.getParentSpanId.isEmpty
+    val spanId: String = self.getSpan().getSpanId().toStringUtf8()
     def isNamed(name: String): Boolean = self.getSpan.getName == name
     def shortToString = s"(${self.getSpan.getName}, $hexSpanId, $hexTraceId)"
   }

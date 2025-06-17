@@ -141,7 +141,7 @@ case class EvaluatedTrace(
    * is reevaluated then it would have more than 1 document in the target database and collection. This field
    * evaluationDate can be used to distinguish evaluations, and do things like only querying the latest evaluations.
    * */
-  def toBsonDocument(): BsonDocument = {
+  def toBsonDocument: BsonDocument = {
     /*
     https://www.mongodb.com/docs/drivers/java/sync/v4.5/fundamentals/data-formats/documents/#bsondocument
     shows BsonDateTime takes epoch millis
@@ -170,6 +170,7 @@ package evaluator {
 
   import java.util
   import scala.collection.mutable.ListBuffer
+  import scala.util.Failure
 
   /**
    * @param tickPeriod      - The size of the tumbling windows we use to split the sequence of span events.
@@ -216,15 +217,28 @@ package evaluator {
       traceStream
         .window(EventTimeSessionWindows.withGap(params.sessionGap))
         .allowedLateness(params.allowedLateness)
-        .process(new ProcessWindow[TimeWindow](params.formula, params.tickPeriod))
+        .process(processWindow)
     }
+
+    private[evaluator] def processWindow = new ProcessWindow[TimeWindow](params.formula, params.tickPeriod)
   }
 
-  private object SpanStreamEvaluator {
+  object SpanStreamEvaluator {
     private val log = LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
 
+    object EventCollectionMultipleRootSpansError {
+      import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages._
+
+      def message(rootSpanInfo: SpanInfo, spanInfo: SpanInfo) = 
+        s"Multiple root spans found for trace with id ${rootSpanInfo.hexTraceId}: $rootSpanInfo, $spanInfo"
+    }
+    class EventCollectionMultipleRootSpansError(rootSpanInfo: SpanInfo, spanInfo: SpanInfo) 
+      extends EventCollectionError(EventCollectionMultipleRootSpansError.message(rootSpanInfo, spanInfo))
+
+    class EventCollectionError(message: String) extends Exception(message)
+
     @SerialVersionUID(1L)
-    private class ProcessWindow[W <: TimeWindow](
+    private[evaluator] class ProcessWindow[W <: TimeWindow](
         private val formula: formulas.LinoleumFormula,
         private val tickPeriod: Duration)
       extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
@@ -240,7 +254,10 @@ package evaluator {
                             spanInfos: jlang.Iterable[SpanInfo],
                             out: Collector[EvaluatedTrace]): Unit = {
         // Build letters starting from the root span
-        val (rootSpanOpt, events) = collectLinoleumEvents(spanInfos)
+        val (rootSpanOpt, events, failures) = collectLinoleumEvents(spanInfos)
+        // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
+        failures.foreach{t => log.error(t.exception.getMessage())}
+
         rootSpanOpt.fold({
           // If the root span is missing then this is a window for a late span not added to the first session,
           // so we just discard this window
@@ -260,7 +277,8 @@ package evaluator {
         }
       }
 
-      private[evaluator] def collectLinoleumEvents(spanInfos: jlang.Iterable[SpanInfo]): (Option[SpanInfo], ListBuffer[LinoleumEvent]) = {
+      private[evaluator] def collectLinoleumEvents(spanInfos: jlang.Iterable[SpanInfo]): (Option[SpanInfo], ListBuffer[LinoleumEvent], List[Failure[LinoleumEvent]]) = {
+        val failures = new ListBuffer[Failure[LinoleumEvent]]
         var rootSpanOpt: Option[SpanInfo] = None
         val events = new ListBuffer[LinoleumEvent]
         val seenSpans = new util.HashSet[ByteString]()
@@ -277,10 +295,7 @@ package evaluator {
                 rootSpanOpt = Some(spanInfo)
 
               case (true, Some(rootSpanInfo)) =>
-                // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
-                log.error("Multiple root spans found for trace with id {}: {}, {}",
-                  rootSpanInfo.hexTraceId, rootSpanInfo, spanInfo
-                )
+                failures.addOne(Failure(new EventCollectionMultipleRootSpansError(rootSpanInfo, spanInfo)))
 
               case _ =>
                 events.addAll(eventFactories.map{_.apply(spanInfo)})
@@ -288,7 +303,7 @@ package evaluator {
           }
         }
 
-        (rootSpanOpt, events)
+        (rootSpanOpt, events, failures.toList)
       }
 
       /**
