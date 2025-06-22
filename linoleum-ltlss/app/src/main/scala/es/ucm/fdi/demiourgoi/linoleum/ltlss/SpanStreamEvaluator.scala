@@ -97,9 +97,11 @@ case object False extends FormulaValue with Serializable
 case object Undecided extends FormulaValue with Serializable
 
 object TimeUtils {
-  private val million = pow(10, 6)
+  val million = pow(10, 6)
 
   def nanosToMs(nanos: Long): Long = (nanos / million).longValue
+
+  def msToNanos(ms: Long): Long = ms * million.longValue
 
   def instantToTimestamp(instant: Instant): Timestamp =
     Timestamp.newBuilder()
@@ -315,56 +317,32 @@ package evaluator {
        * */
       private[evaluator] def buildLetters(rootSpan: SpanInfo, events: ListBuffer[LinoleumEvent]): Iterator[TimedLetter] = {
         events.addOne(SpanEnd(rootSpan))
-        val orderedEvents = events.sorted(linoleumEventOrdering).toList
+        val startEvent = SpanStart(rootSpan)
+        val eventsOnTime = events.flatMap{event =>
+          if (event.epochUnixNano < startEvent.epochUnixNano) {
+            // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
+            log.error("Dropping event {} happening before root letter start {}", event, startEvent.epochUnixNano)
+           List.empty
+          } else List(event)
+        }
+
+        val orderedEvents = startEvent :: eventsOnTime.sorted(linoleumEventOrdering).toList
         log.debug("Building letters for trace {} with rootSpan {} and orderedEvents {}", 
           rootSpan.hexTraceId, rootSpan.hexSpanId, orderedEvents.map{_.shortToString}.mkString(lineSeparator))
-        val startEvent = SpanStart(rootSpan)
 
-        // traverse starting with startEvent and discarding later events, emitting errors accordingly
-        new Iterator[TimedLetter]() {
-          private val eventsIt = orderedEvents.iterator
-          // Invariant: if this iterator has next then current letter is not empty
-          private var currentLetter: ListBuffer[LinoleumEvent] = ListBuffer(startEvent)
-
-          private def letterToTimedLetter(letter: Letter): TimedLetter = {
-            val letterTime = SscheckTime(nanosToMs(letter.head.epochUnixNano))
-            (letterTime, letter)
+        val startTimestampNanos = startEvent.epochUnixNano
+        val endTimestampNanos = orderedEvents.last.epochUnixNano
+        def tumblingWindowIndex(timestampNanos: Long): Int = {
+          val timeOffset = timestampNanos - startTimestampNanos
+          (timeOffset / tickPeriod.toNanos()).toInt
+        }
+        val endingWindowIndex = tumblingWindowIndex(endTimestampNanos)
+        Iterator.range(0, endingWindowIndex+1).map{ windowIndex =>
+          val windowEvents = orderedEvents.filter{event => 
+              tumblingWindowIndex(event.epochUnixNano) == windowIndex
           }
-
-          private def flushCurrentLetter(eventOpt: Option[LinoleumEvent]): TimedLetter = {
-            val nextLetter = currentLetter.toList
-            currentLetter = eventOpt.fold[ListBuffer[LinoleumEvent]](ListBuffer.empty) {
-              ListBuffer(_)
-            }
-            letterToTimedLetter(nextLetter)
-          }
-
-          override def hasNext: Boolean = eventsIt.hasNext || currentLetter.nonEmpty
-
-          override def next(): TimedLetter = {
-            for (event <- eventsIt) {
-              val eventOffset = event.epochUnixNano - currentLetter.head.epochUnixNano
-              val (eventIsLate, isLetterComplete) = (eventOffset < 0, eventOffset >= tickPeriod.toNanos)
-              (eventIsLate, isLetterComplete) match {
-                case (true, _) =>
-                  // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
-                  log.error("Dropping event {} happening before root letter start {}", event, currentLetter.head)
-
-                case (false, true) =>
-                  return flushCurrentLetter(Some(event))
-
-                case (false, false) =>
-                  currentLetter.addOne(event)
-              }
-            }
-
-            if (currentLetter.nonEmpty) {
-              // cleanup last letter
-              return flushCurrentLetter(None)
-            }
-
-            throw new NoSuchElementException()
-          }
+          val letterTime = SscheckTime(nanosToMs(startTimestampNanos + windowIndex * tickPeriod.toNanos()))
+          (letterTime, windowEvents)
         }
       }
 
