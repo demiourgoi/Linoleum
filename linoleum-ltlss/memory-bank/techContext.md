@@ -35,3 +35,6 @@ Example configuration
 - **Testing**:
   - Specs2
   - Docker compose for integration tests
+- **Testing Infrastructure**:
+  - Maude 3.2+ for model-based trace generation
+  - Specs2 testing framework integration

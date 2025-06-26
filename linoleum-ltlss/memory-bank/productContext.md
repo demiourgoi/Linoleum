@@ -21,3 +21,7 @@
 - Verifying eventual consistency in distributed databases
 - Detecting workflow violations in microservice architectures
 - Monitoring SLAs in asynchronous processing systems
+
+## Unique Capabilities
+- Model-based testing using formal specifications
+- Trace validation at production scale

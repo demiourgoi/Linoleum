@@ -14,6 +14,8 @@
    - Setting up integration tests
    - Improving error recovery
    - Adding metrics collection
+   - Integrating Maude-generated traces into test pipeline
+   - Validating Flink checkpointing with synthetic load
 
 3. **Tech debt**:
    - Redo protobuf generation to be able to upgrade the JDK

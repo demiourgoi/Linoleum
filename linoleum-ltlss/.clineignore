@@ -11,3 +11,6 @@ docs/
 # generated code
 app/src/main/java/io/
 app/src/main/java/es/ucm/fdi/demiourgoi/linoleum/ltlss/
+
+# Dev notes on using the memory bank
+memory-bank/README.md

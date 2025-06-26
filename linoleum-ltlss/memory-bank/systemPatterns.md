@@ -32,4 +32,9 @@ graph TD
 - **State Management**: Flink's window keyed by trace id for trace assembly
 - **Fault Tolerance**: Flink mechanisms using checkpointing and replay based on Kafka offsets
 - **Scalability**: Partitioned processing by trace ID
-- **Testing**: Maude model-based test generation
+
+## Testing Architecture
+### Model-Based Trace Generation
+- Maude specification of expected system behavior
+- Randomized trace simulation using rewriting logic
+- Validation against LTLss properties in Linoleum

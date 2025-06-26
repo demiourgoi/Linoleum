@@ -8,8 +8,8 @@
 
 ## In Progress
 🛠 Refactoring Main.scala into library components  
-🛠 Integration test setup  
-🛠 Protobuf generation updates  
+🛠 Integration test setup with Maude-generated traces  
+🛠 Protobuf generation updates
 
 ## Known Issues
 ⚠️ JDK version constraints due to protobuf generation  
