@@ -71,25 +71,9 @@ object Main {
 
         evaluatedSpans.print()
 
-        // FIXME to new LinoleumSink object
-        // FIXME configurable in LinoleumConfig
-        val mongoSink: MongoSink[EvaluatedTrace] = MongoSink.builder[EvaluatedTrace]()
-            .setUri("mongodb://localhost:27017")
-            .setDatabase("linoleum")
-            .setCollection("evaluatedTraces")
-            .setBatchSize(10)
-            .setBatchIntervalMs(1000L)
-            .setMaxRetries(3)
-            .setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
-            .setSerializationSchema(
-                (evaluatedTrace, context) => {
-                    log.info("Writing evaluated trace {} to MongoDB", evaluatedTrace)
-                    new InsertOneModel(evaluatedTrace.toBsonDocument)
-                }
-            )
-            .build()
-
-        evaluatedSpans.sinkTo(mongoSink)
+        import sink.LinoleumSink
+        val linoleumSink = new LinoleumSink(linolenumCfg)
+        linoleumSink(evaluatedSpans)
 
         env.execute("hello spans")
 

@@ -5,6 +5,9 @@
 - Implemented basic span processing pipeline
 - Set up Flink job skeleton
 - Created MongoDB connection handler
+- Refactored MongoDB sink into LinoleumSink class
+- Added MongoDB configuration to LinoleumConfig
+- Updated serialization for EvaluatedTrace
 
 ## Ongoing Work
 1. **Refactoring**:
@@ -22,5 +25,4 @@
 
 ## Key Decisions Pending
 - New trait for SscheckFormula suppliers
-- Move sink code in Main.scala to a new object LinoleumSrc
 - Serialize LinoleumConfig to YAML or JSON, e.g. from a protobuf schema

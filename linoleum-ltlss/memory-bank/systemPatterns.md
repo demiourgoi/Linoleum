@@ -32,6 +32,7 @@ graph TD
 - **State Management**: Flink's window keyed by trace id for trace assembly
 - **Fault Tolerance**: Flink mechanisms using checkpointing and replay based on Kafka offsets
 - **Scalability**: Partitioned processing by trace ID
+- **Sink Pattern**: MongoDB sink with configurable batch settings and delivery guarantees
 
 ## Testing Architecture
 ### Model-Based Trace Generation

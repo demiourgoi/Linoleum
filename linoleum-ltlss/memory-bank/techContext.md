@@ -29,6 +29,12 @@ Example configuration
 - **MongoDB**:
   - Connection pool: 10
   - Write concern: "acknowledged"
+  - Sink configuration:
+    - Batch size: 10
+    - Batch interval: 1000ms
+    - Max retries: 3
+    - Delivery guarantee: AT_LEAST_ONCE
+    - Configurable via LinoleumConfig
 
 ## Development Environment
 - **Build Tool**: Gradle
