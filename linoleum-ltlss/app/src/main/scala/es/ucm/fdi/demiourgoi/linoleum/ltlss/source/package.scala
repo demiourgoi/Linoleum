@@ -65,7 +65,6 @@ package source {
         List(
           s"io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: $protoSerdeOption",
           s"es.ucm.fdi.demiourgoi.linoleum.ltlss.SpanInfo: $protoSerdeOption",
-          s"es.ucm.fdi.demiourgoi.linoleum.ltlss.EvaluatedTrace: $protoSerdeOption",
         ).asJava
       )
       config
