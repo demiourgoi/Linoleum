@@ -4,8 +4,10 @@ import org.apache.flink.connector.mongodb.sink.MongoSink
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.connector.base.DeliveryGuarantee
 import com.mongodb.client.model.InsertOneModel
-import source.LinoleumConfig
+
 import org.slf4j.LoggerFactory
+
+import config.LinoleumConfig
 
 package object sink {
   type EvaluatedTraceSink = MongoSink[EvaluatedTrace]

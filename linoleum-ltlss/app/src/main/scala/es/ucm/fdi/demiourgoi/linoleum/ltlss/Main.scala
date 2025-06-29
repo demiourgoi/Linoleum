@@ -15,6 +15,7 @@ import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages.LinoleumSpanInfo
 
 object Main {
     import source._
+    import config._
     import evaluator._
     import formulas._
 

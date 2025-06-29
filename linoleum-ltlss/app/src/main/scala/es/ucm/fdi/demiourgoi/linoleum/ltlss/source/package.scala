@@ -6,41 +6,27 @@ import org.apache.flink.api.common.serialization.DeserializationSchema
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.slf4j.LoggerFactory
-import java.{util=>jutil}
+
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.connector.kafka.source.KafkaSource
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer
 import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.eventtime.SerializableTimestampAssigner
-
 import  org.apache.flink.util.Collector
+import org.apache.flink.configuration.{Configuration, PipelineOptions}
+
+import java.{util=>jutil}
+import java.time.Duration
+
 import scala.jdk.CollectionConverters._
+
+import config.LinoleumConfig
 
 package object source {
   type SpanInfoStream = DataStream[SpanInfo]
 }
 package source {
-
-  import org.apache.flink.configuration.{Configuration, PipelineOptions}
-
-  import java.time.Duration
-
-  // TODO fields and YAML serde
-  case class LinoleumConfig(
-    localFlinkEnv: Boolean,
-    kafkaBootstrapServers: String = "localhost:9092",
-    kafkaTopics: String = "otlp_spans",
-    kafkaGroupIdPrefix: String = "linolenum-cg",
-    eventsMaxOutOfOrderness: Duration = Duration.ofMillis(500),
-    mongoUri: String = "mongodb://localhost:27017",
-    mongoDatabase: String = "linoleum",
-    mongoCollection: String = "evaluatedTraces",
-    mongoBatchSize: Int = 10,
-    mongoBatchIntervalMs: Long = 1000L,
-    mongoMaxRetries: Int = 3
-  )
-
   object LinoleumSrc {
     private val log = LoggerFactory.getLogger(LinoleumSrc.getClass.getName)
     private val protoSerdeOption = "{type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
