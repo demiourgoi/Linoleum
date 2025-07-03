@@ -1,22 +1,12 @@
 package es.ucm.fdi.demiourgoi.linoleum.ltlss
 
-import org.slf4j.LoggerFactory
-import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
-// FIXME make specs2 matchers automatically imported in the scope
-// of LinoleumFormula
-import org.specs2.matcher.MustMatchers._
 import java.time.Duration
-
-import org.apache.flink.connector.base.DeliveryGuarantee
-import org.apache.flink.connector.mongodb.sink.MongoSink
-import com.mongodb.client.model.InsertOneModel
-import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages.LinoleumSpanInfo
+import org.slf4j.LoggerFactory
 
 object Main {
-    import source._
     import config._
-    import evaluator._
     import formulas._
+    import messages._
 
     private val log = LoggerFactory.getLogger(Main.getClass.getName)
 
@@ -28,6 +18,9 @@ object Main {
     */
     @SerialVersionUID(1L)
     private class HelloFormula extends SscheckFormulaSupplier with Serializable {
+        import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
+        import org.specs2.matcher.MustMatchers._
+
         def apply() = {
             val clientHasTaskSpanName = "client-taskId-assigned"
             val workDoneInDBSpanName = "work-done-db"
@@ -50,29 +43,16 @@ object Main {
 
     def main(args: Array[String]): Unit = {
         val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
-        log.warn("Starting program for formula {}", formula)
-        val linolenumCfg = LinoleumConfig(
-            localFlinkEnv = true,
+        val cfg = LinoleumConfig(
+            jobName = "hello spans", localFlinkEnv = true,
             evaluation = EvaluationConfig(
                 tickPeriod=Duration.ofMillis(100), sessionGap=Duration.ofSeconds(1)
             )    
         )
-        val env = LinoleumSrc.flinkEnv(linolenumCfg)
-        val linoleumSrc = new LinoleumSrc(linolenumCfg)
-        val spanInfos = linoleumSrc(env)
 
-        val spamEvaluator = new SpanStreamEvaluator(
-            SpanStreamEvaluatorParams(linolenumCfg, formula=formula)
-        )
-        val evaluatedSpans = spamEvaluator(spanInfos)
+        log.warn("Evaluating traces for formula {}", formula)
 
-        evaluatedSpans.print()
-
-        import sink.LinoleumSink
-        val linoleumSink = new LinoleumSink(linolenumCfg)
-        linoleumSink(evaluatedSpans)
-
-        env.execute("hello spans")
+        LinoleumLtlss.execute(cfg)(formula)
 
         log.warn("Ending program")
     }

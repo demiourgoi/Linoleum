@@ -32,6 +32,7 @@ package object config {
 
 
   case class LinoleumConfig(
+    jobName: String,
     localFlinkEnv: Boolean,
     evaluation: EvaluationConfig,
     source: SourceConfig = SourceConfig(),

@@ -142,6 +142,12 @@ package source {
 }
 
 package object messages {
+  /**
+   * Utils on top of SpanInfo. 
+   * See proto definition for SpanInfo at 
+   * https://github.com/demiourgoi/jaeger-idl/blob/linoleum-ltlss-idl/proto/linoleum-ltlss/tracing.proto
+   * 
+   */
   implicit class LinoleumSpanInfo(self: SpanInfo) {
     val hexTraceId: String = byteString2HexString(self.getSpan.getTraceId)
     val hexSpanId: String = byteString2HexString(self.getSpan.getSpanId)

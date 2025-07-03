@@ -33,7 +33,7 @@ class SpanStreamEvaluatorTest
       }
       val evaluatorParams = SpanStreamEvaluatorParams(
         LinoleumConfig(
-          localFlinkEnv = true,
+          jobName = "test", localFlinkEnv = true,
           evaluation = EvaluationConfig(
             tickPeriod=Duration.ofMillis(10), sessionGap=Duration.ofSeconds(1)
           )    

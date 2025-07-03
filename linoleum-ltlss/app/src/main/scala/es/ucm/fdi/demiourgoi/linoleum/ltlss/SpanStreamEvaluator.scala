@@ -5,6 +5,7 @@ import org.scalacheck.Prop
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 
 import org.slf4j.LoggerFactory
 
@@ -19,6 +20,38 @@ import java.time.Instant
 import com.google.protobuf.Timestamp
 
 import org.bson.BsonDocument
+
+object LinoleumLtlss {
+  import config._
+  import source._
+  import sink._
+  import evaluator._
+  import formulas._
+  
+  def execute(cfg: LinoleumConfig)(formula: LinoleumFormula): Unit = {
+    setupFlinkJob(cfg, formula).execute(cfg.jobName)
+  }
+
+  private[ltlss] def setupFlinkJob(
+      linolenumCfg: LinoleumConfig, formula: LinoleumFormula
+    ): StreamExecutionEnvironment  ={
+    val env = LinoleumSrc.flinkEnv(linolenumCfg)
+    val linoleumSrc = new LinoleumSrc(linolenumCfg)
+    val spanInfos = linoleumSrc(env)
+
+    val spamEvaluator = new SpanStreamEvaluator(
+        SpanStreamEvaluatorParams(linolenumCfg, formula=formula)
+    )
+    val evaluatedSpans = spamEvaluator(spanInfos)
+
+    evaluatedSpans.print()
+
+    val linoleumSink = new LinoleumSink(linolenumCfg)
+    linoleumSink(evaluatedSpans)
+
+    env
+  }
+}
 
 package object formulas {
   import messages._
