@@ -214,6 +214,14 @@ package evaluator {
   import scala.collection.mutable.ListBuffer
   import scala.util.Failure
 
+  object SpanStreamEvaluatorParams {
+    def apply(cfg: config.LinoleumConfig, formula: formulas.LinoleumFormula): SpanStreamEvaluatorParams = {
+      val evalCfg = cfg.evaluation
+      SpanStreamEvaluatorParams(formula, 
+        evalCfg.tickPeriod, evalCfg.sessionGap, evalCfg.allowedLateness)
+    }
+        
+  }
   /**
    * @param tickPeriod      - The size of the tumbling windows we use to split the sequence of span events.
    * @param sessionGap      - When the formula doesn't have a defined safe world length, this is how much we wait for a new
@@ -228,7 +236,7 @@ package evaluator {
                                         formula: formulas.LinoleumFormula,
                                         tickPeriod: Duration,
                                         sessionGap: Duration,
-                                        allowedLateness: Duration = Duration.ofMillis(0))
+                                        allowedLateness: Duration)
 
   /**
    * For each span in a trace we emit a SpanStart and SpanEnd event, and order all the events using the

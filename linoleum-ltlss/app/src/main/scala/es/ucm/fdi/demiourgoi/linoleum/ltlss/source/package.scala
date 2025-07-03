@@ -67,24 +67,26 @@ package source {
     import TimeUtils.nanosToMs
 
     def apply(env: StreamExecutionEnvironment): SpanInfoStream = {
+      val srcCfg = cfg.source
+
       val kafkaSource = KafkaSource.builder[ExportTraceServiceRequest]()
-        .setBootstrapServers(cfg.kafkaBootstrapServers)
-        .setTopics(cfg.kafkaTopics)
-        .setGroupId(s"${cfg.kafkaGroupIdPrefix}-${jutil.UUID.randomUUID()}")
+        .setBootstrapServers(srcCfg.kafkaBootstrapServers)
+        .setTopics(srcCfg.kafkaTopics)
+        .setGroupId(s"${srcCfg.kafkaGroupIdPrefix}-${jutil.UUID.randomUUID()}")
         .setStartingOffsets(OffsetsInitializer.earliest())
         .setValueOnlyDeserializer(new ExportTraceServiceRequestProtoDeserializer())
         .build()
 
       val exportTracesRequests = env.fromSource(kafkaSource,
         // no watermarks as we'll override this after extracting this per record
-        WatermarkStrategy.forBoundedOutOfOrderness(cfg.eventsMaxOutOfOrderness),
+        WatermarkStrategy.forBoundedOutOfOrderness(srcCfg.eventsMaxOutOfOrderness),
         "exportTracesRequests")
 
       val spanInfos = exportTracesRequests.flatMap[SpanInfo](this)
       spanInfos.assignTimestampsAndWatermarks(
-        WatermarkStrategy.forBoundedOutOfOrderness(cfg.eventsMaxOutOfOrderness)
+        WatermarkStrategy.forBoundedOutOfOrderness(srcCfg.eventsMaxOutOfOrderness)
           // https://stackoverflow.com/questions/73825459/why-flink-1-15-2-showing-no-watermark-watermarks-are-only-available-if-eventtim
-          .withIdleness(cfg.eventsMaxOutOfOrderness) // FIXME split into 2 settings, or rename
+          .withIdleness(srcCfg.eventsMaxOutOfOrderness) // FIXME split into 2 settings, or rename
           .withTimestampAssigner(this)
       )
     }

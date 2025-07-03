@@ -9,6 +9,7 @@ import org.specs2.ScalaCheck
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
 import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.config._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.formulas._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.SpanInfo
@@ -31,9 +32,13 @@ class SpanStreamEvaluatorTest
         always { x : Letter => x.length > 0 } during 2
       }
       val evaluatorParams = SpanStreamEvaluatorParams(
-        formula=formula,
-        tickPeriod=Duration.ofMillis(10),
-        sessionGap=Duration.ofSeconds(1)
+        LinoleumConfig(
+          localFlinkEnv = true,
+          evaluation = EvaluationConfig(
+            tickPeriod=Duration.ofMillis(10), sessionGap=Duration.ofSeconds(1)
+          )    
+        ),
+        formula=formula
       )
       val evaluator = new SpanStreamEvaluator(evaluatorParams)
     }

@@ -51,17 +51,19 @@ object Main {
     def main(args: Array[String]): Unit = {
         val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
         log.warn("Starting program for formula {}", formula)
-        val linolenumCfg = LinoleumConfig(localFlinkEnv = true)
+        val linolenumCfg = LinoleumConfig(
+            localFlinkEnv = true,
+            evaluation = EvaluationConfig(
+                tickPeriod=Duration.ofMillis(100), sessionGap=Duration.ofSeconds(1)
+            )    
+        )
         val env = LinoleumSrc.flinkEnv(linolenumCfg)
         val linoleumSrc = new LinoleumSrc(linolenumCfg)
         val spanInfos = linoleumSrc(env)
 
-        val spamEvaluator = new SpanStreamEvaluator(SpanStreamEvaluatorParams(
-            formula=formula,
-            // FIXME take from LinoleumConfig, as a method of LinoleumConfig
-            tickPeriod=Duration.ofMillis(100),
-            sessionGap=Duration.ofSeconds(1)
-        ))
+        val spamEvaluator = new SpanStreamEvaluator(
+            SpanStreamEvaluatorParams(linolenumCfg, formula=formula)
+        )
         val evaluatedSpans = spamEvaluator(spanInfos)
 
         evaluatedSpans.print()
@@ -73,6 +75,5 @@ object Main {
         env.execute("hello spans")
 
         log.warn("Ending program")
-        println("bye")
     }
 }

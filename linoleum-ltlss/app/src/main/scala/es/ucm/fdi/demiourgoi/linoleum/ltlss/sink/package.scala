@@ -25,14 +25,14 @@ package sink {
     }
 
     private def buildSink(): MongoSink[EvaluatedTrace] = {
-      
+      val mongoCfg = cfg.sink.mongoDb
       MongoSink.builder[EvaluatedTrace]()
-        .setUri(cfg.mongoUri)
-        .setDatabase(cfg.mongoDatabase)
-        .setCollection(cfg.mongoCollection)
-        .setBatchSize(cfg.mongoBatchSize)
-        .setBatchIntervalMs(cfg.mongoBatchIntervalMs)
-        .setMaxRetries(cfg.mongoMaxRetries)
+        .setUri(mongoCfg.mongoUri)
+        .setDatabase(mongoCfg.mongoDatabase)
+        .setCollection(mongoCfg.mongoCollection)
+        .setBatchSize(mongoCfg.mongoBatchSize)
+        .setBatchIntervalMs(mongoCfg.mongoBatchIntervalMs)
+        .setMaxRetries(mongoCfg.mongoMaxRetries)
         .setDeliveryGuarantee(DeliveryGuarantee.AT_LEAST_ONCE)
         .setSerializationSchema((trace, _) => {
           log.info("Writing evaluated trace {} to MongoDB", trace)
