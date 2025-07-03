@@ -19,7 +19,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Try
 import java.{lang => jlang}
 import java.time.Duration
-
+import java.util.function.Supplier
 
 @RunWith(classOf[JUnitRunner])
 class SpanStreamEvaluatorTest
@@ -27,10 +27,11 @@ class SpanStreamEvaluatorTest
 
   def fixture =
     new {
-      val formula = always { x : Letter => x.length > 0 } during 2
-      val linoleumFormula = LinoleumFormula("test", () => formula)
+      val formula = LinoleumFormula("test"){
+        always { x : Letter => x.length > 0 } during 2
+      }
       val evaluatorParams = SpanStreamEvaluatorParams(
-        formula=linoleumFormula,
+        formula=formula,
         tickPeriod=Duration.ofMillis(10),
         sessionGap=Duration.ofSeconds(1)
       )

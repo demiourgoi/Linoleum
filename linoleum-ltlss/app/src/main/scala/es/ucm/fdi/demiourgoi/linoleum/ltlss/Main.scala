@@ -6,7 +6,6 @@ import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
 // of LinoleumFormula
 import org.specs2.matcher.MustMatchers._
 import java.time.Duration
-import java.util.function.Supplier
 
 import org.apache.flink.connector.base.DeliveryGuarantee
 import org.apache.flink.connector.mongodb.sink.MongoSink
@@ -21,10 +20,6 @@ object Main {
 
     private val log = LoggerFactory.getLogger(Main.getClass.getName)
 
-    // FIXME new trait with both formula supplier and serializable
-    // FIXME investigate using an annonymous class for this so Suppliers are invisible and the
-    // formula is inline on the instantiation of LinoleumFormula
-
     /**
      * Sscheck version of Maude's
      * 
@@ -32,8 +27,8 @@ object Main {
      * 
     */
     @SerialVersionUID(1L)
-    private class HelloFormula extends Supplier[SscheckFormula] with Serializable { 
-        def get(): SscheckFormula = {
+    private class HelloFormula extends SscheckFormulaSupplier { 
+        def apply() = {
             val clientHasTaskSpanName = "client-taskId-assigned"
             val workDoneInDBSpanName = "work-done-db"
 
@@ -55,7 +50,6 @@ object Main {
 
     def main(args: Array[String]): Unit = {
         val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
-
         log.warn("Starting program for formula {}", formula)
         val linolenumCfg = LinoleumConfig(localFlinkEnv = true)
         val env = LinoleumSrc.flinkEnv(linolenumCfg)

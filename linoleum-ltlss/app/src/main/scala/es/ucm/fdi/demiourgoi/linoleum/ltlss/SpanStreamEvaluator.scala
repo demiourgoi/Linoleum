@@ -14,7 +14,6 @@ import source.SpanInfoStream
 
 import com.google.protobuf.ByteString
 import java.time.Duration
-import java.util.function.Supplier
 import java.{lang => jlang}
 import java.time.Instant
 import com.google.protobuf.Timestamp
@@ -65,6 +64,47 @@ package object formulas {
 
   type SscheckFormula = Formula[Letter]
 
+  type SscheckFormulaSupplier = () => SscheckFormula with Serializable
+
+  /**
+  Example
+
+  ```scala
+  val formulaSupplier = linoleumFormula{
+    always { x : Letter => x.length > 0 } during 2
+  }
+  ```
+
+  or to directly create a LinoleumFormula:
+
+  ```scala
+  val formula = LinoleumFormula("test", linoleumFormula{
+    always { x : Letter => x.length > 0 } during 2
+  })
+  ```
+  */
+  def linoleumFormula(formula: SscheckFormula): SscheckFormulaSupplier = new SscheckFormulaSupplier {
+    def apply(): SscheckFormula with Serializable = formula
+  }
+
+  object LinoleumFormula {
+    /** Nice way of defining a LinoleumFormula without having to create an intermediate
+     * class, e.g. as:
+     * 
+     * ```
+     * val formula = LinoleumFormula("test"){
+        always { x : Letter => x.length > 0 } during 2
+       }```
+
+     * However, in practice that can only we used in unit tests, because Flink tends to throw
+     * org.apache.flink.api.common.InvalidProgramException while calling org.apache.flink.api.java.ClosureCleaner.clean 
+     * at runtime, when usign this method to define a formula inline.  
+     * A simple fix is just defining the formula in a separate class that extends SscheckFormulaSupplier.
+     * 
+     */
+    def apply(name: String)(formula: SscheckFormula): LinoleumFormula = 
+      LinoleumFormula(name, linoleumFormula(formula))
+  }
   // Note: trying to avoid serializing sscheck formulas by requiring a formula supplier
   // that should be a stateless class that is trivial to serialize
   /**
@@ -72,7 +112,7 @@ package object formulas {
    * @param formula supplier for the sscheck formula to evaluate. 
    *                The formula must not perform any side effect when evaluated.
    * */
-  case class LinoleumFormula(name: String, formula: Supplier[SscheckFormula])
+  case class LinoleumFormula(name: String, formula: SscheckFormulaSupplier)
 }
 
 object FormulaValue {
@@ -347,7 +387,7 @@ package evaluator {
       }
 
       private[evaluator] def evaluateFormula(traceId: String, letters: Iterator[TimedLetter]): FormulaValue = {
-        val initialFormula = formula.formula.get().nextFormula
+        val initialFormula = formula.formula().nextFormula
         val finalFormula = initialFormula.evaluate(letters, (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
           val (letterTime, letter) = timedLetter
           log.debug("Current formula for trace id {} at time {} is {}", traceId, letterTime, currentFormula)
