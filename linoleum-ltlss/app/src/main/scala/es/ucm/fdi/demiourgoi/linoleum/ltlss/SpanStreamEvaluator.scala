@@ -64,7 +64,7 @@ package object formulas {
 
   type SscheckFormula = Formula[Letter]
 
-  type SscheckFormulaSupplier = () => SscheckFormula with Serializable
+  type SscheckFormulaSupplier = () => SscheckFormula
 
   /**
   Example
@@ -84,7 +84,7 @@ package object formulas {
   ```
   */
   def linoleumFormula(formula: SscheckFormula): SscheckFormulaSupplier = new SscheckFormulaSupplier {
-    def apply(): SscheckFormula with Serializable = formula
+    def apply(): SscheckFormula = formula
   }
 
   object LinoleumFormula {
@@ -99,8 +99,8 @@ package object formulas {
      * However, in practice that can only we used in unit tests, because Flink tends to throw
      * org.apache.flink.api.common.InvalidProgramException while calling org.apache.flink.api.java.ClosureCleaner.clean 
      * at runtime, when usign this method to define a formula inline.  
-     * A simple fix is just defining the formula in a separate class that extends SscheckFormulaSupplier.
-     * 
+     * A simple fix is just defining the formula in a separate class that extends SscheckFormulaSupplier, and 
+     * also explicitly Serializable
      */
     def apply(name: String)(formula: SscheckFormula): LinoleumFormula = 
       LinoleumFormula(name, linoleumFormula(formula))

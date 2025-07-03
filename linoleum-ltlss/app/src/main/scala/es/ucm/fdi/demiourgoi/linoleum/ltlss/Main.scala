@@ -27,7 +27,7 @@ object Main {
      * 
     */
     @SerialVersionUID(1L)
-    private class HelloFormula extends SscheckFormulaSupplier { 
+    private class HelloFormula extends SscheckFormulaSupplier with Serializable {
         def apply() = {
             val clientHasTaskSpanName = "client-taskId-assigned"
             val workDoneInDBSpanName = "work-done-db"
