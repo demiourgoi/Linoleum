@@ -34,12 +34,16 @@ jobs:
           repository: 'demiourgoi/sscheck-core'
           ref: '0.5.1-scala'
 
-      - name: Build sscheck-core
+      - name: Build and publish sscheck-core
         run: sbt clean publishM2
 
       - name: Checkout current branch
         uses: actions/checkout@v4
 
       # See the Gradle build scan link in the "build summary" of the github actions run
-      - name: Build with with Gradle Wrapper
+      - name: Build and publish linoleum-ltlss
         run: cd ./linoleum-ltlss && chmod +x gradlew && make release EXTRA_BUILD_ARGS=--scan
+
+      # See the Gradle build scan link in the "build summary" of the github actions run
+      - name: Build linoleum-ltlss-examples
+        run: cd ./linoleum-ltlss-examples && chmod +x gradlew && make release EXTRA_BUILD_ARGS=--scan

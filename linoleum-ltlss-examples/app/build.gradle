@@ -3,19 +3,19 @@ plugins {
     // Apply the scala Plugin to add support for Scala.
     id 'scala'
 
+    // Apply the application plugin to add support for building a CLI application in Java.
+    id 'application'
+
     // shadow plugin to produce fat JARs
     // https://gradleup.com/shadow/getting-started/
     // https://gradleup.com/shadow/configuration/
     id("com.gradleup.shadow") version "8.3.6"
-    
-    // Maven Publish plugin for publishing artifacts
-    id 'maven-publish'
 }
 
 // artifact properties
 group = 'es.ucm.fdi.demiourgoi'
 version = '0.1.0-SNAPSHOT'
-description = """Linoleum LTLss flink job"""
+description = """Linoleum LTLss examples"""
 
 ext {
     javaVersion = '1.8'
@@ -25,6 +25,7 @@ ext {
     log4jVersion = '2.17.1'
     sscheckVersion = '0.5.1-SNAPSHOT'
     grpcVersion = '1.70.0'
+    linoleumLtlssVersion = '0.1.0-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {
@@ -69,6 +70,8 @@ dependencies {
 
     // Need scala-xml at test runtime
     testRuntimeOnly libs.scala.xml.v2.v13
+
+    implementation "es.ucm.fdi.demiourgoi:linoleum-ltlss:${linoleumLtlssVersion}"
 
     // This dependency is used by the application.
     implementation libs.guava
@@ -128,6 +131,7 @@ sourceSets {
     test.runtimeClasspath += configurations.flinkShadowJar
     javadoc.classpath += configurations.flinkShadowJar
 }
+run.classpath = sourceSets.main.runtimeClasspath
 
 jar {
     manifest {
@@ -140,41 +144,22 @@ shadowJar {
     configurations = [project.configurations.flinkShadowJar]
 }
 
-task sourcesJar(type: Jar) {
-    archiveClassifier = 'sources'
-    from sourceSets.main.allSource
-}
-
-task javadocJar(type: Jar) {
-    archiveClassifier = 'javadoc'
-    from javadoc.destinationDir
-}
-
-javadocJar.dependsOn javadoc
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = project.group
-            artifactId = 'linoleum-ltlss'
-            version = project.version
-            
-            from components.java
-            
-            // Add sources and javadoc artifacts
-            artifact sourcesJar
-            artifact javadocJar
-        }
-    }
-    
-    repositories {
-        mavenLocal()
-    }
-}
-
 // Apply a specific Java toolchain to ease working on different environments.
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
+}
+
+application {
+    // Define the main class for the application.
+    mainClass = "es.ucm.fdi.demiourgoi.linoleum.examples.Main"
+
+    /*
+    FIXME regenerate protos https://github.com/juanrh/Linoleum/issues/6
+    Caused by: java.lang.UnsupportedOperationException: As of 2022/09/29 (release 21.7) makeExtensionsImmutable should not be called from protobuf gencode. If you are seeing this message, your gencode is v
+ulnerable to a denial of service attack. You should regenerate your code using protobuf 25.6 or later. Use the latest version that meets your needs. However, if you understand the risks and wish to con
+tinue with vulnerable gencode, you can set the system property `-Dcom.google.protobuf.use_unsafe_pre22_gencode` on the command line. See security vulnerability: https://github.com/protocolbuffers/protobuf/security/advisories/GHSA-h4h5-3hr4-j3g2
+    * */
+    applicationDefaultJvmArgs = ["-Dcom.google.protobuf.use_unsafe_pre22_gencode"]
 }

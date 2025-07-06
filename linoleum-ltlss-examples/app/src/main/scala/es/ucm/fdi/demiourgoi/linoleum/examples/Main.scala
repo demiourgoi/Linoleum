@@ -1,13 +1,14 @@
-package es.ucm.fdi.demiourgoi.linoleum.ltlss
+package es.ucm.fdi.demiourgoi.linoleum.examples
 
 import java.time.Duration
 import org.slf4j.LoggerFactory
 
-object Main {
-    import config._
-    import formulas._
-    import messages._
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.{LinoleumLtlss,SpanInfo}
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.config._
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.formulas._
+import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages._
 
+object Main {
     private val log = LoggerFactory.getLogger(Main.getClass.getName)
 
     /**

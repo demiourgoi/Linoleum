@@ -11,7 +11,7 @@ GRADLE := $(ROOT_DIR)/gradlew $(EXTRA_BUILD_ARGS)
 
 default: help
 
-.PHONY: run help build clean release build/clean jaeger/container/logs mongodb/container/bash compose/start compose/stop
+.PHONY: run help build clean release clean/build jaeger/container/logs mongodb/container/bash compose/start compose/stop
 
 # https://news.ycombinator.com/item?id=11939200
 help:	### list main targets
@@ -36,11 +36,11 @@ endif
 release: build publish/local	### run all release checks
 	echo "PASS all release checks"
 
-clean: build/clean compose/stop ### cleanup everything
+clean: clean/build compose/stop ### cleanup everything
 	$(GRADLE) clean
 	rm -rf $(ROOT_DIR)/bin
 
-build/clean:	### cleanup the build
+clean/build:	### cleanup the build
 	$(GRADLE) clean
 	rm -rf $(ROOT_DIR)/bin
 
@@ -51,8 +51,6 @@ build:	### build app (this also runs unit tests)
 	$(GRADLE) build
 	echo "See app jar at $(ROOT_DIR)/app/build/libs/*.jar"
 
-run: ### run app with example flags
-	$(GRADLE) run
 
 publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal

@@ -70,6 +70,7 @@ make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 # NOTE: for small trace batches (e.g. 10) we have to run the replayer twice to
 #       get a second Kafka message with the batch of topic, so Linoleum actually
 #       evaluates the first batch. This could be improved tunning the Flink job parameters
+cd ../linoleum-ltlss-examples
 make run 2>&1 | tee run.log
 ```
 
