@@ -33,7 +33,7 @@ endif
 ####################
 # Code build
 ####################
-release: build	### run all release checks
+release: build publish/local	### run all release checks
 	echo "PASS all release checks"
 
 clean: build/clean compose/stop ### cleanup everything
@@ -54,6 +54,9 @@ build:	### build app (this also runs unit tests)
 run: ### run app with example flags
 	$(GRADLE) run
 
+publish/local: build	### publish this library to the local maven repo
+	$(GRADLE) publishToMavenLocal
+	echo "Library published to ~/.m2/repository/es/ucm/fdi/demiourgoi/linoleum-ltlss"
 
 ####################
 # Local fakes

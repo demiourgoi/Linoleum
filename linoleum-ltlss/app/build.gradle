@@ -10,6 +10,9 @@ plugins {
     // https://gradleup.com/shadow/getting-started/
     // https://gradleup.com/shadow/configuration/
     id("com.gradleup.shadow") version "8.3.6"
+    
+    // Maven Publish plugin for publishing artifacts
+    id 'maven-publish'
 }
 
 // artifact properties
@@ -139,6 +142,38 @@ jar {
 
 shadowJar {
     configurations = [project.configurations.flinkShadowJar]
+}
+
+task sourcesJar(type: Jar) {
+    archiveClassifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar) {
+    archiveClassifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+javadocJar.dependsOn javadoc
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = project.group
+            artifactId = 'linoleum-ltlss'
+            version = project.version
+            
+            from components.java
+            
+            // Add sources and javadoc artifacts
+            artifact sourcesJar
+            artifact javadocJar
+        }
+    }
+    
+    repositories {
+        mavenLocal()
+    }
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
