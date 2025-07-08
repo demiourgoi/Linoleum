@@ -72,7 +72,7 @@ dependencies {
 
     // This dependency is used by the application.
     implementation libs.guava
-    implementation ("es.ucm.fdi.demiourgoi:sscheck-core_2.13:${sscheckVersion}") {
+    implementation ("es.ucm.fdi.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
         exclude group : "org.slf4j"
     }
 
@@ -156,7 +156,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = project.group
-            artifactId = 'linoleum-ltlss'
+            artifactId = "linoleum-ltlss${scalaBinaryVersion}"
             version = project.version
             
             from components.java

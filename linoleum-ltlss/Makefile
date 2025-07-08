@@ -49,12 +49,12 @@ clean/build:	### cleanup the build
 # https://docs.gradle.org/current/userguide/build_scans.html
 build:	### build app (this also runs unit tests)
 	$(GRADLE) build
-	echo "See app jar at $(ROOT_DIR)/app/build/libs/*.jar"
+	echo "See lib jar at $(ROOT_DIR)/lib/build/libs/*.jar"
 
 
 publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal
-	echo "Library published to ~/.m2/repository/es/ucm/fdi/demiourgoi/linoleum-ltlss"
+	echo "Library published to ~/.m2/repository/es/ucm/fdi/demiourgoi/linoleum-ltlss_2.13"
 
 ####################
 # Local fakes

@@ -71,11 +71,11 @@ dependencies {
     // Need scala-xml at test runtime
     testRuntimeOnly libs.scala.xml.v2.v13
 
-    implementation "es.ucm.fdi.demiourgoi:linoleum-ltlss:${linoleumLtlssVersion}"
+    implementation "es.ucm.fdi.demiourgoi:linoleum-ltlss${scalaBinaryVersion}:${linoleumLtlssVersion}"
 
     // This dependency is used by the application.
     implementation libs.guava
-    implementation ("es.ucm.fdi.demiourgoi:sscheck-core_2.13:${sscheckVersion}") {
+    implementation ("es.ucm.fdi.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
         exclude group : "org.slf4j"
     }
 

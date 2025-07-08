@@ -11,4 +11,4 @@ plugins {
 }
 
 rootProject.name = "linoleum-ltlss"
-include("app")
+include("lib")
