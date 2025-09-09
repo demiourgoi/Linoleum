@@ -1,6 +1,6 @@
 package es.ucm.fdi.demiourgoi.linoleum.ltlss
 
-import es.ucm.fdi.demiourgoi.sscheck.prop.tl.{Formula, NextFormula, Time => SscheckTime}
+import io.github.demiourgoi.sscheck.prop.tl.{Formula, NextFormula, Time => SscheckTime}
 import org.scalacheck.Prop
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
@@ -239,7 +239,7 @@ package object evaluator {
   type VerifiedTraceStream = DataStream[EvaluatedTrace]
 }
 package evaluator {
-  import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
+  import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
   import org.apache.flink.streaming.api.windowing.windows.TimeWindow
   import org.apache.flink.util.Collector
 

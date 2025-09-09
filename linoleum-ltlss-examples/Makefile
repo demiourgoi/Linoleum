@@ -37,8 +37,6 @@ release: build	### run all release checks
 	echo "PASS all release checks"
 
 clean: clean/build ### cleanup everything
-	$(GRADLE) clean
-	rm -rf $(ROOT_DIR)/bin
 
 clean/build:	### cleanup the build
 	$(GRADLE) clean

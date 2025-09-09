@@ -23,7 +23,7 @@ ext {
     scalaBinaryVersion = '_2.13'
     slf4jVersion = '1.7.36'
     log4jVersion = '2.17.1'
-    sscheckVersion = '0.5.1-SNAPSHOT'
+    sscheckVersion = '0.5.2'
     grpcVersion = '1.70.0'
 }
 
@@ -72,14 +72,15 @@ dependencies {
 
     // This dependency is used by the application.
     implementation libs.guava
-    implementation ("es.ucm.fdi.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
+    // https://central.sonatype.com/artifact/io.github.demiourgoi/sscheck-core_2.13
+    implementation ("io.github.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
         exclude group : "org.slf4j"
     }
 
     // NOTE: if needed we can regenerate the proto code without gRPC support to remove some dependency
     // https://github.com/grpc/grpc-java/blob/master/examples/example-opentelemetry/build.gradle
-    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
-    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    // implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    // implementation "io.grpc:grpc-stub:${grpcVersion}"
     // runtimeOnly "io.grpc:grpc-netty-shaded:${grpcVersion}"
     // implementation "javax.annotation:javax.annotation-api:1.3.2"
     // protobuf serialization:

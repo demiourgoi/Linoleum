@@ -19,7 +19,7 @@ object Main {
     */
     @SerialVersionUID(1L)
     private class HelloFormula extends SscheckFormulaSupplier with Serializable {
-        import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
+        import io.github.demiourgoi.sscheck.prop.tl.Formula._
         import org.specs2.matcher.MustMatchers._
 
         def apply() = {

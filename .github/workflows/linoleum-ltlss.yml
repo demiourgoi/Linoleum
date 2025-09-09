@@ -28,14 +28,15 @@ jobs:
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
-      - name: Checkout sscheck-core
-        uses: actions/checkout@v4
-        with:
-          repository: 'demiourgoi/sscheck-core'
-          ref: '0.5.1-scala'
+      # Reenable only if we want to use an unreleased branch
+      # - name: Checkout sscheck-core
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: 'demiourgoi/sscheck-core'
+      #     ref: '0.5.1-scala'
 
-      - name: Build and publish sscheck-core
-        run: sbt clean publishM2
+      # - name: Build and publish sscheck-core
+      #   run: sbt clean publishM2
 
       - name: Checkout current branch
         uses: actions/checkout@v4

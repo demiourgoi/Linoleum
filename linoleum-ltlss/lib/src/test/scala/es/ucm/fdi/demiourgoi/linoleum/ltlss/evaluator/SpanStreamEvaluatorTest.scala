@@ -8,7 +8,7 @@ import org.specs2.runner.JUnitRunner
 import org.specs2.ScalaCheck
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
-import es.ucm.fdi.demiourgoi.sscheck.prop.tl.Formula._
+import io.github.demiourgoi.sscheck.prop.tl.Formula._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.config._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.formulas._
 import es.ucm.fdi.demiourgoi.linoleum.ltlss.messages._
