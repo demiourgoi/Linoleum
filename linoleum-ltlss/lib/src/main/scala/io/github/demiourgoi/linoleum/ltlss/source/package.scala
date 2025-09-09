@@ -50,7 +50,7 @@ package source {
       config.set(PipelineOptions.SERIALIZATION_CONFIG,
         List(
           s"io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: $protoSerdeOption",
-          s"es.ucm.fdi.demiourgoi.linoleum.ltlss.SpanInfo: $protoSerdeOption",
+          s"io.github.demiourgoi.linoleum.ltlss.SpanInfo: $protoSerdeOption",
         ).asJava
       )
       config
