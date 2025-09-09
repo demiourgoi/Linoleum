@@ -13,7 +13,7 @@ plugins {
 }
 
 // artifact properties
-group = 'es.ucm.fdi.demiourgoi'
+group = 'io.github.demiourgoi'
 version = '0.1.0-SNAPSHOT'
 description = """Linoleum LTLss examples"""
 
@@ -71,7 +71,7 @@ dependencies {
     // Need scala-xml at test runtime
     testRuntimeOnly libs.scala.xml.v2.v13
 
-    implementation "es.ucm.fdi.demiourgoi:linoleum-ltlss${scalaBinaryVersion}:${linoleumLtlssVersion}"
+    implementation "io.github.demiourgoi:linoleum-ltlss${scalaBinaryVersion}:${linoleumLtlssVersion}"
 
     // This dependency is used by the application.
     implementation libs.guava
@@ -153,7 +153,7 @@ java {
 
 application {
     // Define the main class for the application.
-    mainClass = "es.ucm.fdi.demiourgoi.linoleum.examples.Main"
+    mainClass = "io.github.demiourgoi.linoleum.examples.Main"
 
     /*
     FIXME regenerate protos https://github.com/juanrh/Linoleum/issues/6

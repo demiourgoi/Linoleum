@@ -13,7 +13,7 @@ plugins {
 }
 
 // artifact properties
-group = 'es.ucm.fdi.demiourgoi'
+group = 'io.github.demiourgoi'
 version = '0.1.0-SNAPSHOT'
 description = """Linoleum LTLss flink job"""
 

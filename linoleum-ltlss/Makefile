@@ -52,7 +52,7 @@ build:	### build app (this also runs unit tests)
 
 publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal
-	echo "Library published to ~/.m2/repository/es/ucm/fdi/demiourgoi/linoleum-ltlss_2.13"
+	echo "Library published to ~/.m2/repository/io/github/demiourgoi/linoleum-ltlss_2.13"
 
 ####################
 # Local fakes
