@@ -25,7 +25,7 @@ ext {
     log4jVersion = '2.17.1'
     sscheckVersion = '0.5.2'
     grpcVersion = '1.70.0'
-    linoleumLtlssVersion = '0.1.0-SNAPSHOT'
+    linoleumVersion = '0.1.0'
 }
 
 tasks.withType(JavaCompile) {
@@ -71,7 +71,7 @@ dependencies {
     // Need scala-xml at test runtime
     testRuntimeOnly libs.scala.xml.v2.v13
 
-    implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumLtlssVersion}"
+    implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}"
 
     // This dependency is used by the application.
     implementation libs.guava

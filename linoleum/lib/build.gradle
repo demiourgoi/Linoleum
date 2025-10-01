@@ -10,11 +10,13 @@ plugins {
     
     // Maven Publish plugin for publishing artifacts
     id 'maven-publish'
+    // https://jreleaser.org/guide/latest/quick-start/gradle.html
+    id 'org.jreleaser' version '1.20.0'
 }
 
 // artifact properties
 group = 'io.github.demiourgoi'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.0'
 description = """Linoleum flink job"""
 
 ext {
@@ -165,13 +167,66 @@ publishing {
             // Add sources and javadoc artifacts
             artifact sourcesJar
             artifact javadocJar
+
+            pom {
+                name = 'linoleum'
+                description = 'Linoleum'
+                url = 'https://github.com/demiourgoi/Linoleum/'
+                licenses {
+                    license {
+                        name = 'Apache-2.0'
+                        url = 'https://spdx.org/licenses/Apache-2.0.html'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'juanrh'
+                        name = 'Juan Rodriguez Hortala'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:https://github.com:demiourgoi/Linoleum.git'
+                    developerConnection = 'scm:git:ssh://github.com/demiourgoi/Linoleum.git'
+                    url = 'http://github.com/demiourgoi/Linoleum'
+                }
+            }
         }
     }
     
     repositories {
         mavenLocal()
+        maven {
+            url = layout.buildDirectory.dir('staging-deploy')
+        }
     }
 }
+
+// https://jreleaser.org/guide/latest/examples/maven/maven-central.html#_gradle
+jreleaser {
+    gitRootSearch = true
+    release {
+        github {
+            skipRelease = true
+            token = 'foo'
+        }
+    }
+    signing {
+        active = 'ALWAYS'
+        armored = true
+    }
+    deploy {
+        maven {
+            mavenCentral {
+                sonatype {
+                    active = 'ALWAYS'
+                    url = 'https://central.sonatype.com/api/v1/publisher'
+                    stagingRepository('build/staging-deploy')
+                }
+            }
+        }
+    }
+}
+
 
 // Apply a specific Java toolchain to ease working on different environments.
 java {

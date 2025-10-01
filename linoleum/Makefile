@@ -54,6 +54,15 @@ publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal
 	echo "Library published to ~/.m2/repository/io/github/demiourgoi/linoleum_2.13"
 
+# Stage first with gradle publish
+# https://jreleaser.org/guide/latest/examples/maven/maven-central.html#_gradle
+publish/central: clean/build build	### publish this library to Maven Central
+	$(GRADLE) jreleaserConfig
+	$(GRADLE) clean
+	$(GRADLE) publish
+	tree lib/build/staging-deploy/
+	$(GRADLE) jreleaserDeploy
+
 ####################
 # Local fakes
 ####################
