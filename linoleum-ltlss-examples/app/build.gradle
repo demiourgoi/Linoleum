@@ -71,7 +71,7 @@ dependencies {
     // Need scala-xml at test runtime
     testRuntimeOnly libs.scala.xml.v2.v13
 
-    implementation "io.github.demiourgoi:linoleum-ltlss${scalaBinaryVersion}:${linoleumLtlssVersion}"
+    implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumLtlssVersion}"
 
     // This dependency is used by the application.
     implementation libs.guava

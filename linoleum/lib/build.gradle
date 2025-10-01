@@ -157,7 +157,7 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = project.group
-            artifactId = "linoleum-${scalaBinaryVersion}"
+            artifactId = "linoleum${scalaBinaryVersion}"
             version = project.version
             
             from components.java

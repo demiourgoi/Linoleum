@@ -3,10 +3,10 @@ package io.github.demiourgoi.linoleum.examples
 import java.time.Duration
 import org.slf4j.LoggerFactory
 
-import io.github.demiourgoi.linoleum.ltlss.{LinoleumLtlss,SpanInfo}
-import io.github.demiourgoi.linoleum.ltlss.config._
-import io.github.demiourgoi.linoleum.ltlss.formulas._
-import io.github.demiourgoi.linoleum.ltlss.messages._
+import io.github.demiourgoi.linoleum.Linoleum
+import io.github.demiourgoi.linoleum.config._
+import io.github.demiourgoi.linoleum.formulas._
+import io.github.demiourgoi.linoleum.messages._
 
 object Main {
     private val log = LoggerFactory.getLogger(Main.getClass.getName)
@@ -53,7 +53,7 @@ object Main {
 
         log.warn("Evaluating traces for formula {}", formula)
 
-        LinoleumLtlss.execute(cfg)(formula)
+        Linoleum.execute(cfg)(formula)
 
         log.warn("Ending program")
     }
