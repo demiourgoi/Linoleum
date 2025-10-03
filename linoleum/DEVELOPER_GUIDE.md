@@ -129,6 +129,36 @@ make build
 make release
 ```
 
+## Publish to Maven Central
+
+This repo uses mostly [semantic versioning](https://semver.org/), but we sometimes add the suffix "-SNAPSHOT" for development versions.  
+We publish to https://central.sonatype.com/artifact/io.github.demiourgoi/linoleum_2.13.   
+See one time setup instructions in our shared Google drive doc. __NOTE__ the file `config.toml` has to be copied to `~/.jreleaser/config.toml`.
+
+Maven Central repos do not allow republish of the same version of a library. This is to avoid depending on a moving target, that corresponds to different code depending on the day. There is mechanism to use `${version}-SNAPSHOT` versions for development, but I have not been able to make it work, and it is not a great solution anyway for that reason.  
+So the __publishing process__ is as follows:
+
+- We use version `${version}-SNAPSHOT` for development, using `make publish/local` to make the snapshot version available in the same workspace.
+- When a version is ready for publish
+  - Change version to "${version}" without "-SNAPSHOT" and publish the version as seen below. Consider a minor or major version increase as required.
+  - Increase the patch version and add "-SNAPSHOT". Consider a minor or major version increase as required.
+    - We are not using branches or tags for each versions, we can add that later if needed, but it's complexity with no value for now. We just use the `main` branch, with the _invariant_ that the version monotonically increases as we move towards the tip of the branch.
+
+How to actually publish, after making sure the release works fine:
+
+```bash
+make publish/central
+```
+
+References
+
+- https://central.sonatype.org/publish/publish-portal-gradle/#community-plugins
+- https://jreleaser.org/guide/latest/quick-start/cli.html
+- https://jreleaser.org/guide/latest/examples/maven/maven-central.html
+  - https://jreleaser.org/guide/latest/reference/deploy/maven/maven-central.html
+  - https://jreleaser.org/guide/latest/examples/maven/staging-artifacts.html#_gradle
+
+
 ## Troubleshooting 
 
 ### Podman containers fail to start
