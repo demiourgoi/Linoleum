@@ -1,0 +1,18 @@
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90"]
+ignore = ["E501"]
+preview = true
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 88
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+# https://mypy.readthedocs.io/en/stable/config_file.html
+python_version = '3.11'
+exclude = '.*_pb2.*'
+cache_dir = '$MYPY_CONFIG_FILE_DIR/.mypy_cache'
+plugins = ['pydantic.mypy']

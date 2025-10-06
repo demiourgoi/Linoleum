@@ -50,6 +50,9 @@ dependencies {
 
     // https://kotlinlang.org/docs/serialization.html#serialize-and-deserialize-json
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // https://arrow-kt.io/learn/quickstart/
+    implementation("io.arrow-kt:arrow-core:2.1.0")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
