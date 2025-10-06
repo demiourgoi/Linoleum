@@ -117,12 +117,12 @@ mod TEST is
  op max : -> Nat .
  eq max = 400 .
 
- op init : -> Sys .
- eq init = *** [c(0) | task(1) task(2) task(3), mtCTDB] *** Client 0, with three tasks
+ op init : -> Configuration .
+ eq init = ***< c(0) : Client | tasks : task(1) task(2) task(3), ctaskDB : mtCTDB] *** Client 0, with three tasks
            *** [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
-           [c(0) | task(1), mtCTDB]             *** Client 0, with three tasks
+           < c(0) : Client | task(1), mtCTDB]                 *** Client 0, with three tasks
            *** [c(1) | task(4), mtCTDB]             *** Client 1, with two tasks
-           *** loadBalancer                         *** Load balancer
+           *** < lb : LoadBalancer | none >         *** Load balancer
            lapi                                     *** Luego API, initial counter for generating task IDs
            db(mtDB, 0)                              *** Database
            queue(mtTPL)                             *** Queue

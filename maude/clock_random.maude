@@ -1,8 +1,5 @@
-fmod CLOCK is
+omod CLOCK is
  pr NAT .
 
- sort Clock .
-
- *** Global time, time elapsed since last step, max
- op clock : Nat Nat Nat Nat -> Clock [ctor] .
-endfm
+ class Clock | global : Nat, elapsedSinceLast : Nat, max : Nat .
+endom

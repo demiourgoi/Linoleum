@@ -1,26 +1,40 @@
-fmod LUEGO-SYNTAX is
+omod LUEGO-SYNTAX is
  pr JSON-OPS .
  pr CLOCK .
 
- sorts Client CId LoadBalancer LuegoAPI Msg Queue Worker Sys Database DBContents RESTAPI .
+ sorts ClientId Queue Database DBContents .
  sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
- subsort Client Worker LoadBalancer LuegoAPI Msg Database Queue RESTAPI Log Clock < Sys .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
  subsort TaskPair < ClientTaskDB .
 
- *** System specification
- op none : -> Sys [ctor] .
- op __ : Sys Sys -> Sys [ctor assoc comm id: none] .
+ sort WorkerId ClientId < OId .
+
+ *** IDs
+ op w : Nat -> WorkerId [ctor] .
+ op c : Nat -> ClientId [ctor] .
+ op lapi : -> OId [ctor] .
+ op rapi : -> OId [ctor] .
+ op lb : -> OId .
+
+ *** Workers
+ class Worker | tasks : TaskPairList .
+
+ *** Load balancer
+ class loadBalancer | .
+
+ *** Clients
+ class Client | tasks : TaskList, ctaskDB : ClientTaskDB .
+
+ *** LuegoAPI
+ class LuegoAPI | .
+
+ class RESTAPI | .
 
  *** Database for clients. Maps Task to TaskId
  op mtCTDB : -> ClientTaskDB [ctor] .
  op [_,_] : Task TaskId -> TaskPair [ctor] .
  op _,_ : ClientTaskDB ClientTaskDB -> ClientTaskDB [ctor assoc comm id: mtCTDB] .
-
- *** Clients and IDs
- op c : Nat -> CId [ctor] .
- op [_|_,_] : CId TaskList ClientTaskDB -> Client [ctor] .
 
  *** Tasks, pairs, lists, and queues
  op task : Nat -> Task [ctor] .
@@ -33,18 +47,6 @@ fmod LUEGO-SYNTAX is
  op _;_ : TaskPairList TaskPairList -> TaskPairList [ctor assoc id: mtTPL] .
 
  op queue : TaskPairList -> Queue [ctor] .
-
- *** Workers
- op worker : TaskPairList -> Worker [ctor] .
-
- *** Load balancer
- op loadBalancer : -> LoadBalancer [ctor] .
-
- *** Luego API
- op lapi : -> LuegoAPI [ctor] .
-
- *** REST API
- op rapi : -> RESTAPI [ctor] .
 
  *** Database
  op mtDB : -> DBContents [ctor] .
@@ -91,4 +93,4 @@ fmod LUEGO-SYNTAX is
  op printTrace : Sys -> String .
  eq printTrace(S log(JL, CTDB)) = print*(JL) .
  eq printTrace(S) = "" [owise] .
-endfm
+endom
