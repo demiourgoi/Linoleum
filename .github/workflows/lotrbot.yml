@@ -24,6 +24,8 @@ jobs:
 
     - name: Install dependencies
       run: |
+        python -m venv .venv
+        .venv/bin/pip install --upgrade pip
         make deps
 
     - name: Run make release
