@@ -16,6 +16,7 @@ omod LUEGO-SYNTAX is
  op lapi : -> OId [ctor] .
  op rapi : -> OId [ctor] .
  op lb : -> OId .
+ op q : -> OId .
 
  *** Workers
  class Worker | tasks : TaskPairList .
@@ -29,7 +30,11 @@ omod LUEGO-SYNTAX is
  *** LuegoAPI
  class LuegoAPI | .
 
+ *** RESTAPI
  class RESTAPI | .
+
+ *** Queue
+ class Queue | tasksPL : TaskPairList .
 
  *** Database for clients. Maps Task to TaskId
  op mtCTDB : -> ClientTaskDB [ctor] .
@@ -45,8 +50,6 @@ omod LUEGO-SYNTAX is
 
  op mtTPL : -> TaskPairList [ctor] .
  op _;_ : TaskPairList TaskPairList -> TaskPairList [ctor assoc id: mtTPL] .
-
- op queue : TaskPairList -> Queue [ctor] .
 
  *** Database
  op mtDB : -> DBContents [ctor] .

@@ -118,15 +118,23 @@ mod TEST is
  eq max = 400 .
 
  op init : -> Configuration .
- eq init = ***< c(0) : Client | tasks : task(1) task(2) task(3), ctaskDB : mtCTDB] *** Client 0, with three tasks
-           *** [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
-           < c(0) : Client | task(1), mtCTDB]                 *** Client 0, with three tasks
-           *** [c(1) | task(4), mtCTDB]             *** Client 1, with two tasks
-           *** < lb : LoadBalancer | none >         *** Load balancer
-           lapi                                     *** Luego API, initial counter for generating task IDs
-           db(mtDB, 0)                              *** Database
-           queue(mtTPL)                             *** Queue
-           rapi                                     *** REST API
+ eq init = *** Client 0,with three tasks
+           *** < c(0) : Client | tasks : task(1) task(2) task(3), ctaskDB : mtCTDB >
+           *** Client 1, with two tasks
+           ***
+           *** Client 0,with one task
+           < c(0) : Client | tasks : task(1), ctaskDB : mtCTDB >
+           *** Client 1, with two tasks
+           *** < c(1) : Client | tasks : task(4), ctaskDB : mtCTDB >
+           *** Load balancer
+           < lb : LoadBalancer | none >
+           *** Luego API
+           < lapi : LuegoAPI | >
+           *** Database with initial counter
+           db(mtDB, 0)
+           < q : Queue | tasksPL : mtTPL >          *** Queue
+           *** REST API
+           < rapi : RESTAPI | >
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
            log(mtJL, mtCTDB)                        *** Log
