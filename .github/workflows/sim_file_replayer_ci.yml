@@ -2,7 +2,7 @@ name: sim_file_replayer
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "*" ]
   pull_request:
     branches: [ "main" ]
 
