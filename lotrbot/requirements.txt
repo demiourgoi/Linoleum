@@ -1,5 +1,5 @@
-strands-agents[mistral,openai]==1.4.0
-strands-agents-tools==0.2.3
+strands-agents[mistral,openai,otel]==1.10.0
+strands-agents-tools==0.2.9
 pydantic-settings>=2.0.3,<3.0.0
 python-dotenv==1.1.1
 typer==0.16.1

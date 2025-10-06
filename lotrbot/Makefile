@@ -31,10 +31,9 @@ else
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
 endif
 
-
-.PHONY: 
-
-export LOTRBOT_ENV_FILE_PATH=$(shell echo $${LOTRBOT_ENV_FILE_PATH:-$(HOME)/.lotrbot.env})
+.PHONY: run
+run: export LOTRBOT_ENV_FILE_PATH=$(shell echo $${LOTRBOT_ENV_FILE_PATH:-$(HOME)/.lotrbot.env})
+run: export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 run:	### Run the agent
 	$(PYTHON) -u $(MAIN_SRC)/main.py
 

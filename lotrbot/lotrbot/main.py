@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from strands import Agent
 from strands.models.model import Model
 from strands.models.mistral import MistralModel
+from strands.telemetry import StrandsTelemetry
 
 _root_path = Path(__file__).resolve().parent.parent
 
@@ -29,6 +30,15 @@ class Settings(BaseSettings):
     )
 
     mistral_api_key: str = Field(..., repr=False)
+
+
+def setup_tracing(enable_console_exporter: bool = False):
+    # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#enabling-tracing
+    # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#example-end-to-end-tracing
+    strands_telemetry = StrandsTelemetry()
+    strands_telemetry.setup_otlp_exporter()     # Send traces to OTLP endpoint
+    if enable_console_exporter:
+        strands_telemetry.setup_console_exporter()  # Print traces to console
 
 
 def create_mistral_model(settings: Settings) -> Model:
@@ -66,7 +76,7 @@ def agent_repl_loop(agent: Agent):
 
 
 if __name__ == '__main__':
-    settings = Settings()
-    agent = create_agent(settings=settings)
+    setup_tracing()
+    agent = create_agent(settings=Settings())
     agent_repl_loop(agent=agent)
     print("bye!")
