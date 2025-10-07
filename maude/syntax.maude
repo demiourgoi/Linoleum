@@ -22,16 +22,16 @@ omod LUEGO-SYNTAX is
  class Worker | tasks : TaskPairList .
 
  *** Load balancer
- class loadBalancer | .
+ class loadBalancer .
 
  *** Clients
  class Client | tasks : TaskList, ctaskDB : ClientTaskDB .
 
  *** LuegoAPI
- class LuegoAPI | .
+ class LuegoAPI .
 
  *** RESTAPI
- class RESTAPI | .
+ class RESTAPI .
 
  *** Queue
  class Queue | tasksPL : TaskPairList .
