@@ -32,9 +32,22 @@ To get access to [Mistral free models](https://docs.mistral.ai/) you can log int
 
 ## How to run the agent
 
+Note, strands agents only supports HTTP protocol, and it ignores the env var [`OTEL_EXPORTER_OTLP_PROTOCOL`](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/). For this reason the OTEL collector launched with Docker compose below, is [configured](https://opentelemetry.io/docs/collector/configuration/) to accept connections both with gRPC (port 4317) and HTTP (port 4318)
+
 ```bash
+## Start fakes for OTEL collector, Jaeger and Kafka
+### See Jaeger UI at http://localhost:16686
+### See Kafka UI at  http://localhost:9090
+make -C ../linoleum compose/start
+
 # with default env file ~/.lotrbot.env
 make run
 # with custom env file
 make run LOTRBOT_ENV_FILE_PATH=/my/path
 ```
+
+## TODO
+
+- Inject misbehaviour
+  - Consider a tool
+  - Consider using a [hook](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/agents/hooks/?h=evol#overview) that randomly triggers bad behaviours, with adjustable likehood
