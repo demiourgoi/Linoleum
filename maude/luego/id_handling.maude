@@ -1,4 +1,4 @@
-fmod ID-HANDLING is
+omod ID-HANDLING is
  pr LUEGO-SYNTAX .
 
  vars TRACE-ID SPAN-ID SPAN-NAME PARENT-ID CHILD-ID CHILD-ID' : String .
@@ -161,6 +161,6 @@ fmod ID-HANDLING is
                        "startTimeOffsetMs" |-> v(START-TIME),
                        MSV)) $ JL' .
  eq updateRoot(JL, SPAN-ID, TIME) = JL [owise] .
-endfm
+endom
 
-set print attribute on .
+*** set print attribute on .

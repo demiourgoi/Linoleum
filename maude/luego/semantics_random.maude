@@ -121,7 +121,7 @@ mod TEST is
  eq init = *** Client 0,with three tasks
            *** < c(0) : Client | tasks : task(1) task(2) task(3), ctaskDB : mtCTDB >
            *** Client 1, with two tasks
-           ***
+           *** < c(1) : Client | tasks : task(4) task(5), ctaskDB : mtCTDB >
            *** Client 0,with one task
            < c(0) : Client | tasks : task(1), ctaskDB : mtCTDB >
            *** Client 1, with two tasks

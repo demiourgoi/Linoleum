@@ -6,10 +6,10 @@ mod LUEGO-SEMANTICS is
  vars N TIME ELAPSED MAX : Nat .
  var  TPL : TaskPairList .
  var  DBC : DBContents .
+ var  CID : ClientId .
  var  TL : TaskList .
  var  TID : TaskId .
  var  R : Result .
- var  CID : CId .
  var  T : Task .
  var  JL : JL .
 
@@ -18,7 +18,7 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => [CID | TL, CTDB]
     *** loadBalancer
     lapi
@@ -31,7 +31,7 @@ mod LUEGO-SEMANTICS is
     request-tid(CID, T)
     db(DBC, N)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => db(addKey(DBC, taskId(N)), s(N))
     taskIdAssigned-lapi(CID, T, taskId(N))
     log(JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
@@ -42,7 +42,7 @@ mod LUEGO-SEMANTICS is
     *** loadBalancer
     lapi
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => *** loadBalancer
     lapi
     taskIdAssigned(CID, T, TID)
@@ -54,7 +54,7 @@ mod LUEGO-SEMANTICS is
     taskIdAssigned(CID, T, TID)
     [CID | TL, CTDB]
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => [CID | TL, (CTDB, [T, TID])]
     log(JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
@@ -63,7 +63,7 @@ mod LUEGO-SEMANTICS is
     request-worker(T, TID)
     queue(TPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => queue([T, TID] ; TPL)
     log(updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
     clock(TIME + ELAPSED, ELAPSED) .
@@ -72,7 +72,7 @@ mod LUEGO-SEMANTICS is
     queue(TPL ; [T, TID])
     worker(mtTPL)
     log(JL, LCTDB)
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => queue(TPL)
     worker([T, TID])
     log(JL $ createTraceChild(T, 2, TIME, 0, "second-half")
@@ -83,7 +83,7 @@ mod LUEGO-SEMANTICS is
     worker([task(N), TID])
     rapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => worker(mtTPL)
     rapi
     work-done(TID, result(N))
@@ -94,7 +94,7 @@ mod LUEGO-SEMANTICS is
     work-done(TID, result(N))
     lapi
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => lapi
     work-done-db(TID, result(N))
     log(JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED), (CTDB, [T, TID]))
@@ -104,7 +104,7 @@ mod LUEGO-SEMANTICS is
     work-done-db(TID, R)
     db(DBC, N)
     log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED)
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => db(add(DBC, TID, R), N)
     log(updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
     clock(TIME + ELAPSED, ELAPSED) .
@@ -114,11 +114,16 @@ mod TEST is
  pr LUEGO-SEMANTICS .
 
  op init : -> Sys .
- eq init = [c(0) | task(1) task(2) task(3), mtCTDB] *** Client 0, with three tasks
-           [c(1) | task(4) task(5), mtCTDB]         *** Client 1, with two tasks
-           *** [c(0) | task(1), mtCTDB]             *** Client 0, with one task
-           *** [c(1) | task(4), mtCTDB]             *** Client 1, with one task
-           *** loadBalancer                         *** Load balancer
+ eq init = *** Client 0,with three tasks
+           *** < c(0) : Client | tasks : task(1) task(2) task(3), ctaskDB : mtCTDB >
+           *** Client 1, with two tasks
+           *** < c(1) : Client | tasks : task(4) task(5), ctaskDB : mtCTDB >
+           *** Client 0,with one task
+           < c(0) : Client | tasks : task(1), ctaskDB : mtCTDB >
+           *** Client 1, with two tasks
+           *** < c(1) : Client | tasks : task(4), ctaskDB : mtCTDB >
+           *** Load balancer
+           < lb : LoadBalancer | none >
            lapi                                     *** Luego API, initial counter for generating task IDs
            db(mtDB, 0)                              *** Database
            queue(mtTPL)                             *** Queue
@@ -126,7 +131,8 @@ mod TEST is
            worker(mtTPL)                            *** Worker 0
            worker(mtTPL)                            *** Worker 1
            log(mtJL, mtCTDB)                        *** Log
-           clock(0, 500)                            *** Clock
+           *** Clock
+           < clock : Clock | global : 0, elapsedSinceLast : 500 >
            .
 endm
 

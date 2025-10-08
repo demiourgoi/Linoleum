@@ -2,21 +2,21 @@ omod LUEGO-SYNTAX is
  pr JSON-OPS .
  pr CLOCK .
 
- sorts ClientId Database DBContents .
- sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
+ sorts ClientId WorkerId Database DBContents Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
  subsort TaskPair < ClientTaskDB .
 
- sort WorkerId ClientId < OId .
+ subsort WorkerId ClientId < Oid .
 
  *** IDs
  op w : Nat -> WorkerId [ctor] .
  op c : Nat -> ClientId [ctor] .
- op lapi : -> OId [ctor] .
- op rapi : -> OId [ctor] .
- op lb : -> OId .
- op q : -> OId .
+ op queue : -> Oid [ctor] .
+ op lapi : -> Oid [ctor] .
+ op rapi : -> Oid [ctor] .
+ op log : -> Oid [ctor] .
+ op lb : -> Oid [ctor] .
 
  *** Workers
  class Worker | tasks : TaskPairList .
@@ -35,6 +35,9 @@ omod LUEGO-SYNTAX is
 
  *** Queue
  class Queue | tasksPL : TaskPairList .
+
+ *** Log
+ class Log | jl : JL, clientTDB : ClientTaskDB .
 
  *** Database for clients. Maps Task to TaskId
  op mtCTDB : -> ClientTaskDB [ctor] .
@@ -77,23 +80,20 @@ omod LUEGO-SYNTAX is
  op noResult : -> Result [ctor] .
  op result : Nat -> Result [ctor] .
 
- *** Log
- op log : JL ClientTaskDB -> Log [ctor] .
-
  *** Messages
- op request-tid : CId Task -> Msg [ctor] .
+ op request-tid : ClientId Task -> Msg [ctor] .
  op request-worker : Task TaskId -> Msg [ctor] .
- op taskIdAssigned : CId Task TaskId -> Msg [ctor] .
- op taskIdAssigned-lapi : CId Task TaskId -> Msg [ctor] .
+ op taskIdAssigned : ClientId Task TaskId -> Msg [ctor] .
+ op taskIdAssigned-lapi : ClientId Task TaskId -> Msg [ctor] .
  op add-database : TaskId -> Msg [ctor] .
  op work-done : TaskId Result -> Msg [ctor] .
  op work-done-db : TaskId Result -> Msg [ctor] .
 
  var CTDB : ClientTaskDB .
- var S : Sys .
+ var C : Configuration .
  var JL : JL .
 
- op printTrace : Sys -> String .
- eq printTrace(S log(JL, CTDB)) = print*(JL) .
- eq printTrace(S) = "" [owise] .
+ op printTrace : Configuration -> String .
+ eq printTrace(C < log : Log | jl : JL >) = print*(JL) .
+ eq printTrace(C) = "" [owise] .
 endom
