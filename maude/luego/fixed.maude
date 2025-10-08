@@ -1,4 +1,4 @@
-load json.maude
+load ../json/json.maude
 load clock_fixed.maude
 load syntax.maude
 load id_handling.maude
