@@ -2,7 +2,7 @@ omod LUEGO-SYNTAX is
  pr JSON-OPS .
  pr CLOCK .
 
- sorts ClientId Queue Database DBContents .
+ sorts ClientId Database DBContents .
  sorts Task TaskId TaskPair TaskList Result ClientTaskDB TaskPairList Log .
  subsort Task < TaskList .
  subsort TaskPair < TaskPairList .
