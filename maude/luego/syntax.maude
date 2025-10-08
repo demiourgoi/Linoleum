@@ -17,12 +17,13 @@ omod LUEGO-SYNTAX is
  op rapi : -> Oid [ctor] .
  op log : -> Oid [ctor] .
  op lb : -> Oid [ctor] .
+ op db : -> Oid [ctor] .
 
  *** Workers
  class Worker | tasks : TaskPairList .
 
  *** Load balancer
- class loadBalancer .
+ class LoadBalancer .
 
  *** Clients
  class Client | tasks : TaskList, ctaskDB : ClientTaskDB .
@@ -38,6 +39,9 @@ omod LUEGO-SYNTAX is
 
  *** Log
  class Log | jl : JL, clientTDB : ClientTaskDB .
+
+ *** Database
+ class DB | contents : DBContents, counter : Nat .
 
  *** Database for clients. Maps Task to TaskId
  op mtCTDB : -> ClientTaskDB [ctor] .

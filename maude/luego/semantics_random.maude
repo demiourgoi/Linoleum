@@ -131,7 +131,7 @@ mod TEST is
            *** Luego API
            < lapi : LuegoAPI | >
            *** Database with initial counter
-           db(mtDB, 0)
+           < db : DB | contents : mtDB, counter : 0 >
            < q : Queue | tasksPL : mtTPL >          *** Queue
            *** REST API
            < rapi : RESTAPI | >
