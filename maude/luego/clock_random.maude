@@ -1,7 +1,7 @@
 omod CLOCK is
  pr NAT .
 
- class Clock | global : Nat, elapsedSinceLast : Nat, max : Nat .
+ class Clock | global : Nat, elapsedSinceLast : Nat, max : Nat, seed : Nat .
 
  op clock : -> Oid [ctor] .
 endom

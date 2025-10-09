@@ -7,45 +7,46 @@ mod LUEGO-SEMANTICS is
  vars CTDB LCTDB : ClientTaskDB .
  var  TPL : TaskPairList .
  var  DBC : DBContents .
+ var  CID : ClientId .
  var  TL : TaskList .
  var  TID : TaskId .
  var  R : Result .
- var  CID : CId .
  var  T : Task .
  var  JL : JL .
 
  rl [request-reaches-balancer] :
-    [CID | T TL, CTDB]
-    *** loadBalancer
-    lapi
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
- => [CID | TL, CTDB]
-    *** loadBalancer
-    lapi
+    < CID : Client | tasks : T TL, ctaskDB : CTDB >
+    *** < lb : LoadBalancer | >
+    < lapi : LuegoAPI | >
+    < log : Log | jl : JL >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < CID : Client | tasks : TL >
+    *** < lb : LoadBalancer | >
+    < lapi : LuegoAPI | >
     request-tid(CID, T)
-    log(JL $ createInitialTrace(T, TIME, ELAPSED) $
-             createTraceChild(T, 1, 11, "request-reaches-balancer", TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < log : Log | jl : JL $ createInitialTrace(T, TIME, ELAPSED) $
+                       createTraceChild(T, 1, 11, "request-reaches-balancer", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [request-reaches-db] :
     request-tid(CID, T)
-    db(DBC, N)
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
- => db(addKey(DBC, taskId(N)), s(N))
+    < db : DB | contents : DBC, counter : N >
+    < log : Log | jl : JL, clientTDB : LCTDB >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < db : DB | contents : addKey(DBC, taskId(N)), counter : s(N) >
     taskIdAssigned-lapi(CID, T, taskId(N))
-    log(JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter))  .
+    < log : Log | jl : JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED),
+                 clientTDB : (LCTDB, [T, taskId(N)]) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
-    *** loadBalancer
-    lapi
+    *** < lb : LoadBalancer | >
+    < lapi : LuegoAPI | >
     log(JL, LCTDB)
     clock(TIME, ELAPSED, MAX, counter)
- => *** loadBalancer
-    lapi
+ => *** < lb : LoadBalancer | >
+    < lapi : LuegoAPI | >
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
     log(JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED), LCTDB)
@@ -132,13 +133,18 @@ mod TEST is
            < lapi : LuegoAPI | >
            *** Database with initial counter
            < db : DB | contents : mtDB, counter : 0 >
-           < q : Queue | tasksPL : mtTPL >          *** Queue
+           *** Queue
+           < queue : Queue | tasksPL : mtTPL >
            *** REST API
            < rapi : RESTAPI | >
-           worker(mtTPL)                            *** Worker 0
-           worker(mtTPL)                            *** Worker 1
-           log(mtJL, mtCTDB)                        *** Log
-           clock(0, (random(0) rem max) + 200, max, 1)      *** Clock
+           *** Worker 0
+           < w(0) : Worker | tasks : mtTPL >
+           *** Worker 1
+           < w(1) : Worker | tasks : mtTPL >
+           *** Log
+           < log : Log | jl : mtJL, clientTDB : mtCTDB >
+           *** Clock
+           < clock : Clock | global : 0, elapsedSinceLast : 500, max : max, seed : 1 >
            .
 endm
 
