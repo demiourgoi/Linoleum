@@ -1,4 +1,4 @@
-mod LUEGO-SEMANTICS is
+omod LUEGO-SEMANTICS is
  pr ID-HANDLING .
  pr RANDOM .
 
@@ -9,6 +9,7 @@ mod LUEGO-SEMANTICS is
  var  DBC : DBContents .
  var  CID : ClientId .
  var  TL : TaskList .
+ var  WI : WorkerId .
  var  TID : TaskId .
  var  R : Result .
  var  T : Task .
@@ -43,74 +44,74 @@ mod LUEGO-SEMANTICS is
     taskIdAssigned-lapi(CID, T, TID)
     *** < lb : LoadBalancer | >
     < lapi : LuegoAPI | >
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
+    < log : Log | jl : JL >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
  => *** < lb : LoadBalancer | >
     < lapi : LuegoAPI | >
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
-    log(JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < log : Log | jl : JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
-    [CID | TL, CTDB]
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
- => [CID | TL, (CTDB, [T, TID])]
-    log(JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < CID : Client | ctaskDB : CTDB >
+    < log : Log | jl : JL >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < CID : Client | ctaskDB : (CTDB, [T, TID]) >
+    < log : Log | jl : JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [add-queue] :
     request-worker(T, TID)
-    queue(TPL)
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
- => queue([T, TID] ; TPL)
-    log(updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < queue : Queue | tasksPL : TPL >
+    < log : Log | jl : JL >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < queue : Queue | tasksPL : [T, TID] ; TPL >
+    < log : Log | jl : updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [worker-gets-task] :
-    queue(TPL ; [T, TID])
-    worker(mtTPL)
-    log(JL, LCTDB)
-    clock(TIME, ELAPSED, MAX, counter)
- => queue(TPL)
-    worker([T, TID])
-    log(JL $ createTraceChild(T, 2, TIME, 0, "second-half")
-           $ createTraceChild(T, 2, 21, "worker-gets-task", TIME, ELAPSED), LCTDB)
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < queue : Queue | tasksPL : TPL ; [T, TID] >
+    < WI : Worker | tasks : mtTPL >
+    < log : Log | jl : JL >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < queue : Queue | tasksPL : TPL >
+    < WI : Worker | tasks : [T, TID] >
+    < log : Log | jl : JL $ createTraceChild(T, 2, TIME, 0, "second-half")
+                          $ createTraceChild(T, 2, 21, "worker-gets-task", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [work-done] :
-    worker([task(N), TID])
-    rapi
-    log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX, counter)
- => worker(mtTPL)
-    rapi
+    < WI : Worker | tasks : [task(N), TID] >
+    < rapi : RESTAPI | >
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < WI : Worker | tasks : mtTPL >
+    < rapi : RESTAPI | >
     work-done(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 22, "work-done", TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < log : Log | jl : JL $ createTraceChild(T, 2, 22, "work-done", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [work-done-lapi] :
     work-done(TID, result(N))
-    lapi
-    log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX, counter)
- => lapi
+    < lapi : LuegoAPI | >
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < lapi : LuegoAPI | >
     work-done-db(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
+    < log : Log | jl : JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
 
  rl [work-done-db] :
     work-done-db(TID, R)
-    db(DBC, N)
-    log(JL, (CTDB, [T, TID]))
-    clock(TIME, ELAPSED, MAX, counter)
- => db(add(DBC, TID, R), N)
-    log(updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
-    clock(TIME + ELAPSED, (random(counter) rem MAX) + 200, MAX, s(counter)) .
-endm
+    < db : DB | contents : DBC >
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
+    < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED, max : MAX, seed : counter >
+ => < db : DB | contents : add(DBC, TID, R) >
+    < log : Log | jl : updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED) >
+    < clock : Clock | global : TIME + ELAPSED, elapsedSinceLast : (random(counter) rem MAX) + 200, seed : s(counter) > .
+endom
 
 mod TEST is
  pr LUEGO-SEMANTICS .
