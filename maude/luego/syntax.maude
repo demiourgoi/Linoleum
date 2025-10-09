@@ -85,13 +85,13 @@ omod LUEGO-SYNTAX is
  op result : Nat -> Result [ctor] .
 
  *** Messages
- op request-tid : ClientId Task -> Msg [ctor] .
- op request-worker : Task TaskId -> Msg [ctor] .
- op taskIdAssigned : ClientId Task TaskId -> Msg [ctor] .
- op taskIdAssigned-lapi : ClientId Task TaskId -> Msg [ctor] .
- op add-database : TaskId -> Msg [ctor] .
- op work-done : TaskId Result -> Msg [ctor] .
- op work-done-db : TaskId Result -> Msg [ctor] .
+ msg request-tid : ClientId Task -> Msg [ctor] .
+ msg request-worker : Task TaskId -> Msg [ctor] .
+ msg taskIdAssigned : ClientId Task TaskId -> Msg [ctor] .
+ msg taskIdAssigned-lapi : ClientId Task TaskId -> Msg [ctor] .
+ msg add-database : TaskId -> Msg [ctor] .
+ msg work-done : TaskId Result -> Msg [ctor] .
+ msg work-done-db : TaskId Result -> Msg [ctor] .
 
  var CTDB : ClientTaskDB .
  var C : Configuration .

@@ -1,33 +1,33 @@
-mod LUEGO-PROPS is
+omod LUEGO-PROPS is
  pr LUEGO-SEMANTICS .
  pr SATISFACTION .
 
- subsort Sys < State .
+ subsort Configuration < State .
 
  var  CTDB : ClientTaskDB .
  vars TL TL' : TaskList .
+ var  C : Configuration .
  var  DBC : DBContents .
+ var  CI : ClientId .
  var  TI : TaskId .
  var  R : Result .
  var  T : Task .
- var  CI : CId .
- var  S : Sys .
  var  N : Nat .
 
 
  op clientHasTask : Task -> Prop [ctor] .
  op dbHasResult : Task -> Prop [ctor] .
 
- eq [CI | TL T TL', CTDB] S |= clientHasTask(T) = true .
+ eq < CI : Client | tasks : TL T TL' > C |= clientHasTask(T) = true .
 
- eq [CI | TL, (CTDB, [T, TI])] db(DBC [TI, R], N) S |= dbHasResult(T) = R =/= noResult .
-endm
+ eq < CI : Client | ctaskDB : (CTDB, [T, TI]) > < db : DB | contents : DBC [TI, R] > C |= dbHasResult(T) = R =/= noResult .
+endom
 
-mod MC is
+omod MC is
  pr LTL-SIMPLIFIER .
  pr MODEL-CHECKER .
  pr LUEGO-PROPS .
  pr TEST .
-endm
+endom
 
 red modelCheck(init, [] (clientHasTask(task(1)) -> <> dbHasResult(task(1)) )) .

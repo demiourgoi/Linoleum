@@ -1,4 +1,4 @@
-mod LUEGO-SEMANTICS is
+omod LUEGO-SEMANTICS is
  pr ID-HANDLING .
 
  vars MSV MSV' : Map{String, Value} .
@@ -8,6 +8,7 @@ mod LUEGO-SEMANTICS is
  var  DBC : DBContents .
  var  CID : ClientId .
  var  TL : TaskList .
+ var  WI : WorkerId .
  var  TID : TaskId .
  var  R : Result .
  var  T : Task .
@@ -29,86 +30,87 @@ mod LUEGO-SEMANTICS is
 
  rl [request-reaches-db] :
     request-tid(CID, T)
-    db(DBC, N)
-    log(JL, LCTDB)
+    < db : DB | contents : DBC, counter : N >
+    < log : Log | jl : JL, clientTDB : LCTDB >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => db(addKey(DBC, taskId(N)), s(N))
+ => < db : DB | contents : addKey(DBC, taskId(N)), counter : s(N) >
     taskIdAssigned-lapi(CID, T, taskId(N))
-    log(JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED), (LCTDB, [T, taskId(N)]))
+    < log : Log | jl : JL $ createTraceChild(T, 1, 12, "request-reaches-db", TIME, ELAPSED),
+                 clientTDB : (LCTDB, [T, taskId(N)]) >
     < clock : Clock | global : TIME + ELAPSED >  .
 
  rl [taskId-reaches-balancer] :
     taskIdAssigned-lapi(CID, T, TID)
     *** < lb : LoadBalancer | >
     < lapi : LuegoAPI | >
-    log(JL, LCTDB)
+    < log : Log | jl : JL >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => *** < lb : LoadBalancer | >
     < lapi : LuegoAPI | >
     taskIdAssigned(CID, T, TID)
     request-worker(T, TID)
-    log(JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED), LCTDB)
+    < log : Log | jl : JL $ createTraceChild(T, 1, 13, "taskId-reaches-balancer", TIME, ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [client-taskId-assigned] :
     taskIdAssigned(CID, T, TID)
-    [CID | TL, CTDB]
-    log(JL, LCTDB)
+    < CID : Client | ctaskDB : CTDB >
+    < log : Log | jl : JL >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => [CID | TL, (CTDB, [T, TID])]
-    log(JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED), LCTDB)
+ => < CID : Client | ctaskDB : (CTDB, [T, TID]) >
+    < log : Log | jl : JL $ createTraceChild(T, 1, 14, "client-taskId-assigned", TIME, ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [add-queue] :
     request-worker(T, TID)
-    queue(TPL)
-    log(JL, LCTDB)
+    < queue : Queue | tasksPL : TPL >
+    < log : Log | jl : JL >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => queue([T, TID] ; TPL)
-    log(updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED), LCTDB)
+ => < queue : Queue | tasksPL : [T, TID] ; TPL >
+    < log : Log | jl : updateTime1(JL $ createTraceChild(T, 1, 15, "add-queue", TIME, ELAPSED), T, TIME + ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [worker-gets-task] :
-    queue(TPL ; [T, TID])
-    worker(mtTPL)
-    log(JL, LCTDB)
+    < queue : Queue | tasksPL : TPL ; [T, TID] >
+    < WI : Worker | tasks : mtTPL >
+    < log : Log | jl : JL >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => queue(TPL)
-    worker([T, TID])
-    log(JL $ createTraceChild(T, 2, TIME, 0, "second-half")
-           $ createTraceChild(T, 2, 21, "worker-gets-task", TIME, ELAPSED), LCTDB)
+ => < queue : Queue | tasksPL : TPL >
+    < WI : Worker | tasks : [T, TID] >
+    < log : Log | jl : JL $ createTraceChild(T, 2, TIME, 0, "second-half")
+                          $ createTraceChild(T, 2, 21, "worker-gets-task", TIME, ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [work-done] :
-    worker([task(N), TID])
-    < rapi : RESTAPI >
-    log(JL, (CTDB, [T, TID]))
+    < WI : Worker | tasks : [task(N), TID] >
+    < rapi : RESTAPI | >
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => worker(mtTPL)
-    < rapi : RESTAPI >
+ => < WI : Worker | tasks : mtTPL >
+    < rapi : RESTAPI | >
     work-done(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 22, "work-done", TIME, ELAPSED), (CTDB, [T, TID]))
+    < log : Log | jl : JL $ createTraceChild(T, 2, 22, "work-done", TIME, ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [work-done-lapi] :
     work-done(TID, result(N))
     < lapi : LuegoAPI | >
-    log(JL, (CTDB, [T, TID]))
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
  => < lapi : LuegoAPI | >
     work-done-db(TID, result(N))
-    log(JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED), (CTDB, [T, TID]))
+    < log : Log | jl : JL $ createTraceChild(T, 2, 23, "work-done-lapi", TIME, ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
 
  rl [work-done-db] :
     work-done-db(TID, R)
-    db(DBC, N)
-    log(JL, (CTDB, [T, TID]))
+    < db : DB | contents : DBC >
+    < log : Log | jl : JL, clientTDB : (CTDB, [T, TID]) >
     < clock : Clock | global : TIME, elapsedSinceLast : ELAPSED >
- => db(add(DBC, TID, R), N)
-    log(updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED), (CTDB, [T, TID]))
+ => < db : DB | contents : add(DBC, TID, R) >
+    < log : Log | jl : updateTime2(JL $ createTraceChild(T, 2, 24, "work-done-db", TIME, ELAPSED), T, TIME + ELAPSED) >
     < clock : Clock | global : TIME + ELAPSED > .
-endm
+endom
 
 omod TEST is
  pr LUEGO-SEMANTICS .
@@ -123,26 +125,30 @@ omod TEST is
            *** Client 1, with two tasks
            *** < c(1) : Client | tasks : task(4), ctaskDB : mtCTDB >
            *** Load balancer
-           < lb : LoadBalancer | none >
+           *** < lb : LoadBalancer | none >
            *** Luego API
            < lapi : LuegoAPI | >
            *** Database with initial counter
            < db : DB | contents : mtDB, counter : 0 >
-           queue(mtTPL)                             *** Queue
+           *** Queue
+           < queue : Queue | tasksPL : mtTPL >
            *** REST API
            < rapi : RESTAPI | >
-           worker(mtTPL)                            *** Worker 0
-           worker(mtTPL)                            *** Worker 1
-           log(mtJL, mtCTDB)                        *** Log
+           *** Worker 0
+           < w(0) : Worker | tasks : mtTPL >
+           *** Worker 1
+           < w(1) : Worker | tasks : mtTPL >
+           *** Log
+           < log : Log | jl : mtJL, clientTDB : mtCTDB >
            *** Clock
            < clock : Clock | global : 0, elapsedSinceLast : 500 >
            .
 endom
 
-eof
+
 
 set print attribute on .
 
 rew init .
 
-search [1] init =>! S:Sys .
+search [1] init =>! C:Configuration .
