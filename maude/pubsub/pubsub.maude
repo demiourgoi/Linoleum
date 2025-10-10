@@ -1,0 +1,79 @@
+omod PUBSUB is
+ pr JSON .
+
+ sort TopicName MsgId SubscriptionName SubscriberId ExpirationPolicy .
+ subsort Nat < ExpirationPolicy .
+
+ op tn : Nat -> TopicName [ctor] .
+ op mi : Nat -> MsgId [ctor] .
+ op sn : Nat -> SubscriptionName [ctor] .
+ op si : Nat -> SubscriberId [ctor] .
+
+ op never : -> ExpirationPolicy [ctor] .
+
+ class Publisher | topicName : TopicName, msg : Configuration, msgId : MsgId,
+                   attributes : JSON, orderingKey : String, publishTime : Nat,
+                   retryPolicy : Nat .
+
+ class Topic | name : TopicName, messageStoragePolicy : JSON, labels : JSON .
+
+ class Subscription | name : SubscriptionName, topicName : TopicName .
+
+ class Subscriber | subscriberId : SubscriberId .
+endom
+
+eof
+
+Publisher
+
+Función: Enviar mensajes al topic.
+Atributos clave:
+
+* topic_name	Nombre del topic al que publica.	"pedidos-nuevos"
+* message	Contenido del mensaje (JSON o string).	{"id_pedido": 123, "total": 59.99}
+* message_id	ID único generado por Pub/Sub.	"msg-7e3a1c"
+* attributes	Metadatos en clave-valor para filtrado.	{"region": "EU", "canal": "web"}
+* ordering_key (opcional)	Garantiza orden de mensajes con la misma clave.	"cliente_567"
+* publish_time	Marca de tiempo de publicación.	2025-10-10T16:32:00Z
+* retry_policy (opcional)	Configura reintentos automáticos.	maxRetryDuration=600s
+
+Topic
+
+Función: Canal intermedio que recibe los mensajes y los distribuye a suscripciones.
+Atributos clave:
+
+Atributo	Descripción	Ejemplo / Detalle
+* name	Identificador único del topic.	"projects/mi-proyecto/topics/pedidos-nuevos"
+* message_storage_policy	Regiones permitidas para almacenar mensajes.	{"allowedPersistenceRegions": ["europe-west1"]}
+* labels	Etiquetas para organización y facturación.	{"entorno": "producción"}
+kms_key_name (opcional)	Clave KMS para cifrado del tema.	"projects/.../cryptoKeys/..."
+retention_duration	Tiempo de retención de mensajes sin confirmar.
+
+Subscription
+
+Función: Conexión entre un topic y un subscriber.
+Atributos clave:
+
+Atributo	Descripción	Ejemplo / Detalle
+* name	Nombre único de la suscripción.	"subs-pedidos-inventario"
+* topic	Nombre del topic asociado.	"pedidos-nuevos"
+ack_deadline_seconds	Tiempo para confirmar (ACK) el mensaje antes del reintento.	10 – 600 s
+push_config (si PUSH)	Endpoint HTTP donde Pub/Sub envía mensajes.	"https://miapi.com/webhook"
+retry_policy	Retrasos entre reintentos de entrega.	minBackoff=10s, maxBackoff=600s
+filter (opcional)	Solo recibe mensajes que cumplan condiciones.	"attributes.region='EU'"
+dead_letter_policy (opcional)	Envía mensajes fallidos a otro topic.	"dead-letter-topic"
+expiration_policy	Cuándo eliminar suscripciones inactivas.	never o 31 días
+
+Subscriber
+
+Función: Consume mensajes de una suscripción (por push o pull).
+Atributos clave:
+
+Atributo	Descripción	Ejemplo / Detalle
+subscriber_id	Identificador del consumidor.	"svc-pagos"
+mode	Modo de entrega: PUSH o PULL.	"PUSH"
+endpoint (si PUSH)	URL donde recibe los mensajes.	"https://api.miempresa.com/pagos"
+ack_mode	Define si reconoce automáticamente o manualmente.	"manual"
+concurrency	Número de hilos o workers concurrentes.	5
+error_handling	Estrategia ante fallos.	"reintentar / descartar / DLQ"
+logging	Nivel de registro.	"info", "debug", etc.
