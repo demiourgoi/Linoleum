@@ -85,6 +85,12 @@ class SpanStreamEvaluatorTest
         failures.size === 1
         failures(0).exception must beAnInstanceOf[SpanStreamEvaluator.EventCollectionMultipleRootSpansError]
       }
+
+      "Print span events with detail" >> {
+        val event = SpanStart(testSpanInfo("root", true, startEpochMs = 10, endEpochMs = 100))
+        println(event.toString())
+        event !=== null
+      }
     }
 
     "Build letters by tumbling windows of tickPeriod duration" >> {

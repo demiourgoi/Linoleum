@@ -409,8 +409,10 @@ package evaluator {
         }
 
         val orderedEvents = startEvent :: eventsOnTime.sorted(linoleumEventOrdering).toList
-        log.debug("Building letters for trace {} with rootSpan {} and orderedEvents {}", 
+        log.debug("Building letters for trace {} with rootSpan {} and abridged orderedEvents {}",
           rootSpan.hexTraceId, rootSpan.hexSpanId, orderedEvents.map{_.shortToString}.mkString(lineSeparator))
+        log.debug("Building letters for trace {} with rootSpan {} and orderedEvents {}",
+          rootSpan.hexTraceId, rootSpan.hexSpanId, orderedEvents.map{_.toString()}.mkString(lineSeparator))
 
         val startTimestampNanos = startEvent.epochUnixNano
         val endTimestampNanos = orderedEvents.last.epochUnixNano
