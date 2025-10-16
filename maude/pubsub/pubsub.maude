@@ -15,7 +15,8 @@ omod PUBSUB is
                    attributes : JSON, orderingKey : String, publishTime : Nat,
                    retryPolicy : Nat .
 
- class Topic | name : TopicName, messageStoragePolicy : JSON, labels : JSON .
+ class Topic | name : TopicName, messageStoragePolicy : JSON, labels : JSON.
+               kmsKeyName : String, retentionDuration : Nat .
 
  class Subscription | name : SubscriptionName, topicName : TopicName .
 
@@ -46,8 +47,8 @@ Atributo	Descripción	Ejemplo / Detalle
 * name	Identificador único del topic.	"projects/mi-proyecto/topics/pedidos-nuevos"
 * message_storage_policy	Regiones permitidas para almacenar mensajes.	{"allowedPersistenceRegions": ["europe-west1"]}
 * labels	Etiquetas para organización y facturación.	{"entorno": "producción"}
-kms_key_name (opcional)	Clave KMS para cifrado del tema.	"projects/.../cryptoKeys/..."
-retention_duration	Tiempo de retención de mensajes sin confirmar.
+* kms_key_name (opcional)	Clave KMS para cifrado del tema.	"projects/.../cryptoKeys/..."
+* retention_duration	Tiempo de retención de mensajes sin confirmar.
 
 Subscription
 
