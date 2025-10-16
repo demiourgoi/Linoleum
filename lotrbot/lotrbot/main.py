@@ -1,4 +1,6 @@
 import os
+import random
+import time
 from pathlib import Path
 
 from pydantic import Field
@@ -6,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from typing import Optional
 
-from strands import Agent
+from strands import Agent, tool
 from strands.models.model import Model
 from strands.models.mistral import MistralModel
 from strands.telemetry import StrandsTelemetry
@@ -32,6 +34,28 @@ class Settings(BaseSettings):
     )
 
     mistral_api_key: str = Field(..., repr=False)
+    image_gen_min_sleep_secs: float = 0.10
+    image_gen_max_sleep_secs: float = 3.0
+
+
+# This is nasty but everything about this is
+_settings = Settings()
+
+
+@tool
+def generate_image(description: str) -> str:
+    """Generate an image and show it to the user
+
+    Args:
+        description: textual description of the image to generate
+    """
+    print(f"Generating image for: '{description}'")
+    sleep_duration = random.uniform(
+        _settings.image_gen_min_sleep_secs,
+        _settings.image_gen_max_sleep_secs
+    )
+    time.sleep(sleep_duration)
+    return f"Success generating image of {description} after {sleep_duration:.2f} seconds"
 
 
 class LotrAgent:
@@ -60,7 +84,7 @@ class LotrAgent:
     def _create_agent(self) -> Agent:
         return Agent(
             model=self._create_mistral_model(),
-            tools=[],
+            tools=[generate_image],
             system_prompt="""
 You are an expert in The Lord of the Rings (LOTR) universe.
 You love all books and characters described in J. R. R. Tolkien novels, and related movies.
