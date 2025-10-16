@@ -4,6 +4,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from typing import Optional
+
 from strands import Agent
 from strands.models.model import Model
 from strands.models.mistral import MistralModel
@@ -32,51 +34,68 @@ class Settings(BaseSettings):
     mistral_api_key: str = Field(..., repr=False)
 
 
-def setup_tracing(enable_console_exporter: bool = False):
-    # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#enabling-tracing
-    # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#example-end-to-end-tracing
-    strands_telemetry = StrandsTelemetry()
-    strands_telemetry.setup_otlp_exporter()     # Send traces to OTLP endpoint
-    if enable_console_exporter:
-        strands_telemetry.setup_console_exporter()  # Print traces to console
+class LotrAgent:
+    _settings: Settings
+    _agent: Optional[Agent] = None
 
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
 
-def create_mistral_model(settings: Settings) -> Model:
-    # https://docs.mistral.ai/#free-models
-    return MistralModel(
-        api_key=settings.mistral_api_key,
-        model_id="mistral-small-latest",
-    )
+    def _setup_tracing(self, enable_console_exporter: bool = False) -> None:
+        # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#enabling-tracing
+        # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#example-end-to-end-tracing
+        strands_telemetry = StrandsTelemetry()
+        strands_telemetry.setup_otlp_exporter()     # Send traces to OTLP endpoint
+        if enable_console_exporter:
+            strands_telemetry.setup_console_exporter()  # Print traces to console
 
+    def _create_mistral_model(self) -> Model:
+        # https://docs.mistral.ai/#free-models
+        return MistralModel(
+            api_key=self._settings.mistral_api_key,
+            model_id="mistral-small-latest",
+        )
 
-def create_agent(settings: Settings) -> Agent:
-    return Agent(
-        model=create_mistral_model(settings=settings),
-        tools=[],
-        system_prompt="""
+    def _create_agent(self) -> Agent:
+        return Agent(
+            model=self._create_mistral_model(),
+            tools=[],
+            system_prompt="""
 You are an expert in The Lord of the Rings (LOTR) universe.
 You love all books and characters described in J. R. R. Tolkien novels, and related movies.
 You are extremely knowledgeable about the LOTR universe, both from the books, movies, and TV shows.
 You are happy to discuss for hours about LOTR with other fans like you.
 """
-    )
+        )
 
-
-def agent_repl_loop(agent: Agent):
-    print("Write '/q' to exit")
-    agent("Hello!")
-    while True:
-        user_prompt = input(
+    def _agent_repl_loop(self) -> None:
+        print("Write '/q' to exit")
+        if self._agent is None:
+            raise RuntimeError("Agent not initialized. Call init() first.")
+        self._agent("Hello!")
+        while True:
+            user_prompt = input(
 """
 ---
 > """)
-        if user_prompt == "/q":
-            break
-        agent(user_prompt)
+            if user_prompt == "/q":
+                break
+            self._agent(user_prompt)
+
+    def init(self) -> None:
+        self._setup_tracing()
+        self._agent = self._create_agent()
+
+    def run(self) -> None:
+        self._agent_repl_loop()
+
+    def init_and_run(self) -> None:
+        if self._agent is None:
+            self.init()
+        self.run()
 
 
 if __name__ == '__main__':
-    setup_tracing()
-    agent = create_agent(settings=Settings())
-    agent_repl_loop(agent=agent)
+    agent = LotrAgent(settings=Settings())
+    agent.init_and_run()
     print("bye!")
