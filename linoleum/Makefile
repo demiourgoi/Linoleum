@@ -108,3 +108,7 @@ mongoc/container/bash:  ### Run a bash shell a the MongoDB client container
 	-v $(ROOT_DIR)/devenv/mongosh:/usr/share/mongosh \
 	 $(MONGO_SERVER_IMG) bash
 
+apidocs:  ### Generate all API documentation
+	$(GRADLE) javadoc
+	$(GRADLE) scaladoc
+	echo "See generated documentation at $(ROOT_DIR)/lib/build/docs"
