@@ -37,6 +37,7 @@ class Settings(BaseSettings):
 class LotrAgent:
     _settings: Settings
     _agent: Optional[Agent] = None
+    _EXIT_COMMAND: str = "/q"
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -69,7 +70,7 @@ You are happy to discuss for hours about LOTR with other fans like you.
         )
 
     def _agent_repl_loop(self) -> None:
-        print("Write '/q' to exit")
+        print(f"Write '{self._EXIT_COMMAND}' to exit")
         if self._agent is None:
             raise RuntimeError("Agent not initialized. Call init() first.")
         self._agent("Hello!")
@@ -78,7 +79,7 @@ You are happy to discuss for hours about LOTR with other fans like you.
 """
 ---
 > """)
-            if user_prompt == "/q":
+            if user_prompt == self._EXIT_COMMAND:
                 break
             self._agent(user_prompt)
 
