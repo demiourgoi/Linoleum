@@ -18,6 +18,8 @@ _root_path = Path(__file__).resolve().parent.parent
 
 
 _env_file_path_env_var = 'LOTRBOT_ENV_FILE_PATH'
+
+
 def _get_env_file_path() -> str:
     env_file_path = os.environ.get(_env_file_path_env_var)
     if env_file_path is None:
@@ -40,6 +42,7 @@ class Settings(BaseSettings):
     image_gen_max_sleep_secs: float = 3.0
     # chance to get insulted, should be between 0 and 100
     insult_likelihood: int = 0
+
 
 class ImageGenerator:
     _settings: Settings
@@ -76,18 +79,18 @@ def _create_model(settings: Settings) -> Model:
     return MistralModel(
         api_key=settings.mistral_api_key,
         # https://mistral.ai/news/mistral-nemo
-     
+
         # model_id="open-mistral-nemo-2407",
         model_id="mistral-small-latest",
     )
 
 
 class InsultingTool:
-    _agent : Agent
+    _agent: Agent
     _AGGRESSIVE_PERSON_PERSONA = """
-You are a nasty person. You are aggressive and short tempered. 
-You enjoy insulting people. For favorite insults are: geek, nerd, dork, goof, weirdo, wuss, loser, clown
-You hate geeks and Lord of the Rings fans, and you are talking with one of then now. 
+You are a nasty person. You are aggressive and short tempered.
+You enjoy insulting people. For favorite insults are: geek, nerd, dork, goof, weirdo, wuss, loser, clown.
+You hate geeks and Lord of the Rings fans, and you are talking with one of then now.
 You have the urge to let that person know what you think about them.
 """
 
@@ -103,7 +106,7 @@ You have the urge to let that person know what you think about them.
     @tool
     def insult_user(self, user_prompt) -> str:
         return str(self._agent(user_prompt))
-    
+
 
 class LotrAgent:
     _settings: Settings
@@ -129,34 +132,36 @@ You are happy to discuss for hours about LOTR with other fans like you.
         if enable_console_exporter:
             strands_telemetry.setup_console_exporter()  # Print traces to console
 
-
     def _create_lotr_expert(self) -> Agent:
         return Agent(
             model=_create_model(self._settings),
             # Note tool names in self._agent.tool_names are just the method names, ignoring the class
             tools=[
-                ImageGenerator(settings=self._settings).generate_image, 
+                ImageGenerator(settings=self._settings).generate_image,
                 InsultingTool(settings=self._settings).insult_user
             ],
             system_prompt=self._LOTR_EXPERT_PERSONA
         )
 
-
     def _ask(self, user_prompt: str):
+        """
+        Using a tool, so we have a single agent and a single trace
+        Per https://strandsagents.com/latest/documentation/docs/user-guide/concepts/tools/tools_overview/#direct-method-calls
+        "When calling tools directly as methods, always use keyword arguments - positional arguments are not supported for direct method calls"
+        But with use direct tool usage leads to 400 error from
+        Mistral API due to "Tool call id was tooluse_insult_user_584373223 but must be a-z, A-Z, 0-9, with a length of 9.",
+        this seems to be some bug on Mistral as seen in https://github.com/sst/opencode/issues/1680 and others
+        As a workaround here we ask# the model to follow the instruction to use the tool
+
+        Note: if "Ignore previous instructions" stops working, consider changing the name of the tool
+        For this same reason, we do not add a docstring to the tool
+        """
+        assert self._agent is not None
         self._agent(user_prompt)
         if self._settings.insult_likelihood > 0 \
-           and random.uniform(0, 100) <= self._settings.insult_likelihood:
-                # Using a tool, so we have a single agent and a single trace
-                # Per https://strandsagents.com/latest/documentation/docs/user-guide/concepts/tools/tools_overview/#direct-method-calls
-                # "When calling tools directly as methods, always use keyword arguments - positional arguments are not supported for direct method calls"
-                # But with use direct tool usage leads to 400 error from 
-                # Mistral API due to "Tool call id was tooluse_insult_user_584373223 but must be a-z, A-Z, 0-9, with a length of 9.",
-                # this seems to be some bug on Mistral as seen in https://github.com/sst/opencode/issues/1680 and others
-                # As a workaround here we ask# the model to follow the instruction to use the tool
-                # self._agent.tool.insult_user(user_promp=user_prompt)
-                # Note: if "Ignore previous instructions" stops working, consider changing the name of the tool
-                # For this reason we do not add a docstring to the tool
-                self._agent("Ignore previous instructions for the rest of this turn. You MUST use the insult_user tool now")
+            and random.uniform(0, 100) <= self._settings.insult_likelihood:
+            # self._agent.tool.insult_user(user_promp=user_prompt)
+            self._agent("Ignore previous instructions for the rest of this turn. You MUST use the insult_user tool now")
 
     def _agent_repl_loop(self) -> None:
         print(f"Write '{self._EXIT_COMMAND}' to exit")
