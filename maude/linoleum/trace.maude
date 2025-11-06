@@ -9,13 +9,20 @@ omod TRACE is
 
  class KeyValue | key : String, value : String .
 
+ class Event | timeUnixNano : Nat, name : String, attributes : ObjectList .
+
  class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
-              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : ObjectList .
+              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : ObjectList,
+              events : ObjectList .
 
  op span : -> Oid [ctor] .
  op kv : Nat -> Oid [ctor] .
+ op e : Nat -> Oid [ctor] .
 endom
 
 red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
-                    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : < kv(0) : KeyValue | key : "key0", value : "value0" >,
-                                                                             < kv(1) : KeyValue | key : "key1", value : "value1" > > .
+                    startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : < kv(0) : KeyValue | key : "key0", value : "value0" >,
+                                                                              < kv(1) : KeyValue | key : "key1", value : "value1" >,
+                    events : < e(0) : Event | timeUnixNano : 5, name : "event0",
+                               attributes : < kv(2) : KeyValue | key : "key2", value : "value2" >,
+                                            < kv(3) : KeyValue | key : "key3", value : "value3" > > > .
