@@ -1,0 +1,21 @@
+omod TRACE is
+ pr STRING .
+
+ sort ObjectList .
+ subsort Object < ObjectList .
+
+ op mol : -> ObjectList [ctor] .
+ op _,_ : ObjectList ObjectList -> ObjectList [ctor assoc id: mol prec 30] .
+
+ class KeyValue | key : String, value : String .
+
+ class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
+              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : ObjectList .
+
+ op span : -> Oid [ctor] .
+ op kv : Nat -> Oid [ctor] .
+endom
+
+red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
+                    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : < kv(0) : KeyValue | key : "key0", value : "value0" >,
+                                                                             < kv(1) : KeyValue | key : "key1", value : "value1" > > .
