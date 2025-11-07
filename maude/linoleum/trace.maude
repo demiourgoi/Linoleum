@@ -1,5 +1,59 @@
-omod TRACE is
+fmod KEY-EVENT is
  pr STRING .
+
+ sort KeyEvent .
+ op [_,_] : String String -> KeyEvent [ctor] .
+endfm
+
+view KeyEvent from TRIV to KEY-EVENT is
+ sort Elt to KeyEvent .
+endv
+
+omod OBJECT-NAMES is
+ sorts EventObject SpanObject .
+ subsorts EventObject SpanObject < Object .
+endom
+
+view EventObject from TRIV to OBJECT-NAMES is
+ sort Elt to EventObject .
+endv
+
+omod CLASS-DECLS is
+ pr STRING .
+ pr (LIST * (op __ to _`,_)){EventObject} * (sort List{EventObject} to EventObjectList) .
+ pr LIST{KeyEvent} * (sort List{KeyEvent} to KeyEventList) .
+
+ class Event | timeUnixNano : Nat, name : String, attributes : KeyEventList .
+
+ class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
+              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : KeyEventList,
+              events : EventObjectList .
+
+ op span : -> Oid [ctor] .
+ op kv : Nat -> Oid [ctor] .
+ op e : String -> Oid [ctor] .
+endom
+
+omod CLASS-OBJECTS is
+  inc CLASS-DECLS .
+
+  op <_:_|_> : Oid Event AttributeSet -> EventObject [ditto ctor] .
+  op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .
+endom
+
+red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
+                    startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
+                    events : < e(0) : Event | timeUnixNano : 5, name : "event0",
+                                              attributes : ["key2", "value2"] ["key3", "value3"] > > .
+
+eof
+
+***
+
+omod TRACE is
+*** pr STRING .
+ inv EVENT .
+ pr LIST{KeyEvent} * (sort List{KeyEvent} to KVList) .
 
  sort ObjectList .
  subsort Object < ObjectList .
@@ -8,12 +62,6 @@ omod TRACE is
  op _,_ : ObjectList ObjectList -> ObjectList [ctor assoc id: mol prec 30] .
 
  class KeyValue | key : String, value : String .
-
- class Event | timeUnixNano : Nat, name : String, attributes : ObjectList .
-
- class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
-              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : ObjectList,
-              events : ObjectList .
 
  op span : -> Oid [ctor] .
  op kv : Nat -> Oid [ctor] .
