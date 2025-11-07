@@ -41,6 +41,8 @@ omod CLASS-OBJECTS is
   op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .
 endom
 
+eof
+
 red < e("event0") : Event | timeUnixNano : 5, name : "event0",
                             attributes : ["key2", "value2"] ["key3", "value3"] > .
 
@@ -48,34 +50,3 @@ red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myNa
                     startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
                     events : < e("event0") : Event | timeUnixNano : 5, name : "event0",
                                                      attributes : ["key2", "value2"] ["key3", "value3"] > > .
-
-eof
-
-***
-
-omod TRACE is
-*** pr STRING .
- inv EVENT .
- pr LIST{KeyEvent} * (sort List{KeyEvent} to KVList) .
-
- sort ObjectList .
- subsort Object < ObjectList .
-
- op mol : -> ObjectList [ctor] .
- op _,_ : ObjectList ObjectList -> ObjectList [ctor assoc id: mol prec 30] .
-
- class KeyValue | key : String, value : String .
-
- op span : -> Oid [ctor] .
- op kv : Nat -> Oid [ctor] .
- op e : Nat -> Oid [ctor] .
-endom
-
-eof
-
-red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
-                    startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : < kv(0) : KeyValue | key : "key0", value : "value0" >,
-                                                                              < kv(1) : KeyValue | key : "key1", value : "value1" >,
-                    events : < e(0) : Event | timeUnixNano : 5, name : "event0",
-                                              attributes : < kv(2) : KeyValue | key : "key2", value : "value2" >,
-                                                           < kv(3) : KeyValue | key : "key3", value : "value3" > > > .
