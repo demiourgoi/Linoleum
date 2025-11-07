@@ -20,9 +20,11 @@ omod TRACE is
  op e : Nat -> Oid [ctor] .
 endom
 
+eof
+
 red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
                     startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : < kv(0) : KeyValue | key : "key0", value : "value0" >,
                                                                               < kv(1) : KeyValue | key : "key1", value : "value1" >,
                     events : < e(0) : Event | timeUnixNano : 5, name : "event0",
-                               attributes : < kv(2) : KeyValue | key : "key2", value : "value2" >,
-                                            < kv(3) : KeyValue | key : "key3", value : "value3" > > > .
+                                              attributes : < kv(2) : KeyValue | key : "key2", value : "value2" >,
+                                                           < kv(3) : KeyValue | key : "key3", value : "value3" > > > .
