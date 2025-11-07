@@ -41,10 +41,13 @@ omod CLASS-OBJECTS is
   op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .
 endom
 
+red < e("event0") : Event | timeUnixNano : 5, name : "event0",
+                            attributes : ["key2", "value2"] ["key3", "value3"] > .
+
 red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
                     startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
-                    events : < e(0) : Event | timeUnixNano : 5, name : "event0",
-                                              attributes : ["key2", "value2"] ["key3", "value3"] > > .
+                    events : < e("event0") : Event | timeUnixNano : 5, name : "event0",
+                                                     attributes : ["key2", "value2"] ["key3", "value3"] > > .
 
 eof
 
