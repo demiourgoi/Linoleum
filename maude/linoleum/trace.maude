@@ -12,6 +12,9 @@ endv
 omod OBJECT-NAMES is
  sorts EventObject SpanObject .
  subsorts EventObject SpanObject < Object .
+
+ sorts EventId SpanId .
+ subsort EventId SpanId < Oid .
 endom
 
 view EventObject from TRIV to OBJECT-NAMES is
@@ -29,9 +32,8 @@ omod CLASS-DECLS is
               startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : KeyEventList,
               events : EventObjectList .
 
- op span : -> Oid [ctor] .
- op kv : Nat -> Oid [ctor] .
- op e : String -> Oid [ctor] .
+ op span : String -> SpanId [ctor] .
+ op event : String -> EventId [ctor] .
 endom
 
 omod CLASS-OBJECTS is
@@ -43,10 +45,10 @@ endom
 
 eof
 
-red < e("event0") : Event | timeUnixNano : 5, name : "event0",
-                            attributes : ["key2", "value2"] ["key3", "value3"] > .
+red < event("event0") : Event | timeUnixNano : 5, name : "event0",
+                                attributes : ["key2", "value2"] ["key3", "value3"] > .
 
-red < span : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
-                    startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
-                    events : < e("event0") : Event | timeUnixNano : 5, name : "event0",
-                                                     attributes : ["key2", "value2"] ["key3", "value3"] > > .
+red < span("b") : Span | traceId : "a", spanId : "b", parentSpanId : "", name : "myName",
+                         startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
+                         events : < event("event0") : Event | timeUnixNano : 5, name : "event0",
+                                                              attributes : ["key2", "value2"] ["key3", "value3"] > > .

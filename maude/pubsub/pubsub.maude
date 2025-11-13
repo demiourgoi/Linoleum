@@ -1,26 +1,67 @@
-omod PUBSUB is
- pr JSON .
+omod DATA-STRUCTURES is
+ pr JSON-OPS .
 
- sort TopicName MsgId SubscriptionName SubscriberId ExpirationPolicy .
+ sort PublisherId TopicName SubscriptionName SubscriberId .
+ subsort PublisherId TopicName SubscriptionName SubscriberId < Oid .
+
+ op pub : Nat -> PublisherId [ctor] .
+ op topic : Nat -> TopicName [ctor] .
+ op subscription : Nat -> SubscriptionName [ctor] .
+ op subscriber : Nat -> SubscriberId [ctor] .
+
+ sort Filter .
+ op noFilter : -> Filter [ctor] .
+ op _=_ : Access Value -> Filter [ctor] .
+
+ sort ExpirationPolicy .
  subsort Nat < ExpirationPolicy .
 
- op tn : Nat -> TopicName [ctor] .
- op mi : Nat -> MsgId [ctor] .
- op sn : Nat -> SubscriptionName [ctor] .
- op si : Nat -> SubscriberId [ctor] .
-
  op never : -> ExpirationPolicy [ctor] .
+endom
 
- class Publisher | topicName : TopicName, msg : Configuration, msgId : MsgId,
-                   attributes : JSON, orderingKey : String, publishTime : Nat,
-                   retryPolicy : Nat .
+view SubscriptionName from TRIV to DATA-STRUCTURES is
+ sort Elt to SubscriptionName .
+endv
 
- class Topic | name : TopicName, messageStoragePolicy : JSON, labels : JSON.
+view SubscriberId from TRIV to DATA-STRUCTURES is
+ sort Elt to SubscriberId .
+endv
+
+view Filter from TRIV to DATA-STRUCTURES is
+ sort Elt to Filter .
+endv
+
+omod PUBSUB-SYNTAX is
+ pr MAP{SubscriberId, Filter} .
+ pr LIST{SubscriptionName} .
+
+ class Publisher | topicName : TopicName, msgs : JL, orderingKey : String,
+                   publishTime : Nat, retryPolicy : Nat .
+
+ class Topic | name : TopicName, subscriptions : List{SubscriptionName},
+               messageStoragePolicy : JSON, labels : JSON,
                kmsKeyName : String, retentionDuration : Nat .
 
- class Subscription | name : SubscriptionName, topicName : TopicName .
+ class Subscription | name : SubscriptionName, subscribers : Map{SubscriberId, Filter} .
 
  class Subscriber | subscriberId : SubscriberId .
+
+ msg to_:_ : TopicName JSON -> Msg .
+ msg to_:_ : SubscriberId JSON -> Msg .
+endom
+
+omod PUBSUB-SEMANTICS is
+ pr PUBSUB-SYNTAX .
+
+ var  PI : PublisherId .
+ var  TN : TopicName .
+ var  J : JSON .
+ var  JL : JL .
+
+ rl [publisher-to-topic] :
+    < PI : Publisher | topicName : TN, msgs : J $ JL >
+ => < PI : Publisher | msgs : J >
+    to TN : J .
 endom
 
 eof

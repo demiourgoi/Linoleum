@@ -48,16 +48,28 @@ endfm
 fmod JSON-OPS is
  pr JSON .
 
- var  MSV : Map{String, Value} .
+ sort Access .
+ subsort String < Access .
+
+ op _._ : Access Access -> Access [ctor assoc] .
+
+ vars MSV MSV' : Map{String, Value} .
  var  LV : List{Value} .
  var  D M Y : NzNat .
  var  DATE : Date .
  var  S : String .
+ var  A : Access .
  var  V : Value .
  var  F : Float .
  var  J : JSON .
  var  JL : JL .
  var  I : Int .
+
+ op _._ : JSON Access ~> Value .
+ ceq v(MSV) . S = V
+  if V := MSV[S] .
+ ceq v(MSV) . (S . A) = v(MSV') . A
+  if v(MSV') := MSV[S] .
 
  op print* : JL -> String .
  eq print*(mtJL) = "" .
