@@ -38,6 +38,15 @@ jobs:
       # - name: Build and publish sscheck-core
       #   run: sbt clean publishM2
 
+      - name: Checkout maude-bindings
+        uses: actions/checkout@v4
+        with:
+          repository: 'demiourgoi/maude-bindings'
+          ref: 'java_bindings'
+      
+      - name: Build and publish Maude java bindings locally
+        run: cd maude_java_lib && make clean release
+
       - name: Checkout current branch
         uses: actions/checkout@v4
 
