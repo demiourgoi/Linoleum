@@ -1,0 +1,10 @@
+load trace.maude
+
+load model-checker.maude
+
+omod PROPS is
+ pr CLASS-OBJECTS .
+ pr SATISFACTION .
+
+ subsort Configuration < State .
+endom
