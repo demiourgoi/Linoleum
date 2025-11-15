@@ -79,6 +79,8 @@ dependencies {
         exclude group : "org.slf4j"
     }
 
+    implementation ("es.ucm.maude:bindings:3.5.0.0")
+
     // NOTE: if needed we can regenerate the proto code without gRPC support to remove some dependency
     // https://github.com/grpc/grpc-java/blob/master/examples/example-opentelemetry/build.gradle
     // implementation "io.grpc:grpc-protobuf:${grpcVersion}"

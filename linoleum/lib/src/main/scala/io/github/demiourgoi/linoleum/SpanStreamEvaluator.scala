@@ -18,8 +18,10 @@ import java.time.Duration
 import java.{lang => jlang}
 import java.time.Instant
 import com.google.protobuf.Timestamp
-
 import org.bson.BsonDocument
+
+import es.ucm.maude.bindings.{maude, MaudeRuntime}
+
 import messages.SpanInfo
 
 object Linoleum {
@@ -28,6 +30,20 @@ object Linoleum {
   import sink._
   import evaluator._
   import formulas._
+  import maudejobs._
+  
+  private val log = LoggerFactory.getLogger(Linoleum.getClass.getName)
+
+  def execute(cfg: LinoleumConfig)(maudeJob: MaudeJob): Unit = {
+    // FIXME this should be done in all relevant JVMs
+    MaudeRuntime.init()
+    // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
+    // easy so the user focuses on the Maude code: e.g. require an entry point module
+    maudeJob.programPaths.foreach{MaudeRuntime.loadFromResources(_)}
+    val maudeModules = maudeJob.maudeModules.map{maude.getModule(_)}
+  }
+
+
   
   def execute(cfg: LinoleumConfig)(formula: LinoleumFormula): Unit = {
     setupFlinkJob(cfg, formula).execute(cfg.jobName)
@@ -52,6 +68,15 @@ object Linoleum {
 
     env
   }
+}
+
+package object maudejobs {
+  /**
+   * @param name    human-readable description for this job.
+   * @param programPaths resources paths in the jar for Maude source file for this job.
+   * @param maudeModules Maude modules to load for this job.
+   * */
+  case class MaudeJob(name: String, programPaths: List[String], maudeModules: List[String])
 }
 
 package object formulas {
@@ -352,7 +377,7 @@ package evaluator {
               someEvents.head.span.hexTraceId, someEvents.mkString(", "))
           }
         }) { rootSpan =>
-          log.info(s"Evaluating trace with id {}", rootSpan.hexTraceId)
+          log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
           val formulaValue = evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, events))
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId, rootSpan.getSpan.getStartTimeUnixNano, formula.name, formulaValue)
