@@ -34,7 +34,7 @@ object Linoleum {
   
   private val log = LoggerFactory.getLogger(Linoleum.getClass.getName)
 
-  def execute(cfg: LinoleumConfig)(maudeJob: MaudeJob): Unit = {
+  def execute(cfg: LinoleumConfig, maudeJob: MaudeJob): Unit = {
     // FIXME this should be done in all relevant JVMs
     MaudeRuntime.init()
     // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
@@ -45,7 +45,7 @@ object Linoleum {
 
 
   
-  def execute(cfg: LinoleumConfig)(formula: LinoleumFormula): Unit = {
+  def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
     setupFlinkJob(cfg, formula).execute(cfg.jobName)
   }
 
