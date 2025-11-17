@@ -5,3 +5,6 @@ hs_err_pid*
 .DS_Store
 /maude/jsons
 *.jsonl
+*.log
+.metals
+.vscode

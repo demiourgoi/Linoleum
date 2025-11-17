@@ -79,6 +79,10 @@ dependencies {
         exclude group : "org.slf4j"
     }
 
+    // NOTE: do not shade and include the dependency, instead require the user to add it
+    // That way this project does distribute Maude, and there is no issue with licenses
+    // That requires building Maude Java bindings locally until that is published to
+    // Maven central, as it is done in ../.github/workflows/linoleum.yml
     implementation ("es.ucm.maude:bindings:3.5.0.0")
 
     // NOTE: if needed we can regenerate the proto code without gRPC support to remove some dependency
