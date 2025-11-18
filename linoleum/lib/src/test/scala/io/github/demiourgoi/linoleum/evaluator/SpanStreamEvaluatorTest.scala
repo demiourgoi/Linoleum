@@ -5,7 +5,6 @@ import com.google.protobuf.ByteString
 
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
-import org.specs2.ScalaCheck
 import org.specs2.execute.Result
 import org.specs2.matcher.ThrownExpectations
 import io.github.demiourgoi.sscheck.prop.tl.Formula._

@@ -19,3 +19,6 @@ project
 docs/papers
 
 .todo
+
+# Ignore files from the Maude project that are copied during the build
+lib/src/main/resources/maude/linoleum/

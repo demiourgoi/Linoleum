@@ -218,31 +218,35 @@ package object messages {
       val parentSpanId = byteString2HexString(span.getParentSpanId())
       val spanOid = s"$traceId/$spanId"
 
-      span.getEventsList().asScala.zipWithIndex.map { case (event, index) =>
-        val eventId = s"$spanOid/$index"
-        s"""|< event("$eventId") : Event | 
+      val events =
+        if (span.getEventsList().isEmpty()) "nil"
+        else span.getEventsList().asScala.zipWithIndex.map { case (event, index) =>
+          val eventId = s"$spanOid/$index"
+          s"""| < event("$eventId") : Event | 
               | timeUnixNano : ${event.getTimeUnixNano()},
               | name : "${event.getName()}",
               | attributes : ${spanAttributesToMaude(event.getAttributesList())}
-            |>""".stripMargin.replaceAll("[\r\n]", "")
-      }
+            | > """.stripMargin.replaceAll("[\r\n]", "")
+        }.mkString(" ")
 
-      s"""|< span($spanOid) : Span |
+      s"""| < span("$spanOid") : Span |
               | traceId : "$traceId", 
               | spanId : "$spanId",
               | parentSpanId : "$parentSpanId", 
-              | name: ${span.getName()}, 
+              | name : "${span.getName()}", 
               | startTimeUnixNano : ${span.getStartTimeUnixNano()},
               | endTimeUnixNano : ${span.getEndTimeUnixNano()},
-              | attributes : ${spanAttributesToMaude(span.getAttributesList())},
-          |>""".stripMargin.replaceAll("[\r\n]", "")
+              | attributes : ${spanAttributesToMaude(span.getAttributesList())}, 
+              | events : $events
+          | > """.stripMargin.replaceAll("[\r\n]", "")
     }
   }
 
   private def spanAttributesToMaude(attributes: jutil.List[KeyValue]): String =
-    attributes.asScala
+    if (attributes.isEmpty()) "nil"
+    else attributes.asScala
       .map { kv =>
-        s"""["${kv.getKey()}", "${kv.getValue()}"]"""
+        s"""["${kv.getKey()}", "${kv.getValue().getStringValue()}"]"""
       }
       .mkString(" ")
 

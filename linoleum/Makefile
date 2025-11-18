@@ -4,6 +4,7 @@ SHELL := /bin/bash
 
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+MAUDE_DIR := $(ROOT_DIR)/../maude
 
 # Only publish build scan when explicitly asking, e.g. on CI
 EXTRA_BUILD_ARGS ?= --no-scan
@@ -46,7 +47,8 @@ clean/build:	### cleanup the build
 # `make release EXTRA_BUILD_ARGS=--scan`
 # https://docs.gradle.org/current/userguide/build_scans.html
 build:	### build app (this also runs unit tests)
-	$(GRADLE) build
+	cp $(MAUDE_DIR)/linoleum/trace.maude lib/src/main/resources/maude/linoleum
+	$(GRADLE) build --info
 	echo "See lib jar at $(ROOT_DIR)/lib/build/libs/*.jar"
 
 
