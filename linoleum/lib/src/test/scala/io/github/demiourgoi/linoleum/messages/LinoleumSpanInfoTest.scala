@@ -91,7 +91,7 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
     "toMaudeSpanObject method" >> {
       "should always return a well formatted Maude term" >> prop { (spanInfo: SpanInfo) =>
         val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
-        val spanTermStr = linoleumSpanInfo.toMaudeSpanObject
+        val spanTermStr = linoleumSpanInfo.toMaude
         (spanTermStr must not beNull) and (spanTermStr must not be empty)
 
         traceMaudeModule must not beNull

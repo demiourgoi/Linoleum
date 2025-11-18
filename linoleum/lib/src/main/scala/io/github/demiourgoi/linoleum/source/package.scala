@@ -24,7 +24,6 @@ import scala.jdk.CollectionConverters._
 import messages.SpanInfo
 import config.LinoleumConfig
 import io.opentelemetry.proto.trace.v1.Span
-import io.opentelemetry.proto.common.v1.KeyValue
 
 package object source {
   type SpanInfoStream = DataStream[SpanInfo]
@@ -181,6 +180,8 @@ package source {
 }
 
 package object messages {
+  import utils.byteString2HexString
+  import maude.spanToMaude
 
   /** Utils on top of SpanInfo. See proto definition for SpanInfo at
     * https://github.com/demiourgoi/jaeger-idl/blob/linoleum-ltlss-idl/proto/linoleum/tracing.proto
@@ -201,56 +202,9 @@ package object messages {
     def isNamed(name: String): Boolean = self.getSpan.getName == name
     def shortToString = s"(${self.getSpan.getName}, $hexSpanId, $hexTraceId)"
 
-    /** Return a string representation of a Maude SpanObject
-      * (https://github.com/demiourgoi/Linoleum/blob/main/maude/linoleum/trace.maude)
-      * corresponding to this object, in a format that can be parsed by
-      * `parseTerm` using `es.ucm.maude.bindings` for that module.
-      *
-      * For Oids we use:
-      *   - span: s"$traceId/$spanId", converting the ids to hex strings
-      *   - even: s"$traceId/$spanId/$index" where index is the position of the
-      *     even in the list of events for the span
-      */
-    def toMaudeSpanObject: String = {
+    def toMaude: String = {
       val span = self.getSpan()
-      val spanId = byteString2HexString(span.getSpanId())
-      val traceId = byteString2HexString(span.getTraceId())
-      val parentSpanId = byteString2HexString(span.getParentSpanId())
-      val spanOid = s"$traceId/$spanId"
-
-      val events =
-        if (span.getEventsList().isEmpty()) "nil"
-        else span.getEventsList().asScala.zipWithIndex.map { case (event, index) =>
-          val eventId = s"$spanOid/$index"
-          s"""| < event("$eventId") : Event | 
-              | timeUnixNano : ${event.getTimeUnixNano()},
-              | name : "${event.getName()}",
-              | attributes : ${spanAttributesToMaude(event.getAttributesList())}
-            | > """.stripMargin.replaceAll("[\r\n]", "")
-        }.mkString(" ")
-
-      s"""| < span("$spanOid") : Span |
-              | traceId : "$traceId", 
-              | spanId : "$spanId",
-              | parentSpanId : "$parentSpanId", 
-              | name : "${span.getName()}", 
-              | startTimeUnixNano : ${span.getStartTimeUnixNano()},
-              | endTimeUnixNano : ${span.getEndTimeUnixNano()},
-              | attributes : ${spanAttributesToMaude(span.getAttributesList())}, 
-              | events : $events
-          | > """.stripMargin.replaceAll("[\r\n]", "")
+      spanToMaude(span)
     }
   }
-
-  private def spanAttributesToMaude(attributes: jutil.List[KeyValue]): String =
-    if (attributes.isEmpty()) "nil"
-    else attributes.asScala
-      .map { kv =>
-        s"""["${kv.getKey()}", "${kv.getValue().getStringValue()}"]"""
-      }
-      .mkString(" ")
-
-  // From https://stackoverflow.com/questions/2756166/what-is-are-the-scala-ways-to-implement-this-java-byte-to-hex-class
-  def byteString2HexString(byteString: ByteString): String =
-    byteString.toByteArray.map("%02X" format _).mkString.toLowerCase
 }
