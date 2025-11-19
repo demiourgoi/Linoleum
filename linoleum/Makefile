@@ -48,6 +48,7 @@ clean/build:	### cleanup the build
 # `make release EXTRA_BUILD_ARGS=--scan`
 # https://docs.gradle.org/current/userguide/build_scans.html
 build: maude/copysrc	### build app (this also runs unit tests)
+	mkdir -p target/specs2-reports/stats
 	$(GRADLE) build --info
 	echo "See lib jar at $(ROOT_DIR)/lib/build/libs/*.jar"
 
