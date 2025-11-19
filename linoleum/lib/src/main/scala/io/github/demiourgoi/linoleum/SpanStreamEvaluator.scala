@@ -22,7 +22,7 @@ import java.{util => jutil}
 import com.google.protobuf.Timestamp
 import org.bson.BsonDocument
 
-import io.opentelemetry.proto.common.v1.KeyValue
+import io.opentelemetry.proto.common.v1.{AnyValue, KeyValue}
 import io.opentelemetry.proto.trace.v1.Span
 
 import io.github.demiourgoi.sscheck.prop.tl.{
@@ -154,11 +154,45 @@ package object maude {
     if (attributes.isEmpty()) "nil"
     else
       attributes.asScala
-        .map { kv =>
-          s"""["${kv.getKey()}", "${kv.getValue().getStringValue()}"]"""
-        }
+        .map { keyValueToMaude(_) }
         .mkString(" ")
 
+  private def keyValueToMaude(kv: KeyValue): String =
+    s"""["${kv.getKey()}", "${anyValueToMaude(kv.getValue())}"]"""
+
+  private def anyValueToMaude(anyValue: AnyValue): String =
+    // Note in ../maude/linoleum/trace.maude we have `op [_,_] : String String -> KeyEvent [ctor] .`
+    // so this should always return a string representation of a Maude term of `String` sort.
+    anyValue match {
+      case av if av.hasStringValue() => av.getStringValue()
+      case av if av.hasBoolValue()   => s"${av.getBoolValue()}"
+      case av if av.hasIntValue()    => s"${av.getIntValue()}"
+      case av if av.hasDoubleValue() => s"${av.getDoubleValue()}"
+      case av if av.hasArrayValue()  => "unsupportedArrayValue"
+      case av if av.hasKvlistValue() => "unsupportedKvlistValue"
+      /*
+      This leads to terms like the following that currently are not parseables by Maude
+
+      ["OoDcKjz", "["OK", "["6G", "["8", "34"] ["V", "1.0133370662579862E308"]"] ["e", "true"]"] ["Si", "79"]"],
+
+      Warning: <standard input>, line 0: bad token "["OK", ".
+       */
+      // case av if av.hasArrayValue() =>
+      //   av.getArrayValue()
+      //     .getValuesList()
+      //     .asScala
+      //     .map { anyValueToMaude(_) }
+      //     .mkString(" ")
+      // case av if av.hasKvlistValue() =>
+      //   av.getKvlistValue()
+      //     .getValuesList()
+      //     .asScala
+      //     .map { keyValueToMaude(_) }
+      //     .mkString(" ")
+      case av if av.hasBytesValue() =>
+        s"${byteString2HexString(av.getBytesValue())}"
+      case _ => ""
+    }
 }
 package object formulas {
   import messages._

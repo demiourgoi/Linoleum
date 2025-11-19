@@ -49,7 +49,7 @@ clean/build:	### cleanup the build
 # https://docs.gradle.org/current/userguide/build_scans.html
 build: maude/copysrc	### build app (this also runs unit tests)
 	mkdir -p target/specs2-reports/stats
-	$(GRADLE) build --info
+	$(GRADLE) build
 	echo "See lib jar at $(ROOT_DIR)/lib/build/libs/*.jar"
 
 
