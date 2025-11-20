@@ -1,0 +1,36 @@
+load pubsub.maude
+load model-checker.maude
+
+omod PROPS is
+ pr PUBSUB-SEMANTICS .
+ pr SATISFACTION .
+ pr EXT-BOOL .
+
+ subsort Configuration < State .
+
+ var SI : SubscriberId .
+ var C : Configuration .
+ var V : Value .
+ var J : JSON .
+ var JL : JL .
+
+ op msgReceived : SubscriberId Value -> Prop [ctor] .
+ eq < SI : Subscriber | received : JL > C
+    |= msgReceived(SI, V) = checkMessageId(JL, V) .
+
+
+ op checkMessageId : JL Value -> Bool .
+ eq checkMessageId(mtJL, V) = false .
+ eq checkMessageId(J $ JL, V) = J . ("message" . "messageId") == V or-else checkMessageId(JL, V) .
+endom
+
+mod TEST-MC is
+ pr LTL-SIMPLIFIER .
+ pr MODEL-CHECKER .
+ pr PROPS .
+ pr TEST .
+endm
+
+red modelCheck(init, <> [] (msgReceived(subscriber(0), v("0")) /\ msgReceived(subscriber(0), v("1")) /\
+                            msgReceived(subscriber(1), v("2")) /\ msgReceived(subscriber(1), v("3")) /\
+                            msgReceived(subscriber(2), v("0"))) ) .

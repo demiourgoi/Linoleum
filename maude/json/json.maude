@@ -30,9 +30,6 @@ fmod JSON is
  eq contains(v(((S |-> V), MSV)), S) = true .
  eq contains(v(MSV), S) = false [owise] .
 
- op _._ : JSON String ~> Value .
- eq v(MSV) . S = MSV [ S ] .
-
  op add : JSON String Value -> JSON .
  eq add(v((S |-> V, MSV)), S, V') = v((S |-> V', MSV)) .
  eq add(v(MSV), S, V) = v((S |-> V, MSV)) [owise] .

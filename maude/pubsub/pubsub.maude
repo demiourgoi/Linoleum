@@ -4,7 +4,7 @@ omod DATA-STRUCTURES is
  sort PublisherId TopicName SubscriptionName SubscriberId .
  subsort PublisherId TopicName SubscriptionName SubscriberId < Oid .
 
- op pub : Nat -> PublisherId [ctor] .
+ op publisher : Nat -> PublisherId [ctor] .
  op topic : Nat -> TopicName [ctor] .
  op subscription : Nat -> SubscriptionName [ctor] .
  op subscriber : Nat -> SubscriberId [ctor] .
@@ -17,6 +17,16 @@ omod DATA-STRUCTURES is
  subsort Nat < ExpirationPolicy .
 
  op never : -> ExpirationPolicy [ctor] .
+
+ var A : Access .
+ var V : Value .
+ var J : JSON .
+
+ op eval : JSON Filter -> Bool .
+ eq eval(J, A = V) = (J . A) == V .
+
+ op evalAttributes : JSON Filter -> Bool .
+ eq evalAttributes(J, A = V) = (J . ("message" . "attributes" . A)) == V .
 endom
 
 view SubscriptionName from TRIV to DATA-STRUCTURES is
@@ -38,33 +48,146 @@ omod PUBSUB-SYNTAX is
  class Publisher | topicName : TopicName, msgs : JL, orderingKey : String,
                    publishTime : Nat, retryPolicy : Nat .
 
- class Topic | name : TopicName, subscriptions : List{SubscriptionName},
+ class Topic | subscriptions : List{SubscriptionName},
                messageStoragePolicy : JSON, labels : JSON,
                kmsKeyName : String, retentionDuration : Nat .
 
- class Subscription | name : SubscriptionName, subscribers : Map{SubscriberId, Filter} .
+ class Subscription | subscribers : Map{SubscriberId, Filter} .
 
- class Subscriber | subscriberId : SubscriberId .
+ class Subscriber | received : JL .
 
- msg to_:_ : TopicName JSON -> Msg .
- msg to_:_ : SubscriberId JSON -> Msg .
+ msg to_:_ : TopicName JSON -> Msg [prec 35] .
+ msg to_:_ : SubscriptionName JSON -> Msg [prec 35] .
+ msg to_:_ : SubscriberId JSON -> Msg [prec 35] .
 endom
 
 omod PUBSUB-SEMANTICS is
  pr PUBSUB-SYNTAX .
 
+ var  SF : Entry{SubscriberId, Filter} .
+ var  MSF : Map{SubscriberId, Filter} .
+ var  LSN : List{SubscriptionName} .
+ var  SN : SubscriptionName .
+ var  SID : SubscriberId .
  var  PI : PublisherId .
  var  TN : TopicName .
+ var  F : Filter .
  var  J : JSON .
  var  JL : JL .
 
+ op broadcast : List{SubscriptionName} JSON -> Configuration .
+ eq broadcast(nil, J) = none .
+ eq broadcast(SN LSN, J) = to SN : J
+                           broadcast(LSN, J) .
+
+ op broadcast : Map{SubscriberId, Filter} JSON -> Configuration .
+ eq broadcast(empty, J) = none .
+ eq broadcast((SID |-> F, MSF), J) = if evalAttributes(J, F)
+                                     then to SID : J
+                                     else none
+                                     fi
+                                     broadcast(MSF, J) .
+
  rl [publisher-to-topic] :
     < PI : Publisher | topicName : TN, msgs : J $ JL >
- => < PI : Publisher | msgs : J >
+ => < PI : Publisher | msgs : JL >
     to TN : J .
+
+ rl [topic-to-subscription] :
+    to TN : J
+    < TN : Topic | subscriptions : LSN >
+ => < TN : Topic | >
+    broadcast(LSN, J) .
+
+ rl [subscription-to-subscriber] :
+    to SN : J
+    < SN : Subscription | subscribers : MSF >
+ => < SN : Subscription | >
+    broadcast(MSF, J) .
+
+ rl [subscriber] :
+    to SID : J
+    < SID : Subscriber | received : JL >
+ => < SID : Subscriber | received : JL $ J > .
 endom
 
+mod TEST is
+ pr PUBSUB-SEMANTICS .
+
+ ops msg0 msg1 msg2 msg3 : -> JSON .
+ eq msg0 = v("message" |-> v(("data"        |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"),
+                              "messageId"   |-> v("0"),
+                              "publishTime" |-> v("2025-11-19T12:34:56.000Z"),
+                              "attributes"  |-> v(("event"   |-> v("user_created"),
+                                                   "origin"  |-> v("api"),
+                                                   "version" |-> v("1.0")
+                                                   )),
+                              "subscription" |-> v("projects/my-project/subscriptions/my-sub")
+                             ))
+            ) .
+ eq msg1 = v("message" |-> v(("data"        |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"),
+                              "messageId"   |-> v("1"),
+                              "publishTime" |-> v("2025-11-19T12:34:56.000Z"),
+                              "attributes"  |-> v(("event"   |-> v("user_created"),
+                                                   "origin"  |-> v("api"),
+                                                   "version" |-> v("2.0")
+                                                   )),
+                              "subscription" |-> v("projects/my-project/subscriptions/my-sub")
+                             ))
+            ) .
+ eq msg2 = v("message" |-> v(("data"        |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"),
+                              "messageId"   |-> v("2"),
+                              "publishTime" |-> v("2025-11-19T12:34:56.000Z"),
+                              "attributes"  |-> v(("event"   |-> v("user_created"),
+                                                   "origin"  |-> v("user"),
+                                                   "version" |-> v("3.0")
+                                                   )),
+                              "subscription" |-> v("projects/my-project/subscriptions/my-sub")
+                             ))
+            ) .
+ eq msg3 = v("message" |-> v(("data"        |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"),
+                              "messageId"   |-> v("3"),
+                              "publishTime" |-> v("2025-11-19T12:34:56.000Z"),
+                              "attributes"  |-> v(("event"   |-> v("user_created"),
+                                                   "origin"  |-> v("user"),
+                                                   "version" |-> v("3.0")
+                                                   )),
+                              "subscription" |-> v("projects/my-project/subscriptions/my-sub")
+                             ))
+            ) .
+
+ ops publisher0 publisher1 : -> Object .
+ eq publisher0 = < publisher(0) : Publisher | topicName : topic(0), msgs : msg0 $ msg1 > .
+ eq publisher1 = < publisher(1) : Publisher | topicName : topic(0), msgs : msg2 $ msg3 > .
+
+ op topic : -> Object .
+ eq topic = < topic(0) : Topic | subscriptions : subscription(0) subscription(1) > .
+
+ ops filter0 filter1 filter2 : -> Filter .
+ eq filter0 = "origin" = v("api") .
+ eq filter1 = "origin" = v("user") .
+ eq filter2 = "version" = v("1.0") .
+
+ ops subscription0 subscription1 : -> Object .
+ eq subscription0 = < subscription(0) : Subscription | subscribers : (subscriber(0) |-> filter0,
+                                                                      subscriber(1) |-> filter1) > .
+ eq subscription1 = < subscription(1) : Subscription | subscribers : (subscriber(2) |-> filter2) > .
+
+ ops subscriber0 subscriber1 subscriber2 : -> Object .
+ eq subscriber0 = < subscriber(0) : Subscriber | received : mtJL > .
+ eq subscriber1 = < subscriber(1) : Subscriber | received : mtJL > .
+ eq subscriber2 = < subscriber(2) : Subscriber | received : mtJL > .
+
+ op init : -> Configuration .
+ eq init = publisher0 publisher1
+           topic
+           subscription0 subscription1
+           subscriber0 subscriber1 subscriber2 .
+endm
+
 eof
+
+rew init .
 
 Publisher
 
