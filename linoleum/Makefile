@@ -4,6 +4,8 @@ SHELL := /bin/bash
 
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+MAUDE_SRC := $(ROOT_DIR)/../maude
+MAUDE_RES := $(ROOT_DIR)/lib/src/main/resources/maude
 
 # Only publish build scan when explicitly asking, e.g. on CI
 EXTRA_BUILD_ARGS ?= --no-scan
@@ -36,7 +38,7 @@ endif
 release: build publish/local	### run all release checks
 	echo "PASS all release checks"
 
-clean: clean/build compose/stop ### cleanup everything
+clean: clean/maude/copysrc clean/build compose/stop ### cleanup everything
 
 clean/build:	### cleanup the build
 	$(GRADLE) clean
@@ -45,10 +47,21 @@ clean/build:	### cleanup the build
 # Run with `EXTRA_BUILD_ARGS=--scan` to send a gradle build scan, e.g.
 # `make release EXTRA_BUILD_ARGS=--scan`
 # https://docs.gradle.org/current/userguide/build_scans.html
-build:	### build app (this also runs unit tests)
+build: maude/copysrc	### build app (this also runs unit tests)
+	mkdir -p target/specs2-reports/stats
 	$(GRADLE) build
 	echo "See lib jar at $(ROOT_DIR)/lib/build/libs/*.jar"
 
+
+.PHONY: maude/copysrc
+maude/copysrc: clean/maude/copysrc
+	mkdir -p $(MAUDE_RES)/linoleum
+	cp $(MAUDE_SRC)/linoleum/trace.maude $(MAUDE_RES)/linoleum
+
+
+.PHONY: clean/maude/copysrc
+clean/maude/copysrc:
+	rm -rf $(MAUDE_RES)
 
 publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal

@@ -53,7 +53,7 @@ object Main {
 
         log.warn("Evaluating traces for formula {}", formula)
 
-        Linoleum.execute(cfg)(formula)
+        Linoleum.execute(cfg, formula)
 
         log.warn("Ending program")
     }
