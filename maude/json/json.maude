@@ -68,6 +68,18 @@ fmod JSON-OPS is
  ceq v(MSV) . (S . A) = v(MSV') . A
   if v(MSV') := MSV[S] .
 
+ sort Filter .
+ op noFilter : -> Filter [ctor] . *** TODO
+ op _=_ : Access Value -> Filter [ctor] .
+
+ op eval : JSON Filter -> Bool .
+ eq eval(J, noFilter) = true .
+ eq eval(J, A = V) = (J . A) == V .
+
+ op evalAttributes : JSON Filter -> Bool .
+ eq evalAttributes(J, noFilter) = true .
+ eq evalAttributes(J, A = V) = (J . ("message" . "attributes" . A)) == V .
+
  op print* : JL -> String .
  eq print*(mtJL) = "" .
  eq print*(J $ JL) = print(J) + "\n" + print*(JL) .

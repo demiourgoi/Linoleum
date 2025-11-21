@@ -9,24 +9,10 @@ omod DATA-STRUCTURES is
  op subscription : Nat -> SubscriptionName [ctor] .
  op subscriber : Nat -> SubscriberId [ctor] .
 
- sort Filter .
- op noFilter : -> Filter [ctor] .
- op _=_ : Access Value -> Filter [ctor] .
-
  sort ExpirationPolicy .
  subsort Nat < ExpirationPolicy .
 
  op never : -> ExpirationPolicy [ctor] .
-
- var A : Access .
- var V : Value .
- var J : JSON .
-
- op eval : JSON Filter -> Bool .
- eq eval(J, A = V) = (J . A) == V .
-
- op evalAttributes : JSON Filter -> Bool .
- eq evalAttributes(J, A = V) = (J . ("message" . "attributes" . A)) == V .
 endom
 
 view SubscriptionName from TRIV to DATA-STRUCTURES is
@@ -185,7 +171,32 @@ mod TEST is
            subscriber0 subscriber1 subscriber2 .
 endm
 
+rew init .
+
+*** TODO ACK - Funcionas o petas
+*** Política de reintentos - Tiempo y máximo de reintentos
+
 eof
+
+< publisher(0) : Publisher | topicName : topic(0), msgs : mtJL >
+< publisher(1) : Publisher | topicName : topic(0), msgs : mtJL >
+
+< topic(0) : Topic | subscriptions : (subscription(0) subscription(1)) >
+
+< subscription(0) : Subscription | subscribers : (subscriber(0) |-> "origin" = v("api"), subscriber(1) |-> "origin" = v("user")) >
+< subscription(1) : Subscription | subscribers : subscriber(2) |-> "version" = v("1.0") >
+
+< subscriber(0) : Subscriber | received :
+    (v("message" |-> v(("attributes" |-> v(("event" |-> v("user_created"), "origin" |-> v("api"), "version" |-> v("1.0"))), "data" |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"), "messageId" |-> v("0"), "publishTime" |-> v(
+    "2025-11-19T12:34:56.000Z"), "subscription" |-> v("projects/my-project/subscriptions/my-sub")))) $ v("message" |-> v(("attributes" |-> v(("event" |-> v("user_created"), "origin" |-> v("api"), "version" |-> v("2.0"))), "data" |-> v(
+    "eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"), "messageId" |-> v("1"), "publishTime" |-> v("2025-11-19T12:34:56.000Z"), "subscription" |-> v("projects/my-project/subscriptions/my-sub"))))) >
+
+< subscriber(1) : Subscriber | received : (v("message" |->
+    v(("attributes" |-> v(("event" |-> v("user_created"), "origin" |-> v("user"), "version" |-> v("3.0"))), "data" |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"), "messageId" |-> v("2"), "publishTime" |-> v("2025-11-19T12:34:56.000Z"),
+    "subscription" |-> v("projects/my-project/subscriptions/my-sub")))) $ v("message" |-> v(("attributes" |-> v(("event" |-> v("user_created"), "origin" |-> v("user"), "version" |-> v("3.0"))), "data" |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"),
+    "messageId" |-> v("3"), "publishTime" |-> v("2025-11-19T12:34:56.000Z"), "subscription" |-> v("projects/my-project/subscriptions/my-sub"))))) > < subscriber(2) : Subscriber | received : v("message" |-> v(("attributes" |-> v(("event" |-> v(
+    "user_created"), "origin" |-> v("api"), "version" |-> v("1.0"))), "data" |-> v("eyJldmVudCI6ICJ1c3VhcmlvX2NyZWFkbyJ9"), "messageId" |-> v("0"), "publishTime" |-> v("2025-11-19T12:34:56.000Z"), "subscription" |-> v(
+    "projects/my-project/subscriptions/my-sub")))) >
 
 rew init .
 
