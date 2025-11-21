@@ -13,13 +13,12 @@ import io.opentelemetry.proto.common.v1.KeyValueList
 import scala.jdk.CollectionConverters._
 
 import io.github.demiourgoi.sscheck.gen.UtilsGen
-
-import es.ucm.maude.bindings.{maude, MaudeRuntime}
-import es.ucm.maude.bindings.{Module => MaudeModule}
-
+import io.github.demiourgoi.linoleum.maude.MaudeModules
 
 @RunWith(classOf[JUnitRunner])
-class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCheck {
+class LinoleumSpanInfoTest
+    extends org.specs2.mutable.Specification
+    with ScalaCheck {
 
   // Reduce for debugging
   private val maxNumItems = 2
@@ -34,9 +33,14 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
       startTime <- Gen.choose(0L, Long.MaxValue)
       endTime <- Gen.choose(startTime, Long.MaxValue)
       attributes <- genAttributes
-      events <- UtilsGen.containerOfNtoM[List, Span.Event](0, maxNumItems, genSpanEvent)
+      events <- UtilsGen.containerOfNtoM[List, Span.Event](
+        0,
+        maxNumItems,
+        genSpanEvent
+      )
     } yield {
-      val spanBuilder = Span.newBuilder()
+      val spanBuilder = Span
+        .newBuilder()
         .setTraceId(ByteString.copyFromUtf8(traceId))
         .setSpanId(ByteString.copyFromUtf8(spanId))
         .setName(name)
@@ -44,12 +48,13 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
         .setEndTimeUnixNano(endTime)
         .addAllAttributes(attributes.asJava)
         .addAllEvents(events.asJava)
-      
+
       parentSpanId.foreach { pid =>
         spanBuilder.setParentSpanId(ByteString.copyFromUtf8(pid))
       }
-      
-      SpanInfo.newBuilder()
+
+      SpanInfo
+        .newBuilder()
         .setSpan(spanBuilder.build())
         .build()
     }
@@ -75,7 +80,10 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
     },
     // Bytes value
     Gen.alphaNumStr.suchThat(_.nonEmpty).map { str =>
-      AnyValue.newBuilder().setBytesValue(com.google.protobuf.ByteString.copyFromUtf8(str)).build()
+      AnyValue
+        .newBuilder()
+        .setBytesValue(com.google.protobuf.ByteString.copyFromUtf8(str))
+        .build()
     }
   )
 
@@ -83,12 +91,21 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
   private def genArrayValue: Gen[AnyValue] = Gen.sized { size =>
     if (size <= 0) {
       // Base case: empty array
-      Gen.const(AnyValue.newBuilder().setArrayValue(ArrayValue.newBuilder().build()).build())
+      Gen.const(
+        AnyValue
+          .newBuilder()
+          .setArrayValue(ArrayValue.newBuilder().build())
+          .build()
+      )
     } else {
       // Generate 0 to size elements, letting ScalaCheck control the complexity
       for {
         numElements <- Gen.choose(0, size)
-        elements <- UtilsGen.containerOfNtoM[List, AnyValue](0, numElements, Gen.resize(size / 2, genAnyValue))
+        elements <- UtilsGen.containerOfNtoM[List, AnyValue](
+          0,
+          numElements,
+          Gen.resize(size / 2, genAnyValue)
+        )
       } yield {
         val arrayBuilder = ArrayValue.newBuilder()
         elements.foreach(arrayBuilder.addValues)
@@ -101,12 +118,21 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
   private def genKeyValueList: Gen[AnyValue] = Gen.sized { size =>
     if (size <= 0) {
       // Base case: empty key-value list
-      Gen.const(AnyValue.newBuilder().setKvlistValue(KeyValueList.newBuilder().build()).build())
+      Gen.const(
+        AnyValue
+          .newBuilder()
+          .setKvlistValue(KeyValueList.newBuilder().build())
+          .build()
+      )
     } else {
       // Generate 0 to size key-value pairs, letting ScalaCheck control the complexity
       for {
         numPairs <- Gen.choose(0, size)
-        keyValues <- UtilsGen.containerOfNtoM[List, KeyValue](0, numPairs, Gen.resize(size / 2, genKeyValue))
+        keyValues <- UtilsGen.containerOfNtoM[List, KeyValue](
+          0,
+          numPairs,
+          Gen.resize(size / 2, genKeyValue)
+        )
       } yield {
         val kvListBuilder = KeyValueList.newBuilder()
         keyValues.foreach(kvListBuilder.addValues)
@@ -138,7 +164,8 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
     key <- Gen.alphaNumStr.suchThat(_.nonEmpty)
     value <- genAnyValue
   } yield {
-    KeyValue.newBuilder()
+    KeyValue
+      .newBuilder()
       .setKey(key)
       .setValue(value)
       .build()
@@ -150,38 +177,34 @@ class LinoleumSpanInfoTest extends org.specs2.mutable.Specification with ScalaCh
     time <- Gen.choose(0L, Long.MaxValue)
     attributes <- genAttributes
   } yield {
-    Span.Event.newBuilder()
+    Span.Event
+      .newBuilder()
       .setName(name)
       .setTimeUnixNano(time)
       .addAllAttributes(attributes.asJava)
       .build()
   }
 
-  private def genAttributes: Gen[List[KeyValue]] = 
-      UtilsGen.containerOfNtoM[List, KeyValue](0, maxNumItems, genKeyValue)
-
-  private lazy val traceMaudeModule: MaudeModule = {
-    MaudeRuntime.init()
-    // FIXME to prod constant
-    MaudeRuntime.loadFromResources("maude/linoleum/trace.maude")
-    maude.getModule("CLASS-OBJECTS")
-  }
+  private def genAttributes: Gen[List[KeyValue]] =
+    UtilsGen.containerOfNtoM[List, KeyValue](0, maxNumItems, genKeyValue)
 
   "A LinoleumSpanInfo should" >> {
     "toMaudeSpanObject method" >> {
-      "should always return a well formatted Maude term" >> prop { (spanInfo: SpanInfo) =>
-        val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
-        val spanTermStr = linoleumSpanInfo.toMaude
-        (spanTermStr must not beNull) and (spanTermStr must not be empty)
+      "should always return a well formatted Maude term" >> prop {
+        (spanInfo: SpanInfo) =>
+          val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
+          val spanTermStr = linoleumSpanInfo.toMaude
+          (spanTermStr must not beNull) and (spanTermStr must not be empty)
 
-        traceMaudeModule must not beNull
+          val traceMaudeModule = MaudeModules.traceTypesModule
+          traceMaudeModule must not beNull
 
-        val spanTerm = traceMaudeModule.parseTerm(spanTermStr)
+          val spanTerm = traceMaudeModule.parseTerm(spanTermStr)
 
-        spanTerm must not beNull
+          spanTerm must not beNull
 
-        spanTerm.reduce() === 0
-      }.set(minTestsOk=100)
+          spanTerm.reduce() === 0
+      }.set(minTestsOk = 100)
     }
   }
 }

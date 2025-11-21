@@ -10,6 +10,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 
 import org.slf4j.LoggerFactory
 
+import com.google.common.base.Preconditions.checkState
+
 import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.math.pow
 import source.SpanInfoStream
@@ -30,7 +32,11 @@ import io.github.demiourgoi.sscheck.prop.tl.{
   NextFormula,
   Time => SscheckTime
 }
-import es.ucm.maude.bindings.{maude => jMaude, MaudeRuntime}
+import es.ucm.maude.bindings.{
+  maude => jMaude,
+  MaudeRuntime,
+  Module => MaudeModule
+}
 
 import messages.SpanInfo
 
@@ -101,7 +107,24 @@ package object maude {
       maudeModules: List[String]
   )
 
-  object MaudeModules {}
+  object MaudeModules {
+    private lazy val runtimeInitialized: Boolean = {
+      MaudeRuntime.init()
+      true
+    }
+
+    private def loadModule(
+        maudeProgramResourcePath: String,
+        moduleName: String
+    ): MaudeModule = {
+      checkState(runtimeInitialized)
+      MaudeRuntime.loadFromResources(maudeProgramResourcePath)
+      jMaude.getModule(moduleName)
+    }
+
+    lazy val traceTypesModule: MaudeModule =
+      loadModule("maude/linoleum/trace.maude", "CLASS-OBJECTS")
+  }
 
   /** Return a string representation of a Maude SpanObject
     * (https://github.com/demiourgoi/Linoleum/blob/main/maude/linoleum/trace.maude)
