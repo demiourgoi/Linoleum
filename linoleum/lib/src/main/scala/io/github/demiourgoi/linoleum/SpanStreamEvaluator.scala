@@ -10,7 +10,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 
 import org.slf4j.LoggerFactory
 
-import com.google.common.base.Preconditions.checkState
+import com.google.common.base.Preconditions.checkNotNull
 
 import scala.collection.convert.ImplicitConversions.`iterator asScala`
 import scala.math.pow
@@ -52,11 +52,11 @@ object Linoleum {
 
   def execute(cfg: LinoleumConfig, maudeJob: MaudeJob): Unit = {
     // FIXME this should be done in all relevant JVMs
-    MaudeRuntime.init()
+    // MaudeRuntime.init()
     // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
     // easy so the user focuses on the Maude code: e.g. require an entry point module
-    maudeJob.programPaths.foreach { MaudeRuntime.loadFromResources(_) }
-    val maudeModules = maudeJob.maudeModules.map { jMaude.getModule(_) }
+    // maudeJob.programPaths.foreach { MaudeRuntime.loadFromResources(_) }
+    // val maudeModules = maudeJob.maudeModules.map { jMaude.getModule(_) }
   }
 
   def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
@@ -108,17 +108,18 @@ package object maude {
   )
 
   object MaudeModules {
-    private lazy val runtimeInitialized: Boolean = {
-      MaudeRuntime.init()
-      true
+    private lazy val maudeRuntime: MaudeRuntime = {
+      // Assuming getInstance returns an already initialized runtime
+      val runtime = MaudeRuntime.getInstance()
+      checkNotNull(runtime)
+      runtime
     }
 
     private def loadModule(
         maudeProgramResourcePath: String,
         moduleName: String
     ): MaudeModule = {
-      checkState(runtimeInitialized)
-      MaudeRuntime.loadFromResources(maudeProgramResourcePath)
+      maudeRuntime.loadFromResources(maudeProgramResourcePath)
       jMaude.getModule(moduleName)
     }
 
