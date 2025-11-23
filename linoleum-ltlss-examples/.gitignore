@@ -17,3 +17,6 @@ project
 
 .continue/
 docs/papers
+
+app/maude_terms/
+maude_terms.maudes

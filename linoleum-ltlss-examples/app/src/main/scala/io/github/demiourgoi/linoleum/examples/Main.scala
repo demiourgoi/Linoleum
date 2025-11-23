@@ -46,6 +46,7 @@ object Main {
         val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
         val cfg = LinoleumConfig(
             jobName = "hello spans", localFlinkEnv = true,
+            sink = SinkConfig().copy(logMaudeTerms=true),
             evaluation = EvaluationConfig(
                 tickPeriod=Duration.ofMillis(100), sessionGap=Duration.ofSeconds(1)
             )    

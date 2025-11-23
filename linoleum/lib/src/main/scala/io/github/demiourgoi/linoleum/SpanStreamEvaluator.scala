@@ -7,6 +7,10 @@ import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink
+import org.apache.flink.core.fs.Path
+import org.apache.flink.api.common.serialization.SimpleStringEncoder
+import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy
 
 import org.slf4j.LoggerFactory
 
@@ -18,9 +22,8 @@ import source.SpanInfoStream
 
 import com.google.protobuf.ByteString
 import java.time.Duration
-import java.{lang => jlang}
+import java.{lang => jlang, util => jutil}
 import java.time.Instant
-import java.{util => jutil}
 import com.google.protobuf.Timestamp
 import org.bson.BsonDocument
 
@@ -71,6 +74,16 @@ object Linoleum {
     val linoleumSrc = new LinoleumSrc(linolenumCfg)
     val spanInfos = linoleumSrc(env)
 
+    if (linolenumCfg.sink.logMaudeTerms) {
+      if (!linolenumCfg.localFlinkEnv) {
+        log.warn(
+          "Logging traces as Maude terms is only supported for local env executions, skipping collection"
+        )
+      } else {
+        logMaudeTerms(spanInfos)
+      }
+    }
+
     val spamEvaluator = new SpanStreamEvaluator(
       SpanStreamEvaluatorParams(linolenumCfg, formula = formula)
     )
@@ -82,6 +95,29 @@ object Linoleum {
     linoleumSink(evaluatedSpans)
 
     env
+  }
+
+  /** Auxiliary private method to handle Maude term logging
+    */
+  private def logMaudeTerms(spanInfos: source.SpanInfoStream): Unit = {
+    // Add current working directory to target path
+    val targetPath =
+      new Path(System.getProperty("user.dir"), SinkConfig.MaudeTermLogPath)
+    log.info("Logging traces as Maude terms to {}", targetPath)
+
+    val fileSink = StreamingFileSink
+      .forRowFormat(targetPath, new SimpleStringEncoder[String]("UTF-8"))
+      .withRollingPolicy(
+        DefaultRollingPolicy
+          .builder()
+          .withRolloverInterval(60 * 1000) // 1 minute
+          .withInactivityInterval(60 * 1000) // 1 minute
+          .withMaxPartSize(1024 * 1024) // 1 MB
+          .build()
+      )
+      .build()
+
+    spanInfos.map(_.toMaude).addSink(fileSink)
   }
 }
 

@@ -11,9 +11,18 @@ package object config {
     eventsMaxOutOfOrderness: Duration = Duration.ofMillis(500),
   )
 
+  /**
+   * @param logMaudeTerms if true then the driver will write on `SinkConfig.MaudeTermLogPath` 
+   * all the spans read from the source during the job execution, in the following plain text format:
+   * - Each span is written in a line as a Maude term as formatted by `LinoleumSpanInfo.toMaude`
+  */
   case class SinkConfig(
-    mongoDb: MongoDbConfig = MongoDbConfig()
+    mongoDb: MongoDbConfig = MongoDbConfig(),
+    logMaudeTerms: Boolean = false
   )
+  object SinkConfig {
+    val MaudeTermLogPath = "./maude_terms"
+  }
 
   case class MongoDbConfig(
     mongoUri: String = "mongodb://localhost:27017",

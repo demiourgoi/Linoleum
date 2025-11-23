@@ -72,6 +72,9 @@ make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 #       evaluates the first batch. This could be improved tunning the Flink job parameters
 cd ../linoleum-ltlss-examples
 make run 2>&1 | tee run.log
+
+# To get all spans found in the input in Maude format, one span per line
+find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
 ```
 
 ### Simple local benchmarking
