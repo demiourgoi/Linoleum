@@ -41,6 +41,7 @@ clean: clean/build ### cleanup everything
 clean/build:	### cleanup the build
 	$(GRADLE) clean
 	rm -rf $(ROOT_DIR)/bin
+	rm -rf $(ROOT_DIR)/app/maude_terms
 
 # Run with `EXTRA_BUILD_ARGS=--scan` to send a gradle build scan, e.g.
 # `make release EXTRA_BUILD_ARGS=--scan`

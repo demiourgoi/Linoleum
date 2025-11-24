@@ -12,6 +12,8 @@ import org.apache.flink.core.fs.Path
 import org.apache.flink.api.common.serialization.SimpleStringEncoder
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy
 
+import org.apache.commons.text.StringEscapeUtils
+
 import org.slf4j.LoggerFactory
 
 import com.google.common.base.Preconditions.checkNotNull
@@ -224,7 +226,7 @@ package object maude {
     // Note in ../maude/linoleum/trace.maude we have `op [_,_] : String String -> KeyEvent [ctor] .`
     // so this should always return a string representation of a Maude term of `String` sort.
     anyValue match {
-      case av if av.hasStringValue() => av.getStringValue()
+      case av if av.hasStringValue() => StringEscapeUtils.escapeJson(av.getStringValue())
       case av if av.hasBoolValue()   => s"${av.getBoolValue()}"
       case av if av.hasIntValue()    => s"${av.getIntValue()}"
       case av if av.hasDoubleValue() => s"${av.getDoubleValue()}"
