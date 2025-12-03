@@ -207,48 +207,47 @@ class LinoleumSpanInfoTest
       }.set(minTestsOk = 100)
     
 
-    // "should escape string values using Json String rules" >> {
-    //   val jsonStringValue = """[{"text": "Hello!"}]"""
-    //   val spanBuilder = Span
-    //     .newBuilder()
-    //     .setTraceId(ByteString.copyFromUtf8("testTraceId"))
-    //     .setSpanId(ByteString.copyFromUtf8("testSpanId"))
-    //     .setName("testSpan")
-    //     .setStartTimeUnixNano(1000L)
-    //     .setEndTimeUnixNano(2000L)
-    //     .addAttributes(
-    //       KeyValue
-    //         .newBuilder()
-    //         .setKey("content")
-    //         .setValue(
-    //           AnyValue.newBuilder().setStringValue(jsonStringValue).build()
-    //         )
-    //         .build()
-    //     )
+    "should escape string values using Json String rules" >> {
+      val jsonStringValue = """[{"text": "Hello!"}]"""
+      val spanBuilder = Span
+        .newBuilder()
+        .setTraceId(ByteString.copyFromUtf8("testTraceId"))
+        .setSpanId(ByteString.copyFromUtf8("testSpanId"))
+        .setName("testSpan")
+        .setStartTimeUnixNano(1000L)
+        .setEndTimeUnixNano(2000L)
+        .addAttributes(
+          KeyValue
+            .newBuilder()
+            .setKey("content")
+            .setValue(
+              AnyValue.newBuilder().setStringValue(jsonStringValue).build()
+            )
+            .build()
+        )
 
-    //   val spanInfo = SpanInfo
-    //     .newBuilder()
-    //     .setSpan(spanBuilder.build())
-    //     .build()
+      val spanInfo = SpanInfo
+        .newBuilder()
+        .setSpan(spanBuilder.build())
+        .build()
 
-    //   val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
-    //   val spanTermStr = linoleumSpanInfo.toMaude
+      val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
+      val spanTermStr = linoleumSpanInfo.toMaude
       
-    //   // Verify the Maude term is not null and not empty
-    //   (spanTermStr must not beNull) and (spanTermStr must not be empty)
+      // Verify the Maude term is not null and not empty
+      (spanTermStr must not beNull) and (spanTermStr must not be empty)
 
-    //   spanTermStr must contain("content")
+      spanTermStr must contain("content")
 
-    //   spanTermStr must contain("[{\\\"text\\\": \\\"Hello!\\\"}]")
+      spanTermStr must contain("[{'text': 'Hello!'}]")
 
-    //   // Verify the Maude term can be parsed and reduced
-    //   val traceMaudeModule = MaudeModules.traceTypesModule
-    //   traceMaudeModule must not beNull
+      // Verify the Maude term can be parsed and reduced
+      val traceMaudeModule = MaudeModules.traceTypesModule
+      traceMaudeModule must not beNull
 
-    //   val spanTerm = traceMaudeModule.parseTerm(spanTermStr)
-    //   (spanTerm must not beNull) 
-    // // and (spanTerm.reduce() === 0)
-    //   }
+      val spanTerm = traceMaudeModule.parseTerm(spanTermStr)
+      (spanTerm must not beNull) and (spanTerm.reduce() === 0)
+      }
     }
   }
 }

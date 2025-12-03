@@ -12,8 +12,6 @@ import org.apache.flink.core.fs.Path
 import org.apache.flink.api.common.serialization.SimpleStringEncoder
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy
 
-import org.apache.commons.text.StringEscapeUtils
-
 import org.slf4j.LoggerFactory
 
 import com.google.common.base.Preconditions.checkNotNull
@@ -226,7 +224,7 @@ package object maude {
     // Note in ../maude/linoleum/trace.maude we have `op [_,_] : String String -> KeyEvent [ctor] .`
     // so this should always return a string representation of a Maude term of `String` sort.
     anyValue match {
-      case av if av.hasStringValue() => av.getStringValue() // StringEscapeUtils.escapeJson(av.getStringValue())
+      case av if av.hasStringValue() => stringValueToMaude(av.getStringValue())
       case av if av.hasBoolValue()   => s"${av.getBoolValue()}"
       case av if av.hasIntValue()    => s"${av.getIntValue()}"
       case av if av.hasDoubleValue() => s"${av.getDoubleValue()}"
@@ -255,6 +253,18 @@ package object maude {
         s"${byteString2HexString(av.getBytesValue())}"
       case _ => ""
     }
+
+
+  /** We found some issues handling quoted nested strings with Maude,
+   * see https://github.com/demiourgoi/Linoleum/issues/15
+   * 
+   * This implementation replaced nested double quotes with single quotes,
+   * which transforms nested JSON strings into invalid JSON strings, as JSON
+   * requires double quotes enclosing strings
+   * */
+  private def stringValueToMaude(stringValue: String): String =
+    stringValue.replace("\"", "'")
+    // StringEscapeUtils.escapeJson(av.getStringValue())
 }
 package object formulas {
   import messages._
