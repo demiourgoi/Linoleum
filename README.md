@@ -2,6 +2,15 @@
 
 [Linoleum](https://www.youtube.com/watch?v=d9ORimXBXLw) is an experiment for using observability signals for runtime verification of distributed systems
 
+## Cline setup
+
+Using Cline [multi-root workspace](https://docs.cline.bot/features/multiroot-workspace) support:
+
+- Open `linoleum.code-workspace` in VsCode, that contains all relevant projects in this git repo
+- Rules and workflows are in `linoleum`, that VsCode assigns as primary because it is the first one in alphabetic order
+
+__Attribution__: Strands Agents SOPs copied from https://github.com/strands-agents/agent-sop, also with Apache 2.0 license
+
 ## References
 
 - Tracing
