@@ -15,21 +15,17 @@ default: help
 
 .PHONY: run help build clean release clean/build jaeger/container/logs mongodb/container/bash compose/start compose/stop
 
+PODMAN_COMPOSE := podman-compose
+PODMAN := podman
+
 # https://news.ycombinator.com/item?id=11939200
 help:	### list main targets
 ifeq ($(UNAME), Linux)
 	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
-PODMAN_COMPOSE := docker-compose
-PODMAN := docker
-
 else
 	@awk -F ':.*###' '$$0 ~ FS {printf "%15s%s\n", $$1 ":", $$2}' \
 		$(MAKEFILE_LIST) | grep -v '@awk' | sort
-
-PODMAN_COMPOSE := podman compose
-PODMAN := podman
 endif
 
 ####################
@@ -80,15 +76,17 @@ publish/central: clean/build build	### publish this library to Maven Central
 # Local fakes
 ####################
 
+compose/start: export UID=$(shell id -u)
+compose/start: export GID=$(shell id -g)
 compose/start: compose/stop   ### launch all dev containers using the compose file
 	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml up --detach
-	echo
+	echo "Using UID=${UID}, GID=${GID}"
 	echo "See Jaeger UI at http://localhost:16686"
 	echo "See Kafka UI at  http://localhost:9090"
 	echo "Use MongoDB Compass UI to connect to mongoDB at mongodb://localhost:27017"
  
 compose/stop:  ### stop amnd delete all dev containers using the compose file
-	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml down
+	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml down --remove-orphans
 
 JAEGER_CONTAINER ?= jaeger-local-all-in-one
 .PHONY: jaeger/container/logs
