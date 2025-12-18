@@ -1,5 +1,6 @@
 """Integration test for LotrAgent."""
 
+import uuid
 import pytest
 from lotrbot.main import LotrAgent, Settings
 
@@ -10,6 +11,12 @@ def lotr_agent():
     agent = LotrAgent(settings=Settings())
     agent.init()
     return agent
+
+
+@pytest.fixture
+def test_run_id():
+    """Fixture that generates a unique test run ID for the test session."""
+    return str(uuid.uuid4())
 
 
 def _has_non_empty_text(agent_results):
@@ -49,11 +56,11 @@ def _has_tool_usage(agent_results, tool_name):
 
 
 @pytest.mark.integration
-def test_lotr_agent_conversation(lotr_agent):
+def test_lotr_agent_conversation(lotr_agent, test_run_id):
     """Integration test for LotrAgent conversation flow."""
 
     # Test sequence 1: Hello!
-    results1 = lotr_agent.ask("Hello!")
+    results1 = lotr_agent.ask(f"Hello from test id {test_run_id}!")
     assert results1 is not None and len(results1) > 0, "Should return at least one AgentResult"
     assert _has_non_empty_text(results1), "At least one response to 'Hello!' should have non-empty text"
 
