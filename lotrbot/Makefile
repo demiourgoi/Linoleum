@@ -99,10 +99,10 @@ clean/typechecking:
 test: test/unit test/integration	### run all tests
 
 .PHONY: test/unit
-test/unit:	### run unit tests (exclude integration tests)
+test/unit:	### run unit tests
 	echo
 	echo "Running unit tests ..."
-	$(PYTHON) -m pytest tests/ -v -m "not integration"
+	$(PYTHON) -m pytest tests/unit/ -v
 
 .PHONY: test/integration
 test/integration: export LOTRBOT_ENV_FILE_PATH=$(shell echo $${LOTRBOT_ENV_FILE_PATH:-$(HOME)/.lotrbot.env})
@@ -111,5 +111,5 @@ test/integration:	### run integration tests
 	echo
 	echo "Running integration tests ..."
 	mkdir -p $(REPORTS_DIR)
-	$(PYTHON) -m pytest tests/ -v -m integration --html=$(REPORTS_DIR)/integration-report.html --self-contained-html
+	$(PYTHON) -m pytest tests/integration/ -v --html=$(REPORTS_DIR)/integration-report.html --self-contained-html
 	echo "See test report at file://$(REPORTS_DIR)"

@@ -16,7 +16,7 @@ Setup the workspace
 
 ```bash
 # Create a [virtual env](https://docs.python.org/3/library/venv.html) and install dependencies:
-make venv deps
+make clean venv deps
 # Run linters, typechecking, and tests
 make release
 # List all make target
