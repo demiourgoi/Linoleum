@@ -8,7 +8,8 @@ from lotrbot.main import LotrAgent, Settings
 @pytest.fixture
 def lotr_agent():
     """Fixture that creates and initializes a LotrAgent."""
-    agent = LotrAgent(settings=Settings())
+    settings = Settings()
+    agent = LotrAgent(settings=settings)
     agent.init()
     return agent
 
@@ -37,21 +38,11 @@ def _has_non_empty_text(agent_results):
 def _has_tool_usage(agent_results, tool_name):
     """Check if any agent result includes usage of the specified tool."""
     for result in agent_results:
-        # Check the message content for tool usage patterns
-        if hasattr(result, 'message') and result.message:
-            content_array = result.message.get('content', [])
-            for item in content_array:
-                if isinstance(item, dict):
-                    # Check for toolUse blocks in the content
-                    if 'toolUse' in item:
-                        tool_use_content = item.get('toolUse', {})
-                        if 'name' in tool_use_content and tool_name.lower() in tool_use_content['name'].lower():
-                            return True
-                    # Also check text content for tool mentions
-                    if 'text' in item:
-                        text_content = item.get('text', '')
-                        if tool_name.lower() in text_content.lower():
-                            return True
+        # Check the metrics for tool usage
+        if hasattr(result, 'metrics') and result.metrics:
+            # Check if the tool name exists in the tool_metrics dictionary
+            if tool_name in result.metrics.tool_metrics:
+                return True
     return False
 
 
@@ -78,7 +69,7 @@ def test_lotr_agent_conversation(lotr_agent, test_run_id):
     results4 = lotr_agent.ask("Cool! Can you show me a picture?")
     assert results4 is not None and len(results4) > 0, "Should return at least one AgentResult"
     # Check for generate_image tool usage
-    # assert _has_tool_usage(results4, "generate_image"), "At least one response should use the generate_image tool"
+    assert _has_tool_usage(results4, "generate_image"), "At least one response should use the generate_image tool"
 
     # Test sequence 5: Reaction to the picture
     results5 = lotr_agent.ask("wow!!! What a crazy creature!")
