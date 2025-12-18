@@ -11,6 +11,12 @@
 		},
 		{
 			"path": "maude"
+		},
+		{
+			"path": ".github"
 		}
-	]
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic"
+	}
 }
