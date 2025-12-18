@@ -16,3 +16,14 @@ python_version = '3.11'
 exclude = '.*_pb2.*'
 cache_dir = '$MYPY_CONFIG_FILE_DIR/.mypy_cache'
 plugins = ['pydantic.mypy']
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests"
+]

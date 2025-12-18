@@ -4,6 +4,7 @@ SHELL := /bin/bash
 
 UNAME := $(shell uname)
 ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+REPORTS_DIR := $(ROOT_DIR)/.reports
 
 PYTHON_VERSION := 3.11.12
 
@@ -49,6 +50,7 @@ deps: deps/prod deps/dev	### install dependencies
 .PHONY: clean
 clean: clean/typechecking 	### remove any compiled artifacts
 	rm -rf $(VENV_DIR)
+	rm -rf $(REPORTS_DIR)
 
 .PHONY: deps/prod
 deps/prod:
@@ -68,7 +70,7 @@ deps/dev:
 release: checks	### run all checks and package for relase
 
 .PHONY: checks
-checks: lint test	### run all checks (linters, tests, etc)
+checks: lint test/unit	### run all CI checks (linters, unit tests, etc)
 checks:
 	echo
 	echo "All checks passing"
@@ -94,7 +96,20 @@ clean/typechecking:
 	rm -rf $(MAIN_SRC)/.mypy_cache
 
 .PHONY: test
-test:
+test: test/unit test/integration	### run all tests
+
+.PHONY: test/unit
+test/unit:	### run unit tests (exclude integration tests)
 	echo
-	echo "Running tests ..."
-	echo "No tests for now"
+	echo "Running unit tests ..."
+	$(PYTHON) -m pytest tests/ -v -m "not integration"
+
+.PHONY: test/integration
+test/integration: export LOTRBOT_ENV_FILE_PATH=$(shell echo $${LOTRBOT_ENV_FILE_PATH:-$(HOME)/.lotrbot.env})
+test/integration: export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+test/integration:	### run integration tests
+	echo
+	echo "Running integration tests ..."
+	mkdir -p $(REPORTS_DIR)
+	$(PYTHON) -m pytest tests/ -v -m integration --html=$(REPORTS_DIR)/integration-report.html --self-contained-html
+	echo "See test report at file://$(REPORTS_DIR)"

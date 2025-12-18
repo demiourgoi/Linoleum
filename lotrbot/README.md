@@ -6,7 +6,6 @@ A chatbot for querying knowledge about The Lord of the Rings, and role-playing  
 
 ### One time setup
 
-
 Install prerequisites:
 
 - [pyenv](https://github.com/pyenv/pyenv)
@@ -43,6 +42,9 @@ make -C ../linoleum compose/start
 make run
 # with custom env file
 make run LOTRBOT_ENV_FILE_PATH=/my/path
+
+# run a canned chat
+make test/integration
 ```
 
 Asking the agent to (pretend) to __generate images__:
