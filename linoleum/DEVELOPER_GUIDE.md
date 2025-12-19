@@ -12,6 +12,7 @@ podman machine start
 ```
 
 - `make`
+- Optionally [`scala-cli`](https://scala-cli.virtuslab.org/install) is useful for trying out stuff quickly
 
 ## Local fakes
 
@@ -24,11 +25,6 @@ make
 # launch local services without auth
 # this resets the previous state of all services
 make compose/start
-
-# Send some traces: this also creates the Kafka topic, otherwise the job fails
-cd ../sim_file_replayer && make run
-
-make run 2>&1 | tee run.log
 
 # delete all containers
 make compose/stop
@@ -44,27 +40,29 @@ Note on a remove SSH session with VsCode this works because VsCode auto forwards
 
 ## Run a simple simulation
 
+
 ```bash
+# 1. Start the local fake dependencies
 make compose/start
 
-# one shell
+# 2. Generate some traces
+## Trigger a canned interaction with lotrbot 
+make -C ../lotrbot test/integration
+## Alternatively, generate and replay some traces
 cd ../maude
 rm -rf json_tmp &&  ./generate.sh 10 json_tmp
+cd ../sim_file_replayer && make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 
-# another shell
-cd ../sim_file_replayer
-## make run SIM_FILE_PATH=$(pwd)/../maude/json_tmp/trace0.jsonl
-make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
-
-# NOTE: will fail if the source Kafka topic it's not created. The OTEL collector
-#       creates the topic on the first replay
-# NOTE: for small trace batches (e.g. 10) we have to run the replayer twice to
-#       get a second Kafka message with the batch of topic, so Linoleum actually
-#       evaluates the first batch. This could be improved tunning the Flink job parameters
+# 3. Process the traces 
+## NOTE: this will fail if the source Kafka topic it's not created. The OTEL collector
+##       creates the topic on the first replay
+## NOTE: for small trace batches (e.g. 10) we have to run the replayer twice to
+##       get a second Kafka message with the batch of topic, so Linoleum actually
+##       evaluates the first batch. This could be improved tunning the Flink job parameters
 cd ../linoleum-ltlss-examples
 make clean run 2>&1 | tee run.log
 
-# To get all spans found in the input in Maude format, one span per line
+# 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
 ```
 

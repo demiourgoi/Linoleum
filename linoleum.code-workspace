@@ -17,6 +17,9 @@
 		}
 	],
 	"settings": {
-		"java.compile.nullAnalysis.mode": "automatic"
+		"java.compile.nullAnalysis.mode": "automatic",
+		"files.watcherExclude": {
+			"**/target": true
+		}
 	}
 }

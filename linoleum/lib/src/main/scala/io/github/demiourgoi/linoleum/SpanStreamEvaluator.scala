@@ -258,13 +258,14 @@ package object maude {
   /** We found some issues handling quoted nested strings with Maude,
    * see https://github.com/demiourgoi/Linoleum/issues/15
    * 
-   * This implementation replaced nested double quotes with single quotes,
-   * which transforms nested JSON strings into invalid JSON strings, as JSON
-   * requires double quotes enclosing strings
+   * This implementation replaced nested double quotes with single quotes escaped
+   * as "\\'", which transforms nested JSON strings into invalid JSON strings, 
+   * as JSON requires double quotes enclosing strings
    * */
   private def stringValueToMaude(stringValue: String): String =
-    stringValue.replace("\"", "'")
+    // stringValue.replace("\"", "'") // Fake JSON with single quotes
     // StringEscapeUtils.escapeJson(av.getStringValue())
+    stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes 
 }
 package object formulas {
   import messages._
