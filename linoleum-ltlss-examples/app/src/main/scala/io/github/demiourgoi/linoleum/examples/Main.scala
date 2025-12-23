@@ -75,7 +75,7 @@ object Main {
 
   object ExampleId extends Enumeration {
     type ExampleId = Value
-    val HelloSscheckFormula = Value
+    val HelloSscheckFormula, MaudeLotrImageGenSafety = Value
   }
 
   /** Parses the ExampleId from command line arguments.
@@ -100,6 +100,7 @@ object Main {
     log.info("Running example program with id '{}'", exampleId)
     exampleId match {
       case ExampleId.HelloSscheckFormula => helloSscheckFormula.run()
+      case _ => throw new NotImplementedError("WIP")
     }
   }
 }

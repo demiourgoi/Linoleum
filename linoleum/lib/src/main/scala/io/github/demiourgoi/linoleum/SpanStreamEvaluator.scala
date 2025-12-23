@@ -151,11 +151,19 @@ package object maude {
       runtime
     }
 
-    private def loadModule(
+    def loadModule(
         maudeProgramResourcePath: String,
         moduleName: String
     ): MaudeModule = {
       maudeRuntime.loadFromResources(maudeProgramResourcePath)
+      jMaude.getModule(moduleName)
+    }
+
+    def loadStdModule(
+        maudeProgramFileName: String,
+        moduleName: String
+    ): MaudeModule = {
+      maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
       jMaude.getModule(moduleName)
     }
 

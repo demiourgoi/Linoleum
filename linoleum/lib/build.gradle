@@ -242,3 +242,9 @@ java {
         languageVersion = JavaLanguageVersion.of(8)
     }
 }
+
+test {
+    // Disable specs2 statistics as those are broken and lead to "FileNotFoundException: target/specs2-reports/stats"
+    // https://etorreborre.github.io/specs2/guide/SPECS2-3.2/org.specs2.guide.ArgumentsReference.html
+    systemProperty "specs2.neverstore", true
+}

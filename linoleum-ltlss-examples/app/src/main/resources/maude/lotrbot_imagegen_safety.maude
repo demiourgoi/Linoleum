@@ -1,0 +1,105 @@
+***(
+Image Generation Safety Module
+Defines safety states and predicate for LOTR Bot image generation
+
+Note: goal is not only an example that works, but also one that fits
+      with Maude design patterns
+
+Quick iteration as:
+
+cd app/src/main/resources/
+maude
+load ~/systems/maude/latest/model-checker.maude .
+load ~/git/demiourgoi/Linoleum/maude/linoleum/trace.maude .
+load lotrbot_imagegen_safety.maude .
+)
+
+--- Following LTL Model Checking pattern
+--- https://maude.lcc.uma.es/maude-manual/maude-manualch12.html#x84-17900012
+omod IMAGEGEN-SAFEY is
+  *** FIXME: more specific name
+  pr CLASS-DECLS .
+
+  sort Conf .
+  op initial : -> Conf [ctor] .
+  op notSafe : -> Conf [ctor] .
+
+  class SafetyMonitor | currentState : Conf .
+  sort MonitorId .
+  subsort MonitorId < Oid .
+  op mon : String -> MonitorId [ctor] .
+
+  *** Messages that wrap Span objects: these are LinoleumEvent
+  *** in the Linoleum Scala code
+  msg spanEnd : Oid Object -> Msg .
+
+  *** Variables
+  vars M O : Oid .
+  var Obj, S : Object .
+  vars StartTimeUnixNano EndTimeUnixNano : Nat .
+  var Atts : KeyEventList .
+
+  *** Identify image generation spans based on DEVELOPER_GUIDE.md criteria
+  op isImageGenerationSpan : Object -> Bool .
+  eq isImageGenerationSpan(< O : Span | attributes : Atts >) = 
+    occurs(["gen_ai.operation.name", "execute_tool"], Atts) and 
+    occurs(["gen_ai.tool.name", "generate_image"], Atts) .
+  eq isImageGenerationSpan(Obj) = false [owise] .
+
+
+  op isSafeSpan : Object -> Bool .
+  ceq isSafeSpan(S) = false
+    if getClass(S) == Span
+    /\ isImageGenerationSpan(S) 
+       /\ spanDurationNanos(S) >= 3000000000 .
+  eq isSafeSpan(S) = true [owise] .
+
+  *** Calculate span duration in nanoseconds
+  *** NOTE: Span is a class, not a sort
+  op spanDurationNanos : Object -> Nat .
+  eq spanDurationNanos(< O : Span | startTimeUnixNano : StartTimeUnixNano, endTimeUnixNano : EndTimeUnixNano >) =
+    sd(EndTimeUnixNano, StartTimeUnixNano) .
+
+  *** Rule: Handle span completion for initial state
+  *** Transitions to notSafe if it's an image generation span with duration >= 3 seconds
+  crl [initial-on-unsafe-span-end] :
+    spanEnd(M, S)
+    < M : SafetyMonitor | currentState : initial >
+    => < M : SafetyMonitor | currentState : notSafe >
+    if not isSafeSpan(S) .
+
+  crl [initial-on-safe-span-end] :
+    spanEnd(M, S)
+    < M : SafetyMonitor | currentState : initial >
+    => < M : SafetyMonitor | currentState : initial >
+    if isSafeSpan(S) .
+
+
+  *** Rule: Handle span completion for notSafe state
+  *** Does not change state (remains notSafe)
+  rl [notsafe-on-span-end] :
+    spanEnd(M, S)
+    < M : SafetyMonitor | currentState : notSafe >
+    =>
+    < M : SafetyMonitor | > .
+endom
+
+--- Following LTL Model Checking pattern
+--- https://maude.lcc.uma.es/maude-manual/maude-manualch12.html#x84-17900012
+mod IMAGEGEN-SAFEY-PREDS is
+  protecting IMAGEGEN-SAFEY .
+  including SATISFACTION . 
+  subsort Conf < State .
+
+  op imageGenUsageWithinLimits : -> Prop .
+
+  eq initial |= imageGenUsageWithinLimits = true .
+  eq notSafe |= imageGenUsageWithinLimits = false .
+endm
+
+eof
+
+red < mon("hello") : SafetyMonitor | currentState : initial > .
+
+rew[100] spanEnd(mon("hello"), < span("foo") : Span | name : "myName" >) 
+         < mon("hello") : SafetyMonitor | currentState : initial > .

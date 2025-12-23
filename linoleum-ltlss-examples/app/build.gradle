@@ -72,6 +72,7 @@ dependencies {
     testRuntimeOnly libs.scala.xml.v2.v13
 
     implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}"
+    implementation ("es.ucm.maude:bindings:3.5.0.0")
 
     // This dependency is used by the application.
     implementation libs.guava
@@ -162,4 +163,10 @@ ulnerable to a denial of service attack. You should regenerate your code using p
 tinue with vulnerable gencode, you can set the system property `-Dcom.google.protobuf.use_unsafe_pre22_gencode` on the command line. See security vulnerability: https://github.com/protocolbuffers/protobuf/security/advisories/GHSA-h4h5-3hr4-j3g2
     * */
     applicationDefaultJvmArgs = ["-Dcom.google.protobuf.use_unsafe_pre22_gencode"]
+}
+
+test {
+    // Disable specs2 statistics as those are broken and lead to "FileNotFoundException: target/specs2-reports/stats"
+    // https://etorreborre.github.io/specs2/guide/SPECS2-3.2/org.specs2.guide.ArgumentsReference.html
+    systemProperty "specs2.neverstore", true
 }
