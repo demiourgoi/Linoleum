@@ -50,11 +50,13 @@ fmod JSON-OPS is
 
  op _._ : Access Access -> Access [ctor assoc] .
 
+ vars S S' S1 S2 S3 OPEN CLOSE : String .
  vars MSV MSV' : Map{String, Value} .
+ vars N N' COUNT INDEX : Nat .
+ vars FR FR' : FindResult .
  var  LV : List{Value} .
- var  D M Y : NzNat .
+ vars D M Y : NzNat .
  var  DATE : Date .
- var  S : String .
  var  A : Access .
  var  V : Value .
  var  F : Float .
@@ -79,6 +81,104 @@ fmod JSON-OPS is
  op evalAttributes : JSON Filter -> Bool .
  eq evalAttributes(J, noFilter) = true .
  eq evalAttributes(J, A = V) = (J . ("message" . "attributes" . A)) == V .
+
+ op parse : String ~> Value .
+ ceq parse(S) = v(LV)
+  if substr(S, 0, 1) == "[" /\
+     S' := substr(S, 1, sd(length(S), 2)) /\
+     LV := parse*(S') .
+
+ sort ElementRestPair .
+ op <_,_> : String String -> ElementRestPair [ctor] .
+ op <_,_> : Value String -> ElementRestPair [ctor] .
+
+ op parseDict : String -> Value .
+ ceq parseDict(S) = v(MSV)
+  if MSV := $parseDict(S) .
+
+ op $parseDict : String -> Map{String, Value} .
+ eq $parseDict("") = empty .
+ ceq $parseDict(S) = $parseDict(S')
+  if (substr(S, 0, 1) == ",") or (substr(S, 0, 1) == " ") /\
+     S' := substr(S, 1, length(S)) .
+ ceq $parseDict(S) = S1 |-> V, MSV
+  if S =/= "" /\
+     substr(S, 0, 3) == "%22" /\
+     S1 := getFirstString(S) /\
+     S2 := afterFirstString(S) /\
+     < V, S3 > := valueAndRest(S2) /\
+     MSV := $parseDict(S3) .
+
+ op valueAndRest : String -> ElementRestPair .  *** TODO
+ ceq valueAndRest(S) = valueAndRest(S')
+  if (substr(S, 0, 1) == ":") or (substr(S, 0, 1) == " ") /\
+     S' := substr(S, 1, length(S)) .
+ ceq valueAndRest(S) = < v(true), S' >
+  if substr(S, 0, 4) == "true" /\
+     S' := substr(S, 4, length(S)) .
+ ceq valueAndRest(S) = < v(false), S' >
+  if substr(S, 0, 5) == "false" /\
+     S' := substr(S, 5, length(S)) .
+ ceq valueAndRest(S) = < v(S1), S2 >
+  if substr(S, 0, 3) == "%22" /\
+     S1 := getFirstString(S) /\
+     S2 := afterFirstString(S) .
+
+ op parse* : String -> List{Value} .
+ eq parse*("") = nil .
+ ceq parse*(S) = v(true) parse*(S')
+  if substr(S, 0, 4) == "true" /\
+     S' := substr(S, 4, length(S)) .
+ ceq parse*(S) = v(false) parse*(S')
+  if substr(S, 0, 5) == "false" /\
+     S' := substr(S, 5, length(S)) .
+ ceq parse*(S) = parse*(S')
+  if (substr(S, 0, 1) == ",") or (substr(S, 0, 1) == " ") /\
+     *** Until the end - more characters than available, Maude takes them all.
+     S' := substr(S, 1, length(S)) .
+ ceq parse*(S) = parse(S1) parse*(S2)
+  if substr(S, 0, 3) == "%22" /\
+     S1 := getFirstString(S) /\
+     S2 := afterFirstString(S) .
+ ceq parse*(S) = parseDict(S1) parse*(S2)
+  if substr(S, 0, 1) == "{" /\
+     < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) .
+ ceq parse*(S) = parseDict(S1) parse*(S2)
+  if substr(S, 0, 1) == "[" /\
+     < S1, S2 > := getDictOrList(S, "[", "]", 1, 1) .
+
+ op _smaller_ : FindResult FindResult -> Bool .
+ eq notFound smaller notFound = false .
+ eq N smaller notFound = true .
+ eq N smaller N' = N < N' .
+
+ op getDictOrList : String String String Nat Nat ~> ElementRestPair .
+ ceq getDictOrList(S, OPEN, CLOSE, INDEX, 0) = < S1, S2 >
+     *** Skip { or [ and } or ] symbols
+  if S1 := substr(S, 1, sd(INDEX, 1)) /\
+     *** Skip } or ] symbol
+     S2 := substr(S, INDEX + 1, length(S)) .
+ ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR', COUNT)
+  if FR := find(S, OPEN, INDEX) /\
+     FR' := find(S, CLOSE, INDEX) /\
+     FR' smaller FR .
+ ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR, s(s(COUNT)))
+  if FR := find(S, OPEN, INDEX) /\
+     FR' := find(S, CLOSE, INDEX) /\
+     FR smaller FR' .
+
+ op getFirstString : String -> String .
+ ceq getFirstString(S) = S'
+  if N := find(S, "%22", 3) /\
+     S' := substr(S, 3, sd(N, 3)) .
+ eq getFirstString(S) = S [owise] .
+
+ op afterFirstString : String -> String .
+ ceq afterFirstString(S) = S'
+  if N := find(S, "%22", 3) /\
+     *** Until the end - more characters than available, Maude takes them all.
+     S' := substr(S, N + 3, length(S)) .
+ eq afterFirstString(S) = S [owise] .
 
  op print* : JL -> String .
  eq print*(mtJL) = "" .
