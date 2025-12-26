@@ -24,7 +24,7 @@ db.createCollection(
    {
       timeseries: {
          timeField: "traceStartDate",
-         metaField: "formulaName",
+         metaField: "propertyName",
          granularity: "seconds"
       }
    })
@@ -37,14 +37,14 @@ echo "Server initialized with success"
 # Example write and query
 #
 # db.evaluatedTraces.insertMany([
-#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:59:00.000Z"), close: 252.47, volume: 55046.00},
-#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:58:00.000Z"), close: 252.93, volume: 44042.00},
-#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:57:00.000Z"), close: 253.61, volume: 40182.00},
-#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:56:00.000Z"), close: 253.63, volume: 27890.00},
-#     { formulaName: "MDB", traceStartDate: ISODate("2021-12-18T15:55:00.000Z"), close: 254.03, volume: 40270.00}
+#     { propertyName: "MDB", traceStartDate: ISODate("2021-12-18T15:59:00.000Z"), close: 252.47, volume: 55046.00},
+#     { propertyName: "MDB", traceStartDate: ISODate("2021-12-18T15:58:00.000Z"), close: 252.93, volume: 44042.00},
+#     { propertyName: "MDB", traceStartDate: ISODate("2021-12-18T15:57:00.000Z"), close: 253.61, volume: 40182.00},
+#     { propertyName: "MDB", traceStartDate: ISODate("2021-12-18T15:56:00.000Z"), close: 253.63, volume: 27890.00},
+#     { propertyName: "MDB", traceStartDate: ISODate("2021-12-18T15:55:00.000Z"), close: 254.03, volume: 40270.00}
 # ])
 #
-# db.evaluatedTraces.find( { formulaName: "MDB" } )
+# db.evaluatedTraces.find( { propertyName: "MDB" } )
 # db.evaluatedTraces.find({ traceStartDate : {
 #    $gte : ISODate("2021-12-18T15:50:00.000Z"),
 #    $lte : ISODate("2021-12-18T15:56:00.000Z")}

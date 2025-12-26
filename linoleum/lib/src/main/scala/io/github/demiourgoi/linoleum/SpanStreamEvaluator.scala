@@ -262,19 +262,21 @@ package object maude {
       case _ => ""
     }
 
-
-  /** We found some issues handling quoted nested strings with Maude,
-   * see https://github.com/demiourgoi/Linoleum/issues/15
-   * 
-   * This implementation replaced nested double quotes with single quotes escaped
-   * as "\\'", which transforms nested JSON strings into invalid JSON strings, 
-   * as JSON requires double quotes enclosing strings
-   * */
+  /** We found some issues handling quoted nested strings with Maude, see
+    * https://github.com/demiourgoi/Linoleum/issues/15
+    *
+    * This implementation replaced nested double quotes with single quotes
+    * escaped as "\\'", which transforms nested JSON strings into invalid JSON
+    * strings, as JSON requires double quotes enclosing strings
+    */
   private def stringValueToMaude(stringValue: String): String =
     // stringValue.replace("\"", "'") // Fake JSON with single quotes
     // StringEscapeUtils.escapeJson(av.getStringValue())
-    // stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes 
-    stringValue.replace("\"", "%22") // use perc scape for single quotes as in json/json.maude 
+    // stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes
+    stringValue.replace(
+      "\"",
+      "%22"
+    ) // use perc scape for single quotes as in json/json.maude
 }
 package object formulas {
   import messages._
@@ -378,12 +380,45 @@ package object formulas {
     *   perform any side effect when evaluated.
     */
   case class LinoleumFormula(name: String, formula: SscheckFormulaSupplier)
+
+  // FIXME this is a copy of ProcessWindowFunction::evaluateFormula
+  // rewrite this as a type class with Impl for LinoleumFormula and another 
+  // for maude properties like app/src/main/resources/maude/lotrbot_imagegen_safety.maude
+  // Besides this method we need another one for the property name to use on 
+  // ProcessWindow.process to build the EvaluatedTrace
+  class FormulaProperty(val formula: LinoleumFormula) {
+    import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
+    import FormulaProperty._
+    def evaluate(
+        traceId: String,
+        letters: Iterator[TimedLetter]
+    ): TruthValue = {
+      val initialFormula = formula.formula().nextFormula
+      val finalFormula = initialFormula.evaluate(
+        letters,
+        (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
+          val (letterTime, letter) = timedLetter
+          log.debug(
+            "Current formula for trace id {} at time {} is {}",
+            traceId,
+            letterTime,
+            currentFormula
+          )
+        }
+      )
+      TruthValue(finalFormula)
+    }
+  }
+  object FormulaProperty {
+     private val log =
+      LoggerFactory.getLogger(FormulaProperty.getClass.getName)
+  }
 }
 
-object FormulaValue {
+object TruthValue {
 
-  /** Builds a FormulaValue for the current evaluation state of Formula */
-  def apply[T](formula: NextFormula[T]): FormulaValue =
+  /** Builds a TruthValue for the current evaluation state of Formula */
+  def apply[T](formula: NextFormula[T]): TruthValue =
     formula.result match {
       case Some(Prop.True)  => True
       case Some(Prop.False) => False
@@ -391,16 +426,16 @@ object FormulaValue {
     }
 }
 
-sealed trait FormulaValue
+sealed trait TruthValue
 
 @SerialVersionUID(1L)
-case object True extends FormulaValue with Serializable
+case object True extends TruthValue with Serializable
 
 @SerialVersionUID(1L)
-case object False extends FormulaValue with Serializable
+case object False extends TruthValue with Serializable
 
 @SerialVersionUID(1L)
-case object Undecided extends FormulaValue with Serializable
+case object Undecided extends TruthValue with Serializable
 
 object TimeUtils {
   val million = pow(10, 6)
@@ -420,24 +455,24 @@ object TimeUtils {
     Instant.ofEpochSecond(timestamp.getSeconds, timestamp.getNanos)
 }
 
-/** The result of evaluating a trace
+/** The result of evaluating a trace according to a property
   *
-  * @param formulaName
-  *   Name of the formula that was evaluated on the evaluated trace.
+  * @param propertyName
+  *   Name of the property that was evaluated on the trace.
   * @param rootTraceHexId
   *   Trace id in hex format for the root spand of the evaluated trace.
   * @param traceStartTimeUnixNano
   *   Start time of the evaluated trace. Note this is stable even when late
   *   spans arrive, that's why we use the start and not the end time.
-  * @param formulaValue
-  *   Value to which the formula is evaluated to for this trace.
+  * @param truthValue
+  *   Value to which the property is evaluated to for this trace.
   */
 @SerialVersionUID(1L)
 case class EvaluatedTrace(
     rootTraceHexId: String,
     traceStartTimeUnixNano: Long,
-    formulaName: String,
-    formulaValue: FormulaValue
+    propertyName: String,
+    truthValue: TruthValue
 ) {
   import org.bson._
   import TimeUtils.nanosToMs
@@ -445,21 +480,22 @@ case class EvaluatedTrace(
   /** @return
     *   a BSON document for this evaluated trace with fields:
     *
-    *   - formulaName: this.formulaName, expected to be used as metaField
+    *   - propertyName: this.propertyName, expected to be used as metaField
     *     identifying the time series to MongoDB
     *   - traceStartDate: this.traceStartTimeUnixNano, expected to be used as
     *     timeField for
     * the MongoDB time series
     *   - traceId: this.rootTraceHexId
     *   - evaluationDate: mongo date for the time this method is called.
-    *   - formulaValue: this.formulaValue
+    *   - truthValue: this.truthValue
     *
     * The _id of the document is autogenerated instead of being defined in terms
-    * of (trace id, date, formulaName), which is not possible due to limitations
-    * in MongoDB supported data types. This implies that if the same trace is
-    * reevaluated then it would have more than 1 document in the target database
-    * and collection. This field evaluationDate can be used to distinguish
-    * evaluations, and do things like only querying the latest evaluations.
+    * of (trace id, date, propertyName), which is not possible due to
+    * limitations in MongoDB supported data types. This implies that if the same
+    * trace is reevaluated then it would have more than 1 document in the target
+    * database and collection. This field evaluationDate can be used to
+    * distinguish evaluations, and do things like only querying the latest
+    * evaluations.
     */
   def toBsonDocument: BsonDocument = {
     /*
@@ -478,8 +514,8 @@ case class EvaluatedTrace(
         new BsonDateTime(nanosToMs(traceStartTimeUnixNano))
       )
       .append("evaluationDate", new BsonDateTime(now.toEpochMilli()))
-      .append("formulaName", new BsonString(formulaName))
-      .append("formulaValue", new BsonString(formulaValue.toString()))
+      .append("propertyName", new BsonString(propertyName))
+      .append("truthValue", new BsonString(truthValue.toString()))
   }
 }
 
@@ -634,13 +670,13 @@ package evaluator {
           }
         }) { rootSpan =>
           log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
-          val formulaValue =
-            evaluateFormula(rootSpan.hexTraceId, buildLetters(rootSpan, events))
+          val letters = buildLetters(rootSpan, events)
+          val truthValue = evaluateFormula(rootSpan.hexTraceId, letters)
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId,
             rootSpan.getSpan.getStartTimeUnixNano,
             formula.name,
-            formulaValue
+            truthValue
           )
           log.info(
             s"Evaluated trace with id {} to {}",
@@ -758,7 +794,7 @@ package evaluator {
       private[evaluator] def evaluateFormula(
           traceId: String,
           letters: Iterator[TimedLetter]
-      ): FormulaValue = {
+      ): TruthValue = {
         val initialFormula = formula.formula().nextFormula
         val finalFormula = initialFormula.evaluate(
           letters,
@@ -772,7 +808,7 @@ package evaluator {
             )
           }
         )
-        FormulaValue(finalFormula)
+        TruthValue(finalFormula)
       }
     }
   }

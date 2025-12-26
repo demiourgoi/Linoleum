@@ -9,9 +9,8 @@ import io.github.demiourgoi.linoleum.messages.{LinoleumSpanInfo, SpanInfo}
 import io.github.demiourgoi.linoleum.maude.MaudeModules
 
 @RunWith(classOf[JUnitRunner])
-class MainTest extends org.specs2.mutable.Specification {
-  "Considering a set of simple Linoleum examples" >> {
-    "for the MaudeLotrImageGenSafety example" >> {
+class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
+    "For the MaudeLotrImageGenSafety example" >> {
       "FIXME" >> {
         val traceMaudeModule = MaudeModules.traceTypesModule
         traceMaudeModule must not beNull
@@ -30,10 +29,5 @@ class MainTest extends org.specs2.mutable.Specification {
         ok
       }
     }
-  }
+  
 }
-
-
-// load ~/systems/maude/latest/model-checker.maude .
-// load ~/git/demiourgoi/Linoleum/maude/linoleum/trace.maude .
-// load lotrbot_imagegen_safety.maude .

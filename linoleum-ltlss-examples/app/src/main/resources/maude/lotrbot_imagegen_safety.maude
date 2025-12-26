@@ -75,6 +75,8 @@ omod IMAGEGEN-SAFEY is
     => < M : Monitor | > .
 endom
 
+--- Single place to store the thresholds and parameters
+--- for IMAGEGEN-SAFEY-PROPS
 mod IMAGEGEN-SAFEY-PROPS-PARAMS is
   protecting NAT .
   op maxTimeSpentOnImageGenAllowedNanos : -> Nat .

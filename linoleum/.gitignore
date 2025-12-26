@@ -18,7 +18,8 @@ project
 .continue/
 docs/papers
 
-.todo
+# Local workspace files that should not be shared
+.local
 
 # Ignore files from the Maude project that are copied during the build
 lib/src/main/resources/maude/linoleum/
