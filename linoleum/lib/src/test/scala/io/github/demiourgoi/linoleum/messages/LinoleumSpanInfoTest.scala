@@ -239,7 +239,7 @@ class LinoleumSpanInfoTest
 
       spanTermStr must contain("content")
 
-      spanTermStr must contain("[{\\'text\\': \\'Hello!\\'}]")
+      spanTermStr must contain("[{%22text%22: %22Hello!%22}]")
 
       // Verify the Maude term can be parsed and reduced
       val traceMaudeModule = MaudeModules.traceTypesModule

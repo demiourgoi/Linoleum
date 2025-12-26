@@ -273,7 +273,8 @@ package object maude {
   private def stringValueToMaude(stringValue: String): String =
     // stringValue.replace("\"", "'") // Fake JSON with single quotes
     // StringEscapeUtils.escapeJson(av.getStringValue())
-    stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes 
+    // stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes 
+    stringValue.replace("\"", "%22") // use perc scape for single quotes as in json/json.maude 
 }
 package object formulas {
   import messages._
