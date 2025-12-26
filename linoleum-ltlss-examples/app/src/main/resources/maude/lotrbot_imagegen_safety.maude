@@ -14,8 +14,6 @@ load ~/git/demiourgoi/Linoleum/maude/linoleum/trace.maude .
 load lotrbot_imagegen_safety.maude .
 )
 
---- Following LTL Model Checking pattern
---- https://maude.lcc.uma.es/maude-manual/maude-manualch12.html#x84-17900012
 omod IMAGEGEN-SAFEY is
   *** FIXME: more specific name
   pr CLASS-DECLS .
@@ -27,15 +25,19 @@ omod IMAGEGEN-SAFEY is
   var Atts : KeyEventList .
   var monitorName : String .
 
+  --- The monitor extends the system specification to react to span events 
+  --- by storing in the monitor state information to define the property specification
+  --- https://maude.lcc.uma.es/maude30-manual-html/maude-manualch1.html#x4-160001.4
+  --- The monitor is a bridge from events to states
   --- timeSpentOnImageGenNanos number of nanoseconds spent generating images
   --- across all spans seen
-  class SafetyMonitor | timeSpentOnImageGenNanos : Nat .
+  class Monitor | timeSpentOnImageGenNanos : Nat .
   sort MonitorId .
   subsort MonitorId < Oid .
   op mon : String -> MonitorId [ctor] .
   op initConfig : String -> Configuration .
   eq initConfig(monitorName)
-    = < mon(monitorName) : SafetyMonitor | timeSpentOnImageGenNanos : 0 > .
+    = < mon(monitorName) : Monitor | timeSpentOnImageGenNanos : 0 > .
   
   *** Messages that wrap Span objects: these are LinoleumEvent
   *** in the Linoleum Scala code
@@ -57,27 +59,35 @@ omod IMAGEGEN-SAFEY is
 
   crl [on-imagegen-span-end] :
     spanEnd(M, S)
-    < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos >
-    => < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos + T >
+    < M : Monitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos >
+    => < M : Monitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos + T >
     if isImageGenerationSpan(S) /\ T := spanDurationNanos(S) .
 
   crl [on-non-imagegen-span-end] :
     spanEnd(M, S)
-    < M : SafetyMonitor | >
-    => < M : SafetyMonitor | >
+    < M : Monitor | >
+    => < M : Monitor | >
     if not isImageGenerationSpan(S) .
 
   rl [on-span-start] :
     spanStart(M, S)
-    < M : SafetyMonitor | >
-    => < M : SafetyMonitor | > .
-
+    < M : Monitor | >
+    => < M : Monitor | > .
 endom
+
+mod IMAGEGEN-SAFEY-PROPS-PARAMS is
+  protecting NAT .
+  op maxTimeSpentOnImageGenAllowedNanos : -> Nat .
+  eq maxTimeSpentOnImageGenAllowedNanos = 3000000000 .
+endm
 
 --- Following LTL Model Checking pattern
 --- https://maude.lcc.uma.es/maude-manual/maude-manualch12.html#x84-17900012
-mod IMAGEGEN-SAFEY-PREDS is
+--- This is the property specification
+--- https://maude.lcc.uma.es/maude30-manual-html/maude-manualch1.html#x4-160001.4
+mod IMAGEGEN-SAFEY-PROPS is
   protecting IMAGEGEN-SAFEY .
+  protecting IMAGEGEN-SAFEY-PROPS-PARAMS .
   including SATISFACTION . 
   including CONFIGURATION .
   subsort Configuration < State .
@@ -87,17 +97,21 @@ mod IMAGEGEN-SAFEY-PREDS is
   var C : Configuration .
 
   op imageGenUsageWithinLimits : -> Prop .
-  eq < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos > C |= imageGenUsageWithinLimits =
-    TimeSpentOnImageGenNanos >= 3000000000 .
+  eq < M : Monitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos > C |= imageGenUsageWithinLimits =
+    TimeSpentOnImageGenNanos < maxTimeSpentOnImageGenAllowedNanos .
 endm
 
 eof
 
 
-red initConfig("safey") .
+red initConfig("safety") .
 
-rew[100] spanEnd(mon("safey"), < span("foo") : Span | name : "myName" >) 
-         < mon("safey") : SafetyMonitor | timeSpentOnImageGenNanos : 0 > .
+rew[100] spanEnd(mon("safety"), < span("foo") : Span | name : "myName" >) 
+         < mon("safety") : Monitor | timeSpentOnImageGenNanos : 0 > .
+
+red < mon("safety") : Monitor | timeSpentOnImageGenNanos : 3000000000 > |= imageGenUsageWithinLimits .
+red < mon("safety") : Monitor | timeSpentOnImageGenNanos : 1000 > |= imageGenUsageWithinLimits .
+
 
 --- Load as follows, running maude from app/src/main/resources/maude
 load ~/systems/maude/latest/model-checker.maude .
