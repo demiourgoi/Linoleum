@@ -20,24 +20,27 @@ omod IMAGEGEN-SAFEY is
   *** FIXME: more specific name
   pr CLASS-DECLS .
 
-  sort Conf .
-  op initial : -> Conf [ctor] .
-  op notSafe : -> Conf [ctor] .
-
-  class SafetyMonitor | currentState : Conf .
-  sort MonitorId .
-  subsort MonitorId < Oid .
-  op mon : String -> MonitorId [ctor] .
-
-  *** Messages that wrap Span objects: these are LinoleumEvent
-  *** in the Linoleum Scala code
-  msg spanEnd : Oid Object -> Msg .
-
   *** Variables
   vars M O : Oid .
   var Obj, S : Object .
-  vars StartTimeUnixNano EndTimeUnixNano : Nat .
+  vars StartTimeUnixNano EndTimeUnixNano TimeSpentOnImageGenNanos T : Nat .
   var Atts : KeyEventList .
+  var monitorName : String .
+
+  --- timeSpentOnImageGenNanos number of nanoseconds spent generating images
+  --- across all spans seen
+  class SafetyMonitor | timeSpentOnImageGenNanos : Nat .
+  sort MonitorId .
+  subsort MonitorId < Oid .
+  op mon : String -> MonitorId [ctor] .
+  op initConfig : String -> Configuration .
+  eq initConfig(monitorName)
+    = < mon(monitorName) : SafetyMonitor | timeSpentOnImageGenNanos : 0 > .
+  
+  *** Messages that wrap Span objects: these are LinoleumEvent
+  *** in the Linoleum Scala code
+  msg spanStart : Oid Object -> Msg .
+  msg spanEnd : Oid Object -> Msg .
 
   *** Identify image generation spans based on DEVELOPER_GUIDE.md criteria
   op isImageGenerationSpan : Object -> Bool .
@@ -46,42 +49,29 @@ omod IMAGEGEN-SAFEY is
     occurs(["gen_ai.tool.name", "generate_image"], Atts) .
   eq isImageGenerationSpan(Obj) = false [owise] .
 
-
-  op isSafeSpan : Object -> Bool .
-  ceq isSafeSpan(S) = false
-    if getClass(S) == Span
-    /\ isImageGenerationSpan(S) 
-       /\ spanDurationNanos(S) >= 3000000000 .
-  eq isSafeSpan(S) = true [owise] .
-
   *** Calculate span duration in nanoseconds
   *** NOTE: Span is a class, not a sort
   op spanDurationNanos : Object -> Nat .
   eq spanDurationNanos(< O : Span | startTimeUnixNano : StartTimeUnixNano, endTimeUnixNano : EndTimeUnixNano >) =
     sd(EndTimeUnixNano, StartTimeUnixNano) .
 
-  *** Rule: Handle span completion for initial state
-  *** Transitions to notSafe if it's an image generation span with duration >= 3 seconds
-  crl [initial-on-unsafe-span-end] :
+  crl [on-imagegen-span-end] :
     spanEnd(M, S)
-    < M : SafetyMonitor | currentState : initial >
-    => < M : SafetyMonitor | currentState : notSafe >
-    if not isSafeSpan(S) .
+    < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos >
+    => < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos + T >
+    if isImageGenerationSpan(S) /\ T := spanDurationNanos(S) .
 
-  crl [initial-on-safe-span-end] :
+  crl [on-non-imagegen-span-end] :
     spanEnd(M, S)
-    < M : SafetyMonitor | currentState : initial >
-    => < M : SafetyMonitor | currentState : initial >
-    if isSafeSpan(S) .
+    < M : SafetyMonitor | >
+    => < M : SafetyMonitor | >
+    if not isImageGenerationSpan(S) .
 
+  rl [on-span-start] :
+    spanStart(M, S)
+    < M : SafetyMonitor | >
+    => < M : SafetyMonitor | > .
 
-  *** Rule: Handle span completion for notSafe state
-  *** Does not change state (remains notSafe)
-  rl [notsafe-on-span-end] :
-    spanEnd(M, S)
-    < M : SafetyMonitor | currentState : notSafe >
-    =>
-    < M : SafetyMonitor | > .
 endom
 
 --- Following LTL Model Checking pattern
@@ -89,17 +79,27 @@ endom
 mod IMAGEGEN-SAFEY-PREDS is
   protecting IMAGEGEN-SAFEY .
   including SATISFACTION . 
-  subsort Conf < State .
+  including CONFIGURATION .
+  subsort Configuration < State .
+
+  var M : Oid .
+  var TimeSpentOnImageGenNanos : Nat .
+  var C : Configuration .
 
   op imageGenUsageWithinLimits : -> Prop .
-
-  eq initial |= imageGenUsageWithinLimits = true .
-  eq notSafe |= imageGenUsageWithinLimits = false .
+  eq < M : SafetyMonitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos > C |= imageGenUsageWithinLimits =
+    TimeSpentOnImageGenNanos >= 3000000000 .
 endm
 
 eof
 
-red < mon("hello") : SafetyMonitor | currentState : initial > .
 
-rew[100] spanEnd(mon("hello"), < span("foo") : Span | name : "myName" >) 
-         < mon("hello") : SafetyMonitor | currentState : initial > .
+red initConfig("safey") .
+
+rew[100] spanEnd(mon("safey"), < span("foo") : Span | name : "myName" >) 
+         < mon("safey") : SafetyMonitor | timeSpentOnImageGenNanos : 0 > .
+
+--- Load as follows, running maude from app/src/main/resources/maude
+load ~/systems/maude/latest/model-checker.maude .
+load ~/git/demiourgoi/Linoleum/maude/linoleum/trace.maude .
+load lotrbot_imagegen_safety.maude .
