@@ -97,6 +97,7 @@ fmod JSON-OPS is
      < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) .
  ceq parse(S) = v(N)
   if N := rat(S, 10) .
+ eq parse(S) = v(S) [owise] .
 
  sort ElementRestPair .
  op <_,_> : String String -> ElementRestPair [ctor] .
