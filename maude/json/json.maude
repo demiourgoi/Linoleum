@@ -95,6 +95,8 @@ fmod JSON-OPS is
  ceq parse(S) = parseDict(S1)
   if substr(S, 0, 1) == "{" /\
      < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) .
+ ceq parse(S) = v(N)
+  if N := rat(S, 10) .
 
  sort ElementRestPair .
  op <_,_> : String String -> ElementRestPair [ctor] .
@@ -110,8 +112,7 @@ fmod JSON-OPS is
   if (substr(S, 0, 1) == ",") or (substr(S, 0, 1) == " ") /\
      S' := substr(S, 1, length(S)) .
  ceq $parseDict(S) = S1 |-> V, MSV
-  if S =/= "" /\
-     substr(S, 0, 3) == "%22" /\
+  if substr(S, 0, 3) == "%22" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) /\
      < V, S3 > := valueAndRest(S2) /\
@@ -135,6 +136,10 @@ fmod JSON-OPS is
   if substr(S, 0, 1) == "{" /\
      < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) /\
      V := parseDict(S1) .
+ ceq valueAndRest(S) = < v(LV), S2 >
+  if substr(S, 0, 1) == "[" /\
+     < S1, S2 > := getDictOrList(S, "[", "]", 1, 1) /\
+     LV := parse*(S1) .
 
  op parse* : String -> List{Value} .
  eq parse*("") = nil .
@@ -224,11 +229,7 @@ fmod JSON-OPS is
  eq print(false) = "false" .
 
  ops test1 test2 test3 part1 rest : -> String .
- eq test1 = "{%22description%22: %22A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke.%22}" .
- eq test2 = "{%22toolUse%22: {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure.%22}}}" .
- eq test3 = "%22toolUse%22: {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure.%22}}" .
- eq part1 = "toolUse" .
- eq rest = ": {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke.%22}}}" .
+ eq test1 = "[{%22toolResult%22: {%22toolUseId%22: %220LlKZVT7R%22, %22status%22: %22success%22, %22content%22: [{%22text%22: %22Success generating image of A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke. after 1.13 seconds%22}]}}]" .
 endfm
 
 red parse(test1) .
