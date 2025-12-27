@@ -123,6 +123,10 @@ fmod JSON-OPS is
   if substr(S, 0, 3) == "%22" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) .
+ ceq valueAndRest(S) = < V, S2 >
+  if substr(S, 0, 1) == "{" /\
+     < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) /\
+     V := parseDict(S1) .
 
  op parse* : String -> List{Value} .
  eq parse*("") = nil .
@@ -155,14 +159,14 @@ fmod JSON-OPS is
  op getDictOrList : String String String Nat Nat ~> ElementRestPair .
  ceq getDictOrList(S, OPEN, CLOSE, INDEX, 0) = < S1, S2 >
      *** Skip { or [ and } or ] symbols
-  if S1 := substr(S, 1, sd(INDEX, 1)) /\
+  if S1 := substr(S, 1, sd(INDEX, 2)) /\
      *** Skip } or ] symbol
-     S2 := substr(S, INDEX + 1, length(S)) .
- ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR', COUNT)
+     S2 := substr(S, INDEX, length(S)) .
+ ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR' + 1, COUNT)
   if FR := find(S, OPEN, INDEX) /\
      FR' := find(S, CLOSE, INDEX) /\
      FR' smaller FR .
- ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR, s(s(COUNT)))
+ ceq getDictOrList(S, OPEN, CLOSE, INDEX, s(COUNT)) = getDictOrList(S, OPEN, CLOSE, FR + 1, s(s(COUNT)))
   if FR := find(S, OPEN, INDEX) /\
      FR' := find(S, CLOSE, INDEX) /\
      FR smaller FR' .
@@ -211,15 +215,21 @@ fmod JSON-OPS is
  eq print(true) = "true" .
  eq print(false) = "false" .
 
- ops test1 test2 : -> String .
- eq test1 = "[%22generate_image%22, %22insult_user%22]" .
- eq test2 = "%22generate_image%22, %22insult_user%22" .
+ ops test1 test2 test3 part1 rest : -> String .
+ eq test1 = "{%22description%22: %22A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke.%22}" .
+ eq test2 = "{%22toolUse%22: {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure.%22}}}" .
+ eq test3 = "%22toolUse%22: {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure.%22}}" .
+ eq part1 = "toolUse" .
+ eq rest = ": {%22toolUseId%22: %220LlKZVT7R%22, %22name%22: %22generate_image%22, %22input%22: {%22description%22: %22A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke.%22}}}" .
 endfm
 
 red parse(test1) .
 
-red getFirstString(test2) .
-red parse*(afterFirstString(test2)) .
+*** red getDictOrList(test2, "{", "}", 1, 1) .
+
+*** red $parseDict(test3) .
+
+*** red valueAndRest(rest) .
 
 view JSON from TRIV to JSON is
     sort Elt to JSON .
