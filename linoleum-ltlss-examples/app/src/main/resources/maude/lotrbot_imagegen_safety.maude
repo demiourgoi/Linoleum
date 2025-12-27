@@ -98,7 +98,7 @@ mod IMAGEGEN-SAFEY-PROPS is
   var TimeSpentOnImageGenNanos : Nat .
   var C : Configuration .
 
-  op imageGenUsageWithinLimits : -> Prop .
+  op imageGenUsageWithinLimits : -> Prop [ctor] .
   eq < M : Monitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos > C |= imageGenUsageWithinLimits =
     TimeSpentOnImageGenNanos < maxTimeSpentOnImageGenAllowedNanos .
 endm
