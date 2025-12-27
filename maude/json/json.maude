@@ -83,10 +83,18 @@ fmod JSON-OPS is
  eq evalAttributes(J, A = V) = (J . ("message" . "attributes" . A)) == V .
 
  op parse : String ~> Value .
+ eq parse("true") = v(true) .
+ eq parse("false") = v(false) .
  ceq parse(S) = v(LV)
   if substr(S, 0, 1) == "[" /\
      S' := substr(S, 1, sd(length(S), 2)) /\
      LV := parse*(S') .
+ ceq parse(S) = v(S1)
+  if substr(S, 0, 3) == "%22" /\
+     S1 := getFirstString(S) .
+ ceq parse(S) = parseDict(S1)
+  if substr(S, 0, 1) == "{" /\
+     < S1, S2 > := getDictOrList(S, "{", "}", 1, 1) .
 
  sort ElementRestPair .
  op <_,_> : String String -> ElementRestPair [ctor] .
