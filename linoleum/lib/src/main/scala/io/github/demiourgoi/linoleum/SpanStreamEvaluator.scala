@@ -280,39 +280,7 @@ package object maude {
 }
 package object formulas {
   import messages._
-  sealed trait LinoleumEvent {
-
-    /** Returns UNIX Epoch time in nanoseconds positioning this event on the
-      * window for the spans of a trace
-      * https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/trace/v1/trace.proto
-      */
-    def epochUnixNano: Long
-
-    def span: SpanInfo
-
-    def shortToString: String
-  }
-
-  case class SpanStart(span: SpanInfo) extends LinoleumEvent {
-    override def epochUnixNano: Long = span.getSpan.getStartTimeUnixNano
-
-    override def shortToString: String =
-      s"SpanStart($epochUnixNano, ${span.shortToString})"
-  }
-
-  case class SpanEnd(span: SpanInfo) extends LinoleumEvent {
-    override def epochUnixNano: Long = span.getSpan.getEndTimeUnixNano
-
-    override def shortToString: String =
-      s"SpanEnd($epochUnixNano, ${span.shortToString})"
-  }
-
-  /** Positions start events based on the span start, and end events based on
-    * the span end
-    */
-  implicit val linoleumEventOrdering: Ordering[LinoleumEvent] =
-    Ordering[Long].on(_.epochUnixNano)
-
+  
   /** Formulas use a list of LinoleumEvent ordered by linoleumEventOrdering */
   type Letter = List[LinoleumEvent]
 
@@ -380,16 +348,48 @@ package object formulas {
     *   perform any side effect when evaluated.
     */
   case class LinoleumFormula(name: String, formula: SscheckFormulaSupplier)
+}
 
-  // FIXME this is a copy of ProcessWindowFunction::evaluateFormula
-  // rewrite this as a type class with Impl for LinoleumFormula and another 
-  // for maude properties like app/src/main/resources/maude/lotrbot_imagegen_safety.maude
-  // Besides this method we need another one for the property name to use on 
-  // ProcessWindow.process to build the EvaluatedTrace
-  class FormulaProperty(val formula: LinoleumFormula) {
+// https://alvinalexander.com/scala/fp-book/type-classes-101-introduction/
+// https://www.baeldung.com/scala/type-classes
+trait Property[Prop, Event] {
+  def propertyName(property: Prop): String
+
+  def evaluate(property: Prop)
+    (
+        traceId: String,
+        letters: Iterator[Event]
+    ): TruthValue
+}
+
+object PropertySyntax {
+  implicit class PropertyOps[Prop, Event](value: Prop) {
+    def propertyName(implicit propertyInstance: Property[Prop, Event]): String = {
+      propertyInstance.propertyName(value)
+    }
+    def evaluate(traceId: String, letters: Iterator[Event])(
+      implicit propertyInstance: Property[Prop, Event]
+    ): TruthValue = propertyInstance.evaluate(value)(traceId, letters)
+  }
+}
+
+object PropertyInstances {
+  import formulas._
+
+  object FormulaProperty {
+     val log = LoggerFactory.getLogger(FormulaProperty.getClass.getName)
+  }
+
+  implicit val formulaProperty: Property[LinoleumFormula, TimedLetter] = new Property[LinoleumFormula, TimedLetter] {
     import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
     import FormulaProperty._
-    def evaluate(
+
+    @Override
+    def propertyName(formula: LinoleumFormula): String = formula.name
+
+    @Override
+    def evaluate(formula: LinoleumFormula)
+    (
         traceId: String,
         letters: Iterator[TimedLetter]
     ): TruthValue = {
@@ -408,10 +408,6 @@ package object formulas {
       )
       TruthValue(finalFormula)
     }
-  }
-  object FormulaProperty {
-     private val log =
-      LoggerFactory.getLogger(FormulaProperty.getClass.getName)
   }
 }
 
@@ -639,6 +635,8 @@ package evaluator {
       import messages._
       import TimeUtils._
       import System.lineSeparator
+      import PropertySyntax.PropertyOps
+      import PropertyInstances.formulaProperty
 
       override def process(
           key: ByteString,
@@ -671,11 +669,11 @@ package evaluator {
         }) { rootSpan =>
           log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
           val letters = buildLetters(rootSpan, events)
-          val truthValue = evaluateFormula(rootSpan.hexTraceId, letters)
+          val truthValue = formula.evaluate(rootSpan.hexTraceId, letters)
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId,
             rootSpan.getSpan.getStartTimeUnixNano,
-            formula.name,
+            formula.propertyName,
             truthValue
           )
           log.info(
@@ -789,26 +787,6 @@ package evaluator {
           )
           (letterTime, windowEvents)
         }
-      }
-
-      private[evaluator] def evaluateFormula(
-          traceId: String,
-          letters: Iterator[TimedLetter]
-      ): TruthValue = {
-        val initialFormula = formula.formula().nextFormula
-        val finalFormula = initialFormula.evaluate(
-          letters,
-          (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
-            val (letterTime, letter) = timedLetter
-            log.debug(
-              "Current formula for trace id {} at time {} is {}",
-              traceId,
-              letterTime,
-              currentFormula
-            )
-          }
-        )
-        TruthValue(finalFormula)
       }
     }
   }

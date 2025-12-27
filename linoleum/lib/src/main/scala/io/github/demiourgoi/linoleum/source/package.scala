@@ -207,4 +207,37 @@ package object messages {
       spanToMaude(span)
     }
   }
+
+  sealed trait LinoleumEvent {
+
+    /** Returns UNIX Epoch time in nanoseconds positioning this event on the
+      * window for the spans of a trace
+      * https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/trace/v1/trace.proto
+      */
+    def epochUnixNano: Long
+
+    def span: SpanInfo
+
+    def shortToString: String
+  }
+
+  case class SpanStart(span: SpanInfo) extends LinoleumEvent {
+    override def epochUnixNano: Long = span.getSpan.getStartTimeUnixNano
+
+    override def shortToString: String =
+      s"SpanStart($epochUnixNano, ${span.shortToString})"
+  }
+
+  case class SpanEnd(span: SpanInfo) extends LinoleumEvent {
+    override def epochUnixNano: Long = span.getSpan.getEndTimeUnixNano
+
+    override def shortToString: String =
+      s"SpanEnd($epochUnixNano, ${span.shortToString})"
+  }
+
+  /** Positions start events based on the span start, and end events based on
+    * the span end
+    */
+  implicit val linoleumEventOrdering: Ordering[LinoleumEvent] =
+    Ordering[Long].on(_.epochUnixNano)
 }
