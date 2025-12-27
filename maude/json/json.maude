@@ -136,7 +136,7 @@ fmod JSON-OPS is
   if (substr(S, 0, 1) == ",") or (substr(S, 0, 1) == " ") /\
      *** Until the end - more characters than available, Maude takes them all.
      S' := substr(S, 1, length(S)) .
- ceq parse*(S) = parse(S1) parse*(S2)
+ ceq parse*(S) = v(S1) parse*(S2)
   if substr(S, 0, 3) == "%22" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) .
@@ -210,7 +210,16 @@ fmod JSON-OPS is
  op print : Bool -> String .
  eq print(true) = "true" .
  eq print(false) = "false" .
+
+ ops test1 test2 : -> String .
+ eq test1 = "[%22generate_image%22, %22insult_user%22]" .
+ eq test2 = "%22generate_image%22, %22insult_user%22" .
 endfm
+
+red parse(test1) .
+
+red getFirstString(test2) .
+red parse*(afterFirstString(test2)) .
 
 view JSON from TRIV to JSON is
     sort Elt to JSON .
