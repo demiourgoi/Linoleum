@@ -141,6 +141,10 @@ fmod JSON-OPS is
   if substr(S, 0, 1) == "[" /\
      < S1, S2 > := getDictOrList(S, "[", "]", 1, 1) /\
      LV := parse*(S1) .
+ ceq valueAndRest(S) = < V, S2 >
+  if S1 := substr(S, 0, 1) /\
+     N := rat(S, 10) /\
+     < V, S2 > := natAndRest(S) .
 
  op parse* : String -> List{Value} .
  eq parse*("") = nil .
@@ -164,11 +168,27 @@ fmod JSON-OPS is
  ceq parse*(S) = parseDict(S1) parse*(S2)
   if substr(S, 0, 1) == "[" /\
      < S1, S2 > := getDictOrList(S, "[", "]", 1, 1) .
+ ceq parse*(S) = V parse*(S2)
+  if S1 := substr(S, 0, 1) /\
+     N := rat(S, 10) /\
+     < V, S2 > := natAndRest(S) .
 
  op _smaller_ : FindResult FindResult -> Bool .
  eq notFound smaller notFound = false .
  eq N smaller notFound = true .
  eq N smaller N' = N < N' .
+
+ op natAndRest : String ~> ElementRestPair .
+ eq natAndRest(S) = $natAndRest(S, "", 0) .
+
+ op $natAndRest : String String Nat ~> ElementRestPair .
+ ceq $natAndRest(S1, S2, INDEX) = $natAndRest(S1, S2 + S, INDEX + 1)
+  if S := substr(S1, INDEX, 1) /\
+     N := rat(S, 10) .
+ ceq $natAndRest(S1, S2, INDEX) = < v(N), S' >
+  if S := substr(S1, 0, INDEX) /\
+     N := rat(S, 10) /\
+     S' := substr(S1, INDEX, length(S1)) .
 
  op getDictOrList : String String String Nat Nat ~> ElementRestPair .
  ceq getDictOrList(S, OPEN, CLOSE, INDEX, 0) = < S1, S2 >
@@ -228,18 +248,7 @@ fmod JSON-OPS is
  op print : Bool -> String .
  eq print(true) = "true" .
  eq print(false) = "false" .
-
- ops test1 test2 test3 part1 rest : -> String .
- eq test1 = "[{%22toolResult%22: {%22toolUseId%22: %220LlKZVT7R%22, %22status%22: %22success%22, %22content%22: [{%22text%22: %22Success generating image of A dark, ominous figure with a whips-like head and a massive, fiery body, emerging from the shadows, with a sense of immense power and terror. The background should be a dark, rocky landscape, possibly a cave or a mountain pass, with faint glows of fire and smoke. after 1.13 seconds%22}]}}]" .
 endfm
-
-red parse(test1) .
-
-*** red getDictOrList(test2, "{", "}", 1, 1) .
-
-*** red $parseDict(test3) .
-
-*** red valueAndRest(rest) .
 
 view JSON from TRIV to JSON is
     sort Elt to JSON .
