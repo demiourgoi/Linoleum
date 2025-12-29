@@ -400,10 +400,12 @@ object PropertySyntax {
   }
 }
 
-object PropertyInstances {
+@SerialVersionUID(1L)
+object PropertyInstances extends Serializable {
   import formulas._
 
-  object FormulaProperty {
+  @SerialVersionUID(1L)
+  object FormulaProperty extends Serializable {
     import System.lineSeparator
     import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
     import messages._
@@ -483,7 +485,7 @@ object PropertyInstances {
   }
 
   implicit val formulaProperty: Property[LinoleumFormula] =
-    new Property[LinoleumFormula] {
+    new Property[LinoleumFormula] with Serializable {
       import FormulaProperty._
 
       @Override
@@ -719,8 +721,6 @@ package evaluator {
     )(implicit propInstance: Property[P])
         extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
       import messages._
-      import PropertySyntax.PropertyOps
-      import PropertyInstances.formulaProperty
 
       override def process(
           key: ByteString,
@@ -733,6 +733,9 @@ package evaluator {
           spanInfos: jlang.Iterable[SpanInfo],
           out: Collector[EvaluatedTrace]
       ): Unit = {
+        import PropertySyntax.PropertyOps
+        import PropertyInstances.formulaProperty
+
         // Build letters starting from the root span
         val (rootSpanOpt, events, failures) = collectLinoleumEvents(spanInfos)
         // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
