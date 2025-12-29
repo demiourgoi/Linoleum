@@ -488,11 +488,9 @@ object PropertyInstances extends Serializable {
     new Property[LinoleumFormula] with Serializable {
       import FormulaProperty._
 
-      @Override
-      def propertyName(formula: LinoleumFormula): String = formula.name
+      override def propertyName(formula: LinoleumFormula): String = formula.name
 
-      @Override
-      def streamEvaluatorParams(
+      override def streamEvaluatorParams(
           formula: LinoleumFormula
       ): SpanStreamEvaluatorParams[LinoleumFormula] =
         SpanStreamEvaluatorParams[LinoleumFormula](
@@ -502,8 +500,7 @@ object PropertyInstances extends Serializable {
           allowedLateness = formula.config.allowedLateness
         )
 
-      @Override
-      def evaluate(formula: LinoleumFormula)(
+      override def evaluate(formula: LinoleumFormula)(
           traceId: String,
           orderedEvents: List[LinoleumEvent]
       ): TruthValue = {

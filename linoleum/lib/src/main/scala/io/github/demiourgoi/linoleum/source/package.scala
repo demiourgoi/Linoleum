@@ -219,6 +219,12 @@ package object messages {
     def span: SpanInfo
 
     def shortToString: String
+
+    /** Return a Maude representation of the corresponding message, 
+     * targetting the Oid specified, that should be a string for
+     * a valid Maude term
+    */
+    def toMaude(oid: String): String
   }
 
   case class SpanStart(span: SpanInfo) extends LinoleumEvent {
@@ -226,6 +232,8 @@ package object messages {
 
     override def shortToString: String =
       s"SpanStart($epochUnixNano, ${span.shortToString})"
+
+    override def toMaude(oid: String) = s"""spanStart($oid, ${span.toMaude})"""
   }
 
   case class SpanEnd(span: SpanInfo) extends LinoleumEvent {
@@ -233,6 +241,8 @@ package object messages {
 
     override def shortToString: String =
       s"SpanEnd($epochUnixNano, ${span.shortToString})"
+
+    override def toMaude(oid: String) = s"""spanEnd($oid, ${span.toMaude})"""
   }
 
   /** Positions start events based on the span start, and end events based on
