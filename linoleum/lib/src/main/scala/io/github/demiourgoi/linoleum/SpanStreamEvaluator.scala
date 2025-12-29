@@ -1,8 +1,8 @@
 package io.github.demiourgoi.linoleum
 
 import scala.jdk.CollectionConverters._
+import scala.collection.mutable.ListBuffer
 
-import org.scalacheck.Prop
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows
@@ -41,7 +41,8 @@ import es.ucm.maude.bindings.{
   Module => MaudeModule
 }
 
-import messages.SpanInfo
+import messages.{LinoleumEvent, SpanInfo}
+import evaluator.SpanStreamEvaluatorParams
 
 object Linoleum {
   import config._
@@ -84,8 +85,10 @@ object Linoleum {
       }
     }
 
+    import PropertySyntax.PropertyOps
+    import PropertyInstances.formulaProperty
     val spamEvaluator = new SpanStreamEvaluator(
-      SpanStreamEvaluatorParams(linolenumCfg, formula = formula)
+      formula.streamEvaluatorParams
     )
     val evaluatedSpans = spamEvaluator(spanInfos)
 
@@ -280,7 +283,7 @@ package object maude {
 }
 package object formulas {
   import messages._
-  
+
   /** Formulas use a list of LinoleumEvent ordered by linoleumEventOrdering */
   type Letter = List[LinoleumEvent]
 
@@ -336,40 +339,64 @@ package object formulas {
       * defining the formula in a separate class that extends
       * SscheckFormulaSupplier, and also explicitly Serializable
       */
-    def apply(name: String)(formula: SscheckFormula): LinoleumFormula =
-      LinoleumFormula(name, linoleumFormula(formula))
+    def apply(name: String, config: EvaluationConfig)(
+        formula: SscheckFormula
+    ): LinoleumFormula =
+      LinoleumFormula(name, config, linoleumFormula(formula))
+
+    case class EvaluationConfig(
+        tickPeriod: Duration,
+        sessionGap: Duration,
+        allowedLateness: Duration = Duration.ofMillis(0)
+    )
   }
+
   // Note: trying to avoid serializing sscheck formulas by requiring a formula supplier
   // that should be a stateless class that is trivial to serialize
   /** @param name
     *   human-readable description for the formula
+    * @param config
+    *   formula evaluation configuration
     * @param formula
     *   supplier for the sscheck formula to evaluate. The formula must not
     *   perform any side effect when evaluated.
     */
-  case class LinoleumFormula(name: String, formula: SscheckFormulaSupplier)
+  case class LinoleumFormula(
+      name: String,
+      config: LinoleumFormula.EvaluationConfig,
+      formula: SscheckFormulaSupplier
+  )
 }
 
 // https://alvinalexander.com/scala/fp-book/type-classes-101-introduction/
 // https://www.baeldung.com/scala/type-classes
-trait Property[Prop, Event] {
-  def propertyName(property: Prop): String
+trait Property[P] {
+  def propertyName(property: P): String
 
-  def evaluate(property: Prop)
-    (
-        traceId: String,
-        letters: Iterator[Event]
-    ): TruthValue
+  def streamEvaluatorParams(property: P): SpanStreamEvaluatorParams[P]
+
+  def evaluate(property: P)(
+      traceId: String,
+      orderedEvents: List[LinoleumEvent]
+  ): TruthValue
 }
 
 object PropertySyntax {
-  implicit class PropertyOps[Prop, Event](value: Prop) {
-    def propertyName(implicit propertyInstance: Property[Prop, Event]): String = {
+  implicit class PropertyOps[P](value: P) {
+    def propertyName(implicit
+        propertyInstance: Property[P]
+    ): String = {
       propertyInstance.propertyName(value)
     }
-    def evaluate(traceId: String, letters: Iterator[Event])(
-      implicit propertyInstance: Property[Prop, Event]
-    ): TruthValue = propertyInstance.evaluate(value)(traceId, letters)
+
+    def evaluate(traceId: String, orderedEvents: List[LinoleumEvent])(implicit
+        propertyInstance: Property[P]
+    ): TruthValue = propertyInstance.evaluate(value)(traceId, orderedEvents)
+
+    def streamEvaluatorParams(implicit
+        propertyInstance: Property[P]
+    ): SpanStreamEvaluatorParams[P] =
+      propertyInstance.streamEvaluatorParams(value)
   }
 }
 
@@ -377,19 +404,64 @@ object PropertyInstances {
   import formulas._
 
   object FormulaProperty {
-     val log = LoggerFactory.getLogger(FormulaProperty.getClass.getName)
-  }
-
-  implicit val formulaProperty: Property[LinoleumFormula, TimedLetter] = new Property[LinoleumFormula, TimedLetter] {
+    import System.lineSeparator
     import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
-    import FormulaProperty._
+    import messages._
+    import TimeUtils._
 
-    @Override
-    def propertyName(formula: LinoleumFormula): String = formula.name
+    val log = LoggerFactory.getLogger(FormulaProperty.getClass.getName)
 
-    @Override
-    def evaluate(formula: LinoleumFormula)
-    (
+    /** Gets the root span for orderedEvents, assuming that list is not empty
+      * and the first event is a start event for the root span
+      */
+    def getRootSpan(orderedEvents: List[LinoleumEvent]) =
+      orderedEvents.head.span
+
+    /** Organizes the events in the trace as a set of discrete letters, that
+      * split the sequence of events in tumbling windows of tickPeriod duration.
+      * The first letter always starts with `SpanStart(rootSpan)` and events
+      * before that are discarded as errors.
+      *
+      * Precondition: events for rootSpan are NOT added to events
+      */
+    def buildLetters(formula: LinoleumFormula)(
+        orderedEvents: List[LinoleumEvent]
+    ): Iterator[TimedLetter] = {
+      val startEvent = orderedEvents.head
+      val rootSpan = getRootSpan(orderedEvents)
+      log.debug(
+        "Building letters for trace {} with rootSpan {} and abridged orderedEvents {}",
+        rootSpan.hexTraceId,
+        rootSpan.hexSpanId,
+        orderedEvents.map { _.shortToString }.mkString(lineSeparator)
+      )
+      log.debug(
+        "Building letters for trace {} with rootSpan {} and orderedEvents {}",
+        rootSpan.hexTraceId,
+        rootSpan.hexSpanId,
+        orderedEvents.map { _.toString() }.mkString(lineSeparator)
+      )
+
+      val startTimestampNanos = startEvent.epochUnixNano
+      val endTimestampNanos = orderedEvents.last.epochUnixNano
+      val tickPeriod = formula.config.tickPeriod
+      def tumblingWindowIndex(timestampNanos: Long): Int = {
+        val timeOffset = timestampNanos - startTimestampNanos
+        (timeOffset / tickPeriod.toNanos()).toInt
+      }
+      val endingWindowIndex = tumblingWindowIndex(endTimestampNanos)
+      Iterator.range(0, endingWindowIndex + 1).map { windowIndex =>
+        val windowEvents = orderedEvents.filter { event =>
+          tumblingWindowIndex(event.epochUnixNano) == windowIndex
+        }
+        val letterTime = SscheckTime(
+          nanosToMs(startTimestampNanos + windowIndex * tickPeriod.toNanos())
+        )
+        (letterTime, windowEvents)
+      }
+    }
+
+    def evaluateLetters(formula: LinoleumFormula)(
         traceId: String,
         letters: Iterator[TimedLetter]
     ): TruthValue = {
@@ -409,9 +481,41 @@ object PropertyInstances {
       TruthValue(finalFormula)
     }
   }
+
+  implicit val formulaProperty: Property[LinoleumFormula] =
+    new Property[LinoleumFormula] {
+      import FormulaProperty._
+
+      @Override
+      def propertyName(formula: LinoleumFormula): String = formula.name
+
+      @Override
+      def streamEvaluatorParams(
+          formula: LinoleumFormula
+      ): SpanStreamEvaluatorParams[LinoleumFormula] =
+        SpanStreamEvaluatorParams[LinoleumFormula](
+          property = formula,
+          tickPeriod = formula.config.tickPeriod,
+          sessionGap = formula.config.sessionGap,
+          allowedLateness = formula.config.allowedLateness
+        )
+
+      @Override
+      def evaluate(formula: LinoleumFormula)(
+          traceId: String,
+          orderedEvents: List[LinoleumEvent]
+      ): TruthValue = {
+        val letters = buildLetters(formula)(orderedEvents)
+        val rootSpan = getRootSpan(orderedEvents)
+        val truthValue =
+          evaluateLetters(formula)(rootSpan.hexTraceId, letters.iterator)
+        truthValue
+      }
+    }
 }
 
 object TruthValue {
+  import org.scalacheck.Prop
 
   /** Builds a TruthValue for the current evaluation state of Formula */
   def apply[T](formula: NextFormula[T]): TruthValue =
@@ -527,22 +631,6 @@ package evaluator {
   import scala.collection.mutable.ListBuffer
   import scala.util.Failure
 
-  object SpanStreamEvaluatorParams {
-    def apply(
-        cfg: config.LinoleumConfig,
-        formula: formulas.LinoleumFormula
-    ): SpanStreamEvaluatorParams = {
-      val evalCfg = cfg.evaluation
-      SpanStreamEvaluatorParams(
-        formula,
-        evalCfg.tickPeriod,
-        evalCfg.sessionGap,
-        evalCfg.allowedLateness
-      )
-    }
-
-  }
-
   /** @param tickPeriod
     *   \- The size of the tumbling windows we use to split the sequence of span
     *   events.
@@ -558,12 +646,12 @@ package evaluator {
     *   evaluation of a trace. See https://github.com/juanrh/Linoleum/issues/3
     *   for more details.
     */
-  case class SpanStreamEvaluatorParams(
-      formula: formulas.LinoleumFormula,
+  case class SpanStreamEvaluatorParams[P](
+      property: P,
       tickPeriod: Duration,
       sessionGap: Duration,
       allowedLateness: Duration
-  )
+  )(implicit propInstance: Property[P])
 
   /** For each span in a trace we emit a SpanStart and SpanEnd event, and order
     * all the events using the span start time for SpanStart events and the end
@@ -584,9 +672,10 @@ package evaluator {
     */
 
   @SerialVersionUID(1L)
-  class SpanStreamEvaluator(
-      @transient private val params: SpanStreamEvaluatorParams
-  ) extends Function[SpanInfoStream, VerifiedTraceStream]
+  class SpanStreamEvaluator[P](
+      @transient private val params: SpanStreamEvaluatorParams[P]
+  )(implicit propInstance: Property[P])
+      extends Function[SpanInfoStream, VerifiedTraceStream]
       with Serializable {
 
     import SpanStreamEvaluator._
@@ -599,11 +688,10 @@ package evaluator {
       traceStream
         .window(EventTimeSessionWindows.withGap(params.sessionGap))
         .allowedLateness(params.allowedLateness)
-        .process(processWindow)
+        .process(processWindow())
     }
-
-    private[evaluator] def processWindow =
-      new ProcessWindow[TimeWindow](params.formula, params.tickPeriod)
+    private[evaluator] def processWindow() =
+      new ProcessWindow[TimeWindow, P](params)
   }
 
   object SpanStreamEvaluator {
@@ -626,15 +714,11 @@ package evaluator {
     class EventCollectionError(message: String) extends Exception(message)
 
     @SerialVersionUID(1L)
-    private[evaluator] class ProcessWindow[W <: TimeWindow](
-        private val formula: formulas.LinoleumFormula,
-        private val tickPeriod: Duration
-    ) extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
-
-      import formulas._
+    private[evaluator] class ProcessWindow[W <: TimeWindow, P](
+        private val params: SpanStreamEvaluatorParams[P]
+    )(implicit propInstance: Property[P])
+        extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
       import messages._
-      import TimeUtils._
-      import System.lineSeparator
       import PropertySyntax.PropertyOps
       import PropertyInstances.formulaProperty
 
@@ -668,12 +752,13 @@ package evaluator {
           }
         }) { rootSpan =>
           log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
-          val letters = buildLetters(rootSpan, events)
-          val truthValue = formula.evaluate(rootSpan.hexTraceId, letters)
+          val property = params.property
+          val orderedEvents = orderEvents(rootSpan, events)
+          val truthValue = property.evaluate(rootSpan.hexTraceId, orderedEvents)
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId,
             rootSpan.getSpan.getStartTimeUnixNano,
-            formula.propertyName,
+            property.propertyName,
             truthValue
           )
           log.info(
@@ -683,6 +768,29 @@ package evaluator {
           )
           out.collect(evaluatedTrace)
         }
+      }
+
+      private[evaluator] def orderEvents(
+          rootSpan: SpanInfo,
+          events: ListBuffer[LinoleumEvent]
+      ): List[LinoleumEvent] = {
+        events.addOne(SpanEnd(rootSpan))
+        val startEvent = SpanStart(rootSpan)
+        val eventsOnTime = events.flatMap { event =>
+          if (event.epochUnixNano < startEvent.epochUnixNano) {
+            // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
+            log.error(
+              "Dropping event {} happening before root letter start {}",
+              event,
+              startEvent.epochUnixNano
+            )
+            List.empty
+          } else List(event)
+        }
+
+        val orderedEvents =
+          startEvent :: eventsOnTime.sorted(linoleumEventOrdering).toList
+        orderedEvents
       }
 
       private[evaluator] def collectLinoleumEvents(
@@ -729,64 +837,6 @@ package evaluator {
         }
 
         (rootSpanOpt, events, failures.toList)
-      }
-
-      /** Organizes the events in the trace as a set of discrete letters, that
-        * split the sequence of events in tumbling windows of tickPeriod
-        * duration. The first letter always starts with `SpanStart(rootSpan)`
-        * and events before that are discarded as errors.
-        *
-        * Precondition: events for rootSpan are NOT added to events
-        */
-      private[evaluator] def buildLetters(
-          rootSpan: SpanInfo,
-          events: ListBuffer[LinoleumEvent]
-      ): Iterator[TimedLetter] = {
-        events.addOne(SpanEnd(rootSpan))
-        val startEvent = SpanStart(rootSpan)
-        val eventsOnTime = events.flatMap { event =>
-          if (event.epochUnixNano < startEvent.epochUnixNano) {
-            // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
-            log.error(
-              "Dropping event {} happening before root letter start {}",
-              event,
-              startEvent.epochUnixNano
-            )
-            List.empty
-          } else List(event)
-        }
-
-        val orderedEvents =
-          startEvent :: eventsOnTime.sorted(linoleumEventOrdering).toList
-        log.debug(
-          "Building letters for trace {} with rootSpan {} and abridged orderedEvents {}",
-          rootSpan.hexTraceId,
-          rootSpan.hexSpanId,
-          orderedEvents.map { _.shortToString }.mkString(lineSeparator)
-        )
-        log.debug(
-          "Building letters for trace {} with rootSpan {} and orderedEvents {}",
-          rootSpan.hexTraceId,
-          rootSpan.hexSpanId,
-          orderedEvents.map { _.toString() }.mkString(lineSeparator)
-        )
-
-        val startTimestampNanos = startEvent.epochUnixNano
-        val endTimestampNanos = orderedEvents.last.epochUnixNano
-        def tumblingWindowIndex(timestampNanos: Long): Int = {
-          val timeOffset = timestampNanos - startTimestampNanos
-          (timeOffset / tickPeriod.toNanos()).toInt
-        }
-        val endingWindowIndex = tumblingWindowIndex(endTimestampNanos)
-        Iterator.range(0, endingWindowIndex + 1).map { windowIndex =>
-          val windowEvents = orderedEvents.filter { event =>
-            tumblingWindowIndex(event.epochUnixNano) == windowIndex
-          }
-          val letterTime = SscheckTime(
-            nanosToMs(startTimestampNanos + windowIndex * tickPeriod.toNanos())
-          )
-          (letterTime, windowEvents)
-        }
       }
     }
   }

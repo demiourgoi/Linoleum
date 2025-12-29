@@ -51,15 +51,17 @@ package object helloSscheckFormula {
   }
 
   def run(): Unit = {
-    val formula = LinoleumFormula("Luego basic liveness", new HelloFormula())
+    val formula = LinoleumFormula("Luego basic liveness", 
+      LinoleumFormula.EvaluationConfig(
+        tickPeriod = Duration.ofMillis(100),
+        sessionGap = Duration.ofSeconds(1)
+      ),
+      new HelloFormula()
+    )
     val cfg = LinoleumConfig(
       jobName = "hello spans",
       localFlinkEnv = true,
-      sink = SinkConfig().copy(logMaudeTerms = true),
-      evaluation = EvaluationConfig(
-        tickPeriod = Duration.ofMillis(100),
-        sessionGap = Duration.ofSeconds(1)
-      )
+      sink = SinkConfig().copy(logMaudeTerms = true)
     )
 
     log.warn("Evaluating traces for formula {}", formula)

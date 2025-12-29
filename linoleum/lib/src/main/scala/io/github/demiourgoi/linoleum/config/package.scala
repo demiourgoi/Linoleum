@@ -33,17 +33,9 @@ package object config {
     mongoMaxRetries: Int = 3
   )
 
-  case class EvaluationConfig(
-    tickPeriod: Duration,
-    sessionGap: Duration,
-    allowedLateness: Duration = Duration.ofMillis(0),
-  )
-
-
   case class LinoleumConfig(
     jobName: String,
     localFlinkEnv: Boolean,
-    evaluation: EvaluationConfig,
     source: SourceConfig = SourceConfig(),
     sink: SinkConfig = SinkConfig()
   )

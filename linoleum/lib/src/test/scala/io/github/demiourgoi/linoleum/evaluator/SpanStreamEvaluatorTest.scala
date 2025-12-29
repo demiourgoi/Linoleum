@@ -11,6 +11,7 @@ import io.github.demiourgoi.sscheck.prop.tl.Formula._
 import io.github.demiourgoi.linoleum.config._
 import io.github.demiourgoi.linoleum.formulas._
 import io.github.demiourgoi.linoleum.messages._
+import io.github.demiourgoi.linoleum.PropertyInstances
 import io.github.demiourgoi.linoleum.TimeUtils._
 
 import scala.jdk.CollectionConverters._
@@ -21,22 +22,24 @@ import java.time.Duration
 import java.util.function.Supplier
 
 @RunWith(classOf[JUnitRunner])
-class SpanStreamEvaluatorTest
+class SpanStreamEvaluatorLinoleaumFormulaTest
     extends org.specs2.mutable.Specification {
-
+  
+  import PropertyInstances.formulaProperty
+  
   def fixture =
     new {
-      val formula = LinoleumFormula("test"){
+      val evalConfig = LinoleumFormula.EvaluationConfig(
+        tickPeriod=Duration.ofMillis(10), sessionGap=Duration.ofSeconds(1)
+      )
+      val formula = LinoleumFormula("test", evalConfig){
         always { x : Letter => x.length > 0 } during 2
       }
-      val evaluatorParams = SpanStreamEvaluatorParams(
-        LinoleumConfig(
-          jobName = "test", localFlinkEnv = true,
-          evaluation = EvaluationConfig(
-            tickPeriod=Duration.ofMillis(10), sessionGap=Duration.ofSeconds(1)
-          )    
-        ),
-        formula=formula
+      val evaluatorParams = SpanStreamEvaluatorParams[LinoleumFormula](
+        property=formula,
+        tickPeriod=evalConfig.tickPeriod, 
+        sessionGap=evalConfig.sessionGap,
+        allowedLateness=Duration.ofSeconds(10)
       )
       val evaluator = new SpanStreamEvaluator(evaluatorParams)
     }
@@ -47,7 +50,7 @@ class SpanStreamEvaluatorTest
       "Given a single root and no duplicates Then we get an even list with Start and End events" >> {
         val f = fixture
         val spanInfos = List(testSpanInfo("root", true), testSpanInfo("a"), testSpanInfo("b")).asJava
-        val (rootSpanOpt, events, failures) = f.evaluator.processWindow.collectLinoleumEvents(spanInfos)
+        val (rootSpanOpt, events, failures) = f.evaluator.processWindow().collectLinoleumEvents(spanInfos)
         rootSpanOpt should beSome{spanInfo: SpanInfo => spanInfo.spanId === "root"}
         events.size % 2 === 0
         events.map{_.span.spanId}.toSet === Set("a", "b")
@@ -59,7 +62,7 @@ class SpanStreamEvaluatorTest
 
       "When no spans are passed Then no events are collected" >> {
         val f = fixture
-        val (rootSpanOpt, events, failures) = f.evaluator.processWindow.collectLinoleumEvents(List.empty[SpanInfo].asJava)
+        val (rootSpanOpt, events, failures) = f.evaluator.processWindow().collectLinoleumEvents(List.empty[SpanInfo].asJava)
         rootSpanOpt should beNone
         events must beEmpty
         failures must beEmpty
@@ -68,7 +71,7 @@ class SpanStreamEvaluatorTest
       "When a spans occurs twice Then it is ignored after the first time" >> {
         val f = fixture
         val spanInfos = List(testSpanInfo("root", true), testSpanInfo("a"), testSpanInfo("a")).asJava
-        val (rootSpanOpt, events, failures) = f.evaluator.processWindow.collectLinoleumEvents(spanInfos)
+        val (rootSpanOpt, events, failures) = f.evaluator.processWindow().collectLinoleumEvents(spanInfos)
         rootSpanOpt should beSome{spanInfo: SpanInfo => spanInfo.spanId === "root"}
         events must have size(2)
         events.map{_.span.spanId} == List("a", "a")
@@ -79,7 +82,7 @@ class SpanStreamEvaluatorTest
       "When multiple roots occours Then we use the first one and log an error" >> {
         val f = fixture
         val spanInfos = List(testSpanInfo("root", true), testSpanInfo("root2", true), testSpanInfo("a")).asJava
-        val (rootSpanOpt, events, failures) = f.evaluator.processWindow.collectLinoleumEvents(spanInfos)
+        val (rootSpanOpt, events, failures) = f.evaluator.processWindow().collectLinoleumEvents(spanInfos)
         rootSpanOpt should beSome{spanInfo: SpanInfo => spanInfo.spanId === "root"}
         failures.size === 1
         failures(0).exception must beAnInstanceOf[SpanStreamEvaluator.EventCollectionMultipleRootSpansError]
@@ -101,7 +104,13 @@ class SpanStreamEvaluatorTest
         val spanB = testSpanInfo("b", startEpochMs = 12, endEpochMs = 40)
         val events = ListBuffer[LinoleumEvent](SpanStart(spanA), SpanEnd(spanA), SpanStart(spanB), SpanEnd(spanB))
 
-        val letters = f.evaluator.processWindow.buildLetters(rootSpan, events).toList
+        val windowProcessor = f.evaluator.processWindow()
+        val orderedEvents = windowProcessor.orderEvents(rootSpan, events)
+        val letters = PropertyInstances.FormulaProperty.buildLetters(f.formula)(orderedEvents).toList
+        // val property = f.evaluatorParams.property
+        // property.buildLetters
+
+        //val letters = f.evaluator.processWindow().buildLetters(rootSpan, events).toList
 
         // We expect 4 letters based on the timestamps and tickPeriod of 10ms:
         // Letter 1 (1-10ms): SpanStart(root), SpanStart(spanA)

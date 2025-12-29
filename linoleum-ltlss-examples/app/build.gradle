@@ -14,7 +14,7 @@ plugins {
 
 // artifact properties
 group = 'io.github.demiourgoi'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.1-SNAPSHOT'
 description = """Linoleum LTLss examples"""
 
 ext {
@@ -25,7 +25,7 @@ ext {
     log4jVersion = '2.17.1'
     sscheckVersion = '0.5.2'
     grpcVersion = '1.70.0'
-    linoleumVersion = '0.1.1-SNAPSHOT'
+    linoleumVersion = '0.2.0-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {
