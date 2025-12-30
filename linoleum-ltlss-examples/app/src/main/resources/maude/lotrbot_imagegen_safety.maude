@@ -34,9 +34,9 @@ omod IMAGEGEN-SAFETY is
   sort MonitorId .
   subsort MonitorId < Oid .
   op mon : String -> MonitorId [ctor] .
-  op initConfig : String -> Configuration .
-  eq initConfig(monitorName)
-    = < mon(monitorName) : Monitor | timeSpentOnImageGenNanos : 0 > .
+  op initConfig : Oid -> Configuration .
+  eq initConfig(M)
+    = < M : Monitor | timeSpentOnImageGenNanos : 0 > .
   
 
   *** Identify image generation spans based on DEVELOPER_GUIDE.md criteria
@@ -101,7 +101,7 @@ endm
 eof
 
 
-red initConfig("safety") .
+red initConfig(mon("safety")) .
 
 rew[100] spanEnd(mon("safety"), < span("foo") : Span | name : "myName" >) 
          < mon("safety") : Monitor | timeSpentOnImageGenNanos : 0 > .

@@ -54,14 +54,14 @@ object Linoleum {
 
   private val log = LoggerFactory.getLogger(Linoleum.getClass.getName)
 
-  def execute(cfg: LinoleumConfig, maudeJob: MaudeJob): Unit = {
-    // FIXME this should be done in all relevant JVMs
-    // MaudeRuntime.init()
-    // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
-    // easy so the user focuses on the Maude code: e.g. require an entry point module
-    // maudeJob.programPaths.foreach { MaudeRuntime.loadFromResources(_) }
-    // val maudeModules = maudeJob.maudeModules.map { jMaude.getModule(_) }
-  }
+  // FIXME: complete Maude monitor property type class instance, evaluate
+  // refactor for single execute method
+  // def execute(cfg: LinoleumConfig, maudeJob: MaudeJob): Unit = {
+  //   // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
+  //   // easy so the user focuses on the Maude code: e.g. require an entry point module
+  //   // maudeJob.programPaths.foreach { MaudeRuntime.loadFromResources(_) }
+  //   // val maudeModules = maudeJob.maudeModules.map { jMaude.getModule(_) }
+  // }
 
   def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
     setupFlinkJob(cfg, formula).execute(cfg.jobName)
@@ -133,17 +133,48 @@ package object utils {
 package object maude {
   import utils.byteString2HexString
 
+  object MaudeMonitor {
+    case class EvaluationConfig(
+        messageRewriteBound: Int = 100
+    )
+  }
+
   /** @param name
-    *   human-readable description for this job.
-    * @param programPaths
-    *   resources paths in the jar for Maude source file for this job.
-    * @param maudeModules
-    *   Maude modules to load for this job.
+    *   human-readable description for this property.
+    * @param program
+    *   Resources path (e.g. "maude/lotrbot_imagegen_safety.maude") for the
+    *   Maude program that defines the monitor
+    * @param module
+    *   Maude module that contains the monitor Maude class, the maude Prop, and
+    *   the `_|=_` rules to evaluate Maude objects configurations for that
+    *   property
+    * @param monitorOid
+    *   Maude term for the Oid of the monitor object
+    * @param initialSoup
+    *   Maude term for the initial soup, that typically includes the initial
+    *   monitor object
+    * @param property
+    *   Maude term for the property for which object configuration will be
+    *   evaluated using the `_|=_` rules
+    * @param dependencyPrograms
+    *   List of resources paths for other dependent programs. Note the trace
+    *   types program ("maude/linoleum/trace.maude") defined here is always
+    *   loaded additionally
+    * @param dependencyStdlibPrograms
+    *   List of Maude standard library programs (e.g. "model-checker.maude")
+    *   that module depends on. Note "model-checker.maude" is always loaded
+    *   additionally
     */
-  case class MaudeJob(
+  case class MaudeMonitor(
       name: String,
-      programPaths: List[String],
-      maudeModules: List[String]
+      program: String,
+      module: String,
+      monitorOid: String,
+      initialSoup: String,
+      property: String,
+      dependencyPrograms: List[String] = List.empty,
+      dependencyStdlibPrograms: List[String] = List.empty,
+      config: MaudeMonitor.EvaluationConfig = MaudeMonitor.EvaluationConfig()
   )
 
   object MaudeModules {
@@ -177,7 +208,7 @@ package object maude {
     }
 
     def loadStdLibProgram(
-        maudeProgramFileName: String,
+        maudeProgramFileName: String
     ): Unit = {
       maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
     }
@@ -387,10 +418,10 @@ trait Property[P] {
 
   def streamEvaluatorParams(property: P): SpanStreamEvaluatorParams[P]
 
-  def evaluate(property: P)(
-      traceId: String,
-      orderedEvents: List[LinoleumEvent]
-  ): TruthValue
+  /** Assumes events are ordered and events before the root span (as defined by
+    * evaluator.SpanStreamEvaluator.rootSpanFor) are discarded )
+    */
+  def evaluate(property: P)(orderedEvents: List[LinoleumEvent]): TruthValue
 }
 
 object PropertySyntax {
@@ -401,9 +432,9 @@ object PropertySyntax {
       propertyInstance.propertyName(value)
     }
 
-    def evaluate(traceId: String, orderedEvents: List[LinoleumEvent])(implicit
+    def evaluate(orderedEvents: List[LinoleumEvent])(implicit
         propertyInstance: Property[P]
-    ): TruthValue = propertyInstance.evaluate(value)(traceId, orderedEvents)
+    ): TruthValue = propertyInstance.evaluate(value)(orderedEvents)
 
     def streamEvaluatorParams(implicit
         propertyInstance: Property[P]
@@ -415,6 +446,7 @@ object PropertySyntax {
 @SerialVersionUID(1L)
 object PropertyInstances extends Serializable {
   import formulas._
+  import evaluator.SpanStreamEvaluator.{rootSpanFor, traceIdFor}
 
   @SerialVersionUID(1L)
   object FormulaProperty extends Serializable {
@@ -424,12 +456,6 @@ object PropertyInstances extends Serializable {
     import TimeUtils._
 
     val log = LoggerFactory.getLogger(FormulaProperty.getClass.getName)
-
-    /** Gets the root span for orderedEvents, assuming that list is not empty
-      * and the first event is a start event for the root span
-      */
-    def getRootSpan(orderedEvents: List[LinoleumEvent]) =
-      orderedEvents.head.span
 
     /** Organizes the events in the trace as a set of discrete letters, that
       * split the sequence of events in tumbling windows of tickPeriod duration.
@@ -442,7 +468,7 @@ object PropertyInstances extends Serializable {
         orderedEvents: List[LinoleumEvent]
     ): Iterator[TimedLetter] = {
       val startEvent = orderedEvents.head
-      val rootSpan = getRootSpan(orderedEvents)
+      val rootSpan = rootSpanFor(orderedEvents)
       log.debug(
         "Building letters for trace {} with rootSpan {} and abridged orderedEvents {}",
         rootSpan.hexTraceId,
@@ -492,7 +518,17 @@ object PropertyInstances extends Serializable {
           )
         }
       )
-      TruthValue(finalFormula)
+      formulaToTruthValue(finalFormula)
+    }
+
+    /** Builds a TruthValue for the current evaluation state of Formula */
+    def formulaToTruthValue[T](formula: NextFormula[T]): TruthValue = {
+      import org.scalacheck.Prop
+      formula.result match {
+        case Some(Prop.True)  => True
+        case Some(Prop.False) => False
+        case _                => Undecided
+      }
     }
   }
 
@@ -513,28 +549,130 @@ object PropertyInstances extends Serializable {
         )
 
       override def evaluate(formula: LinoleumFormula)(
-          traceId: String,
           orderedEvents: List[LinoleumEvent]
       ): TruthValue = {
         val letters = buildLetters(formula)(orderedEvents)
-        val rootSpan = getRootSpan(orderedEvents)
+        val rootSpan = rootSpanFor(orderedEvents)
         val truthValue =
           evaluateLetters(formula)(rootSpan.hexTraceId, letters.iterator)
         truthValue
       }
     }
-}
 
-object TruthValue {
-  import org.scalacheck.Prop
+  @SerialVersionUID(1L)
+  object MaudeMonitorProperty extends Serializable {
+    import maude._
+    import es.ucm.maude.bindings._
 
-  /** Builds a TruthValue for the current evaluation state of Formula */
-  def apply[T](formula: NextFormula[T]): TruthValue =
-    formula.result match {
-      case Some(Prop.True)  => True
-      case Some(Prop.False) => False
-      case _                => Undecided
+    val log = LoggerFactory.getLogger(MaudeMonitorProperty.getClass.getName)
+
+    def soupToTruthValue(propertyModule: Module, maudeProperty: String)(
+        soup: Term
+    ): TruthValue = {
+      val truthTerm =
+        propertyModule.parseTerm(s"""${soup.toString} |= $maudeProperty""")
+      checkNotNull(truthTerm)
+      truthTerm.reduce()
+      truthTerm.toString match {
+        case "true"  => True
+        case "false" => False
+        case _       => Undecided
+      }
     }
+
+    /** Loads the trace types module, dependency programs, and finally loads and
+      * returns the module for the Maude monitor program.
+      *
+      * This always loads "model-checker.maude" as an additional dependency,
+      * because the SATISFACTION module is required to evalute MaudeMonitors to
+      * a truth value
+      *
+      * This checks that all loaded Maude modules are not null
+      */
+    def ensureModulesLoaded(mon: MaudeMonitor): Module = {
+      checkNotNull(MaudeModules.traceTypesModule)
+      mon.dependencyPrograms.foreach(MaudeModules.loadProgram)
+      (mon.dependencyStdlibPrograms.toSet + "model-checker.maude")
+        .foreach(MaudeModules.loadStdLibProgram)
+      val monitorModule = MaudeModules.loadModule(mon.program, mon.module)
+      checkNotNull(monitorModule)
+      monitorModule
+    }
+
+    /** Loads the Maude monitor modules and initializes the soup as specified in
+      * mon. Then this traverses the events, sending each event to
+      * mon.monitorOid and rewriting the soup; finally it returns the truth
+      * value of the soup according to the Maude property specific in mon
+      *
+      * Optionally, a callback can be specified to inspect how the monitor
+      * changes with every event
+      */
+    def evaluateWithCallback(mon: MaudeMonitor)(
+        orderedEvents: List[LinoleumEvent],
+        onEvaluationStep: Option[(LinoleumEvent, Term, TruthValue) => Unit] =
+          None
+    ): TruthValue = {
+      val traceId = traceIdFor(orderedEvents)
+      val monitorModule = ensureModulesLoaded(mon)
+      var soup = monitorModule.parseTerm(s"""${mon.initialSoup}"""")
+      checkNotNull(soup)
+      log.debug(
+        "Evaluating monitor {} for traceId {}: initial soup [{}]",
+        mon,
+        traceId,
+        soup
+      )
+
+      val getTruthValue = soupToTruthValue(monitorModule, mon.property)(_)
+
+      orderedEvents.foreach { event =>
+        soup = monitorModule.parseTerm(
+          s"""${event.toMaude(mon.monitorOid)} $soup""""
+        )
+        checkNotNull(soup)
+        soup.rewrite(mon.config.messageRewriteBound)
+        log.debug(
+          "Evaluating monitor {} for traceId {}: after event {}, current soup [{}]",
+          mon.name,
+          traceId,
+          event,
+          soup
+        )
+        onEvaluationStep.foreach { cb =>
+          cb(event, soup, getTruthValue(soup))
+        }
+      }
+
+      getTruthValue(soup)
+    }
+
+    /** Uses evaluateWithCallback returning on the second element of the tuple
+      * the Maude term for the soup and its truth value after each event is
+      * processed
+      */
+    def evaluateWithSteps(mon: MaudeMonitor)(
+        orderedEvents: List[LinoleumEvent]
+    ): (TruthValue, List[(String, TruthValue)]) = {
+      import scala.collection.mutable.ListBuffer
+
+      val soups = new ListBuffer[(String, TruthValue)]
+      val truthValue = evaluateWithCallback(mon)(
+        orderedEvents,
+        Some((event, soup, truthVal) => {
+          soups.addOne((soup.toString, truthVal))
+        })
+      )
+
+      (truthValue, soups.toList)
+    }
+
+    def evaluate(
+        mon: MaudeMonitor
+    )(orderedEvents: List[LinoleumEvent]): TruthValue = {
+      evaluateWithCallback(mon)(orderedEvents)
+    }
+  }
+
 }
 
 sealed trait TruthValue
@@ -709,6 +847,15 @@ package evaluator {
     private val log =
       LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
 
+    /** Gets the root span for orderedEvents, assuming that list is not empty
+      * and the first event is a start event for the root span
+      */
+    def rootSpanFor(orderedEvents: List[LinoleumEvent]): SpanInfo =
+      orderedEvents.head.span
+
+    def traceIdFor(orderedEvents: List[LinoleumEvent]): String =
+      rootSpanFor(orderedEvents).hexTraceId
+
     object EventCollectionMultipleRootSpansError {
       import io.github.demiourgoi.linoleum.messages._
 
@@ -766,7 +913,7 @@ package evaluator {
           log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
           val property = params.property
           val orderedEvents = orderEvents(rootSpan, events)
-          val truthValue = property.evaluate(rootSpan.hexTraceId, orderedEvents)
+          val truthValue = property.evaluate(orderedEvents)
           val evaluatedTrace = EvaluatedTrace(
             rootSpan.hexTraceId,
             rootSpan.getSpan.getStartTimeUnixNano,
