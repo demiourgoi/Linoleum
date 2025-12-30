@@ -15,8 +15,7 @@ load lotrbot_imagegen_safety.maude .
 )
 
 omod IMAGEGEN-SAFETY is
-  *** FIXME: more specific name
-  pr CLASS-DECLS .
+  pr TRACE-CLASS-DECLS .
 
   *** Variables
   vars M O : Oid .
@@ -39,10 +38,6 @@ omod IMAGEGEN-SAFETY is
   eq initConfig(monitorName)
     = < mon(monitorName) : Monitor | timeSpentOnImageGenNanos : 0 > .
   
-  *** Messages that wrap Span objects: these are LinoleumEvent
-  *** in the Linoleum Scala code
-  msg spanStart : Oid Object -> Msg .
-  msg spanEnd : Oid Object -> Msg .
 
   *** Identify image generation spans based on DEVELOPER_GUIDE.md criteria
   op isImageGenerationSpan : Object -> Bool .

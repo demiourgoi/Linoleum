@@ -158,20 +158,32 @@ package object maude {
         maudeProgramResourcePath: String,
         moduleName: String
     ): MaudeModule = {
-      maudeRuntime.loadFromResources(maudeProgramResourcePath)
+      loadProgram(maudeProgramResourcePath)
       jMaude.getModule(moduleName)
     }
 
-    def loadStdModule(
+    def loadProgram(
+        maudeProgramResourcePath: String
+    ): Unit = {
+      maudeRuntime.loadFromResources(maudeProgramResourcePath)
+    }
+
+    def loadStdLibModule(
         maudeProgramFileName: String,
         moduleName: String
     ): MaudeModule = {
-      maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
+      loadStdLibProgram(maudeProgramFileName)
       jMaude.getModule(moduleName)
     }
 
+    def loadStdLibProgram(
+        maudeProgramFileName: String,
+    ): Unit = {
+      maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
+    }
+
     lazy val traceTypesModule: MaudeModule =
-      loadModule("maude/linoleum/trace.maude", "CLASS-OBJECTS")
+      loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
   }
 
   /** Return a string representation of a Maude SpanObject

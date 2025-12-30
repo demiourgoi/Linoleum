@@ -21,7 +21,7 @@ view EventObject from TRIV to OBJECT-NAMES is
  sort Elt to EventObject .
 endv
 
-omod CLASS-DECLS is
+omod TRACE-CLASS-DECLS is
  pr STRING .
  pr (LIST * (op __ to _`,_)){EventObject} * (sort List{EventObject} to EventObjectList) .
  pr LIST{KeyEvent} * (sort List{KeyEvent} to KeyEventList) .
@@ -34,10 +34,15 @@ omod CLASS-DECLS is
 
  op span : String -> SpanId [ctor] .
  op event : String -> EventId [ctor] .
+
+ *** Messages that wrap Span objects: these are LinoleumEvent
+ *** in the Linoleum Scala code
+ msg spanStart : Oid Object -> Msg .
+ msg spanEnd : Oid Object -> Msg .
 endom
 
-omod CLASS-OBJECTS is
-  inc CLASS-DECLS .
+omod TRACE-CLASS-OBJECTS is
+  inc TRACE-CLASS-DECLS .
 
   op <_:_|_> : Oid Event AttributeSet -> EventObject [ditto ctor] .
   op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .

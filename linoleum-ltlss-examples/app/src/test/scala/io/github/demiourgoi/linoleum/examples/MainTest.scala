@@ -47,7 +47,7 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
         val traceMaudeModule = MaudeModules.traceTypesModule
         traceMaudeModule must not beNull
 
-        MaudeModules.loadStdModule("model-checker.maude", "SATISFACTION") must not beNull
+        MaudeModules.loadStdLibProgram("model-checker.maude")
 
         val safetyMod = MaudeModules.loadModule("maude/lotrbot_imagegen_safety.maude", "IMAGEGEN-SAFETY")
         safetyMod must not beNull   
