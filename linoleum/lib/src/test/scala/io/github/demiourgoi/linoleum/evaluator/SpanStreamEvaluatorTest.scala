@@ -37,7 +37,6 @@ class SpanStreamEvaluatorLinoleaumFormulaTest
       }
       val evaluatorParams = SpanStreamEvaluatorParams[LinoleumFormula](
         property=formula,
-        tickPeriod=evalConfig.tickPeriod, 
         sessionGap=evalConfig.sessionGap,
         allowedLateness=Duration.ofSeconds(10)
       )

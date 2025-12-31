@@ -53,24 +53,28 @@ object Linoleum {
   import maude._
 
   private val log = LoggerFactory.getLogger(Linoleum.getClass.getName)
-
-  // FIXME: complete Maude monitor property type class instance, evaluate
-  // refactor for single execute method
-  // def execute(cfg: LinoleumConfig, maudeJob: MaudeJob): Unit = {
-  //   // TODO: this is a poor abstraction (stdlib loading not considered for example). But make this
-  //   // easy so the user focuses on the Maude code: e.g. require an entry point module
-  //   // maudeJob.programPaths.foreach { MaudeRuntime.loadFromResources(_) }
-  //   // val maudeModules = maudeJob.maudeModules.map { jMaude.getModule(_) }
-  // }
-
-  def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
-    setupFlinkJob(cfg, formula).execute(cfg.jobName)
+  def execute[P](cfg: LinoleumConfig)(property: P)(implicit
+      propInstance: Property[P]
+  ): Unit = {
+    setupFlinkJob(cfg, property).execute(cfg.jobName)
   }
 
-  private[linoleum] def setupFlinkJob(
+  def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
+    import PropertyInstances.formulaProperty
+    execute(cfg)(formula)
+  }
+
+  def execute(cfg: LinoleumConfig, mon: MaudeMonitor): Unit = {
+    import PropertyInstances.maudeMonitorProperty
+    execute(cfg)(mon)
+  }
+
+  private[linoleum] def setupFlinkJob[P](
       linolenumCfg: LinoleumConfig,
-      formula: LinoleumFormula
-  ): StreamExecutionEnvironment = {
+      property: P
+  )(implicit propInstance: Property[P]): StreamExecutionEnvironment = {
+    import PropertySyntax.PropertyOps
+
     val env = LinoleumSrc.flinkEnv(linolenumCfg)
     val linoleumSrc = new LinoleumSrc(linolenumCfg)
     val spanInfos = linoleumSrc(env)
@@ -85,10 +89,8 @@ object Linoleum {
       }
     }
 
-    import PropertySyntax.PropertyOps
-    import PropertyInstances.formulaProperty
     val spamEvaluator = new SpanStreamEvaluator(
-      formula.streamEvaluatorParams
+      property.streamEvaluatorParams
     )
     val evaluatedSpans = spamEvaluator(spanInfos)
 
@@ -135,7 +137,9 @@ package object maude {
 
   object MaudeMonitor {
     case class EvaluationConfig(
-        messageRewriteBound: Int = 100
+        messageRewriteBound: Int = 100,
+        sessionGap: Duration,
+        allowedLateness: Duration = Duration.ofMillis(0)
     )
   }
 
@@ -174,7 +178,7 @@ package object maude {
       property: String,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
-      config: MaudeMonitor.EvaluationConfig = MaudeMonitor.EvaluationConfig()
+      config: MaudeMonitor.EvaluationConfig
   )
 
   object MaudeModules {
@@ -387,6 +391,10 @@ package object formulas {
     ): LinoleumFormula =
       LinoleumFormula(name, config, linoleumFormula(formula))
 
+    /** @param tickPeriod
+      *   \- The size of the tumbling windows we use to split the sequence of
+      *   span events.
+      */
     case class EvaluationConfig(
         tickPeriod: Duration,
         sessionGap: Duration,
@@ -446,6 +454,7 @@ object PropertySyntax {
 @SerialVersionUID(1L)
 object PropertyInstances extends Serializable {
   import formulas._
+  import maude._
   import evaluator.SpanStreamEvaluator.{rootSpanFor, traceIdFor}
 
   @SerialVersionUID(1L)
@@ -543,7 +552,6 @@ object PropertyInstances extends Serializable {
       ): SpanStreamEvaluatorParams[LinoleumFormula] =
         SpanStreamEvaluatorParams[LinoleumFormula](
           property = formula,
-          tickPeriod = formula.config.tickPeriod,
           sessionGap = formula.config.sessionGap,
           allowedLateness = formula.config.allowedLateness
         )
@@ -561,7 +569,6 @@ object PropertyInstances extends Serializable {
 
   @SerialVersionUID(1L)
   object MaudeMonitorProperty extends Serializable {
-    import maude._
     import es.ucm.maude.bindings._
 
     val log = LoggerFactory.getLogger(MaudeMonitorProperty.getClass.getName)
@@ -665,13 +672,28 @@ object PropertyInstances extends Serializable {
 
       (truthValue, soups.toList)
     }
-
-    def evaluate(
-        mon: MaudeMonitor
-    )(orderedEvents: List[LinoleumEvent]): TruthValue = {
-      evaluateWithCallback(mon)(orderedEvents)
-    }
   }
+
+  implicit val maudeMonitorProperty: Property[MaudeMonitor] =
+    new Property[MaudeMonitor] with Serializable {
+      import MaudeMonitorProperty._
+
+      override def propertyName(mon: MaudeMonitor): String = mon.name
+
+      override def streamEvaluatorParams(
+          mon: MaudeMonitor
+      ): SpanStreamEvaluatorParams[MaudeMonitor] =
+        SpanStreamEvaluatorParams[MaudeMonitor](
+          mon,
+          sessionGap = mon.config.sessionGap,
+          allowedLateness = mon.config.allowedLateness
+        )
+
+      def evaluate(
+          mon: MaudeMonitor
+      )(orderedEvents: List[LinoleumEvent]): TruthValue =
+        evaluateWithCallback(mon)(orderedEvents)
+    }
 
 }
 
@@ -780,10 +802,7 @@ package evaluator {
   import scala.collection.mutable.ListBuffer
   import scala.util.Failure
 
-  /** @param tickPeriod
-    *   \- The size of the tumbling windows we use to split the sequence of span
-    *   events.
-    * @param sessionGap
+  /** @param sessionGap
     *   \- When the formula doesn't have a defined safe world length, this is
     *   how much we wait for a new span event to arrive before we close the set
     *   of spans for a trace.
@@ -797,7 +816,6 @@ package evaluator {
     */
   case class SpanStreamEvaluatorParams[P](
       property: P,
-      tickPeriod: Duration,
       sessionGap: Duration,
       allowedLateness: Duration
   )(implicit propInstance: Property[P])
@@ -890,7 +908,6 @@ package evaluator {
           out: Collector[EvaluatedTrace]
       ): Unit = {
         import PropertySyntax.PropertyOps
-        import PropertyInstances.formulaProperty
 
         // Build letters starting from the root span
         val (rootSpanOpt, events, failures) = collectLinoleumEvents(spanInfos)

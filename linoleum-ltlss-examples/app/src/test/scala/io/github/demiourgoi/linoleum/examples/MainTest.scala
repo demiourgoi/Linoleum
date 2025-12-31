@@ -1,5 +1,7 @@
 package io.github.demiourgoi.linoleum.examples
 
+import java.time.Duration
+
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
 import scala.jdk.CollectionConverters._
@@ -58,7 +60,11 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
         module = "IMAGEGEN-SAFETY-PROPS",
         monitorOid = monOid,
         initialSoup = s"""initConfig($monOid)""",
-        property = "imageGenUsageWithinLimits"
+        property = "imageGenUsageWithinLimits",
+        config=MaudeMonitor.EvaluationConfig(
+          messageRewriteBound=100,
+          sessionGap=Duration.ZERO, // irrelevant for this test
+        )
       )
 
       val orderedEvents = List(
