@@ -8,9 +8,9 @@ import io.github.demiourgoi.linoleum.config._
 import io.github.demiourgoi.linoleum.formulas._
 import io.github.demiourgoi.linoleum.messages._
 
-package object helloSscheckFormula {
+package object sscheckBasicLivenessFormula {
   val log = LoggerFactory.getLogger(
-    "io.github.demiourgoi.linoleum.examples.helloSscheckFormula"
+    "io.github.demiourgoi.linoleum.examples.sscheckBasicLivenessFormula"
   )
 
   /** Sscheck version of Maude's
@@ -72,12 +72,45 @@ package object helloSscheckFormula {
   }
 }
 
+package object maudeLotrImageGenSafetyMonitor {
+  import io.github.demiourgoi.linoleum.maude._
+  
+  val log = LoggerFactory.getLogger(
+    "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
+  )
+  def run(): Unit = {
+    val monOid = s"""mon("safety")"""
+    val monitor = MaudeMonitor(
+      name = "lotrbot does not spend too much time generating images",
+      program = "maude/lotrbot_imagegen_safety.maude",
+      module = "IMAGEGEN-SAFETY-PROPS",
+      monitorOid = monOid,
+      initialSoup = s"""initConfig($monOid)""",
+      property = "imageGenUsageWithinLimits",
+      config=MaudeMonitor.EvaluationConfig(
+        messageRewriteBound=100,
+        sessionGap=Duration.ofSeconds(5)
+      )
+    )
+    val cfg = LinoleumConfig(
+      jobName = "maudeLotrImageGenSafetyMonitor",
+      localFlinkEnv = true,
+      sink = SinkConfig().copy(logMaudeTerms = true)
+    )
+
+    log.warn("Running maudeLotrImageGenSafetyMonitor example")
+    Linoleum.execute(cfg, monitor)
+
+    log.warn("Ending program")
+  }
+}
+
 object Main {
   private val log = LoggerFactory.getLogger(Main.getClass.getName)
 
   object ExampleId extends Enumeration {
     type ExampleId = Value
-    val HelloSscheckFormula, MaudeLotrImageGenSafety = Value
+    val SscheckBasicLiveness, MaudeLotrImageGenSafety = Value
   }
 
   /** Parses the ExampleId from command line arguments.
@@ -87,13 +120,12 @@ object Main {
     *   The parsed ExampleId, defaults to HelloSscheckFormula if not specified
     *   or invalid
     */
-  private def parseExampleId(args: Array[String]): ExampleId.Value = {
+  private def parseExampleId(args: Array[String]): Option[ExampleId.Value] = {
     if (args.nonEmpty) {
       ExampleId.values
         .find(_.toString == args(0))
-        .getOrElse(ExampleId.HelloSscheckFormula)
     } else {
-      ExampleId.HelloSscheckFormula
+      None
     }
   }
 
@@ -101,7 +133,9 @@ object Main {
     val exampleId = parseExampleId(args)
     log.info("Running example program with id '{}'", exampleId)
     exampleId match {
-      case ExampleId.HelloSscheckFormula => helloSscheckFormula.run()
+      case None => log.error("Unknown example program name")
+      case Some(ExampleId.SscheckBasicLiveness) => sscheckBasicLivenessFormula.run()
+      case Some(ExampleId.MaudeLotrImageGenSafety) => maudeLotrImageGenSafetyMonitor.run()
       case _ => throw new NotImplementedError("WIP")
     }
   }

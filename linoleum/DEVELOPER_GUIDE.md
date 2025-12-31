@@ -60,7 +60,12 @@ cd ../sim_file_replayer && make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 ##       get a second Kafka message with the batch of topic, so Linoleum actually
 ##       evaluates the first batch. This could be improved tunning the Flink job parameters
 cd ../linoleum-ltlss-examples
-make clean run 2>&1 | tee run.log
+### Maude image generation safety example
+make clean run EXAMPLE=MaudeLotrImageGenSafety 2>&1 | tee run.log
+### Sscheck basic liveness example
+make clean run EXAMPLE=SscheckBasicLiveness 2>&1 | tee run.log
+
+
 
 # 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes

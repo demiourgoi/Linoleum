@@ -50,6 +50,6 @@ build:	### build app (this also runs unit tests)
 	$(GRADLE) build
 	echo "See app jar at $(ROOT_DIR)/app/build/libs/*.jar"
 
+# Example: make run EXAMPLE=MaudeLotrImageGenSafety
 run: ### run app with example flags
-	$(GRADLE) run
-
+	$(GRADLE) run --args "$${EXAMPLE}"

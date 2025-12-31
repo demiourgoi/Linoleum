@@ -619,38 +619,57 @@ object PropertyInstances extends Serializable {
         onEvaluationStep: Option[(LinoleumEvent, Term, TruthValue) => Unit] =
           None
     ): TruthValue = {
+      // FIXME HACK
+      val lock = MaudeRuntime.getInstance()
       val traceId = traceIdFor(orderedEvents)
-      val monitorModule = ensureModulesLoaded(mon)
-      var soup = monitorModule.parseTerm(s"""${mon.initialSoup}"""")
-      checkNotNull(soup)
-      log.debug(
-        "Evaluating monitor {} for traceId {}: initial soup [{}]",
-        mon,
-        traceId,
-        soup
-      )
 
-      val getTruthValue = soupToTruthValue(monitorModule, mon.property)(_)
+      lock.synchronized {
+        val monitorModule = ensureModulesLoaded(mon)
 
-      orderedEvents.foreach { event =>
-        soup = monitorModule.parseTerm(
-          s"""${event.toMaude(mon.monitorOid)} $soup""""
-        )
+        val initialSoup = s"""${mon.initialSoup}""""
+        log.debug("initialSoup soup term: parsing {}", initialSoup)
+        var soup = monitorModule.parseTerm(initialSoup)
         checkNotNull(soup)
-        soup.rewrite(mon.config.messageRewriteBound)
         log.debug(
-          "Evaluating monitor {} for traceId {}: after event {}, current soup [{}]",
-          mon.name,
+          "initialSoup term parse success: string {} parsed as {}",
+          initialSoup,
+          soup.toString
+        )
+        log.debug(
+          "Evaluating monitor {} for traceId {}: initial soup [{}]",
+          mon,
           traceId,
-          event,
           soup
         )
-        onEvaluationStep.foreach { cb =>
-          cb(event, soup, getTruthValue(soup))
-        }
-      }
 
-      getTruthValue(soup)
+        def getTruthValue(s: Term) =
+          soupToTruthValue(monitorModule, mon.property)(s)
+
+        orderedEvents.foreach { event =>
+          val nextSoup = s"""${event.toMaude(mon.monitorOid)} $soup""""
+          log.debug("nextSoup term: parsing {}", nextSoup)
+          soup = monitorModule.parseTerm(nextSoup)
+          checkNotNull(soup)
+          log.debug(
+            "nextSoup term parse success: string {} parsed as {}",
+            nextSoup,
+            soup.toString
+          )
+          soup.rewrite(mon.config.messageRewriteBound)
+          log.debug(
+            "Evaluating monitor {} for traceId {}: after event {}, current soup [{}]",
+            mon.name,
+            traceId,
+            event,
+            soup
+          )
+          onEvaluationStep.foreach { cb =>
+            cb(event, soup, getTruthValue(soup))
+          }
+        }
+
+        getTruthValue(soup)
+      }
     }
 
     /** Uses evaluateWithCallback returning on the second element of the tuple
