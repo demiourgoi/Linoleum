@@ -19,7 +19,7 @@ omod IMAGEGEN-SAFETY is
 
   *** Variables
   vars M O : Oid .
-  var Obj, S : Object .
+  vars Obj S : Object .
   vars StartTimeUnixNano EndTimeUnixNano TimeSpentOnImageGenNanos T : Nat .
   var Atts : KeyEventList .
   var monitorName : String .
