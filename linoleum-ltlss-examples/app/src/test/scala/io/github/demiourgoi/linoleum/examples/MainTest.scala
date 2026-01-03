@@ -52,22 +52,10 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
 
   "For the MaudeLotrImageGenSafety example" >> {
     "we can track image generation time using the monitor" >> {
-
-      val monOid = s"""mon("safety")"""
-      val monitor = MaudeMonitor(
-        name = "lotrbot does not spend too much time generating images",
-        program = "maude/lotrbot_imagegen_safety.maude",
-        module = "IMAGEGEN-SAFETY-PROPS",
-        monitorOid = monOid,
-        initialSoup = s"""initConfig($monOid)""",
-        property = "imageGenUsageWithinLimits",
-        config=MaudeMonitor.EvaluationConfig(
-          messageRewriteBound=100,
-          sessionGap=Duration.ZERO, // irrelevant for this test
-        )
-      )
+      import maudeLotrImageGenSafetyMonitor._
 
       val orderedEvents = List(
+        SpanStart(nonImageSpan), // does nothing
         SpanEnd(nonImageSpan), // Non image span end does nothing
         SpanEnd(imageSpan(10)), // image span end increases time count
         SpanStart(
@@ -85,6 +73,7 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
           )
         (truthValue === False) and (
           soups === List(
+            (s"""< $monOid : Monitor | timeSpentOnImageGenNanos : 0 >""", True),
             (s"""< $monOid : Monitor | timeSpentOnImageGenNanos : 0 >""", True),
             (
               s"""< $monOid : Monitor | timeSpentOnImageGenNanos : 10 >""",

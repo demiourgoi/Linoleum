@@ -51,7 +51,8 @@ package object sscheckBasicLivenessFormula {
   }
 
   def run(): Unit = {
-    val formula = LinoleumFormula("Luego basic liveness", 
+    val formula = LinoleumFormula(
+      "Luego basic liveness",
       LinoleumFormula.EvaluationConfig(
         tickPeriod = Duration.ofMillis(100),
         sessionGap = Duration.ofSeconds(1)
@@ -74,24 +75,28 @@ package object sscheckBasicLivenessFormula {
 
 package object maudeLotrImageGenSafetyMonitor {
   import io.github.demiourgoi.linoleum.maude._
-  
+
   val log = LoggerFactory.getLogger(
     "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
   )
-  def run(): Unit = {
-    val monOid = s"""mon("safety")"""
-    val monitor = MaudeMonitor(
+
+  val monOid = s"""mon("safety")"""
+  val monitor =
+    MaudeMonitor(
       name = "lotrbot does not spend too much time generating images",
       program = "maude/lotrbot_imagegen_safety.maude",
       module = "IMAGEGEN-SAFETY-PROPS",
       monitorOid = monOid,
       initialSoup = s"""initConfig($monOid)""",
       property = "imageGenUsageWithinLimits",
-      config=MaudeMonitor.EvaluationConfig(
-        messageRewriteBound=100,
-        sessionGap=Duration.ofSeconds(5)
+      config = MaudeMonitor.EvaluationConfig(
+        messageRewriteBound = 100,
+        sessionGap = Duration.ofSeconds(5)
       )
     )
+
+  def run(): Unit = {
+
     val cfg = LinoleumConfig(
       jobName = "maudeLotrImageGenSafetyMonitor",
       localFlinkEnv = true,
@@ -134,8 +139,10 @@ object Main {
     log.info("Running example program with id '{}'", exampleId)
     exampleId match {
       case None => log.error("Unknown example program name")
-      case Some(ExampleId.SscheckBasicLiveness) => sscheckBasicLivenessFormula.run()
-      case Some(ExampleId.MaudeLotrImageGenSafety) => maudeLotrImageGenSafetyMonitor.run()
+      case Some(ExampleId.SscheckBasicLiveness) =>
+        sscheckBasicLivenessFormula.run()
+      case Some(ExampleId.MaudeLotrImageGenSafety) =>
+        maudeLotrImageGenSafetyMonitor.run()
       case _ => throw new NotImplementedError("WIP")
     }
   }
