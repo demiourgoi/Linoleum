@@ -44,8 +44,10 @@ endom
 omod TRACE-CLASS-OBJECTS is
   inc TRACE-CLASS-DECLS .
 
-  op <_:_|_> : Oid Event AttributeSet -> EventObject [ditto ctor] .
-  op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .
+***  op <_:_|_> : Oid Event AttributeSet -> EventObject [ditto ctor] .
+***  op <_:_|_> : Oid Span AttributeSet -> SpanObject [ditto ctor] .
+  mb < O:Oid : Event | AtS:AttributeSet > : EventObject .
+  mb < O:Oid : Span | AtS:AttributeSet > : SpanObject .
 endom
 
 eof

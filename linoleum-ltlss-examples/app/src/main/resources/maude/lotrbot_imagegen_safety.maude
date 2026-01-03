@@ -15,7 +15,7 @@ load lotrbot_imagegen_safety.maude .
 )
 
 omod IMAGEGEN-SAFETY is
-  pr TRACE-CLASS-DECLS .
+  pr TRACE-CLASS-OBJECTS .
 
   *** Variables
   vars M O : Oid .
