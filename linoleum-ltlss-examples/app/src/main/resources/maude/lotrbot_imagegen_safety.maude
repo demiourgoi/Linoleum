@@ -4,14 +4,6 @@ Defines safety states and predicate for LOTR Bot image generation
 
 Note: goal is not only an example that works, but also one that fits
       with Maude design patterns
-
-Quick iteration as:
-
-cd app/src/main/resources/
-maude
-load ~/systems/maude/latest/model-checker.maude .
-load ~/git/demiourgoi/Linoleum/maude/linoleum/trace.maude .
-load lotrbot_imagegen_safety.maude .
 )
 
 omod IMAGEGEN-SAFETY is
@@ -31,12 +23,14 @@ omod IMAGEGEN-SAFETY is
   --- timeSpentOnImageGenNanos number of nanoseconds spent generating images
   --- across all spans seen
   class Monitor | timeSpentOnImageGenNanos : Nat .
-  sort MonitorId .
+  sorts MonitorId MonitorObject .
   subsort MonitorId < Oid .
   op mon : String -> MonitorId [ctor] .
   op initConfig : Oid -> Configuration .
   eq initConfig(M)
     = < M : Monitor | timeSpentOnImageGenNanos : 0 > .
+  subsort MonitorObject < Object .
+  mb < O:Oid : Monitor | AtS:AttributeSet > : MonitorObject .
   
 
   *** Identify image generation spans based on DEVELOPER_GUIDE.md criteria

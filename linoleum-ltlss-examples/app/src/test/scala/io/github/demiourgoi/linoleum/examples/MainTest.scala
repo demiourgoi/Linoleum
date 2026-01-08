@@ -15,8 +15,6 @@ import io.github.demiourgoi.linoleum.maude._
 
 @RunWith(classOf[JUnitRunner])
 class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
-  val rewriteBound = 100
-
   def spanBuilderToSpanInfo(span: Span.Builder): SpanInfo =
     SpanInfo
       .newBuilder()

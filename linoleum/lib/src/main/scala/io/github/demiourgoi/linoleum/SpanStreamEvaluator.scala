@@ -217,6 +217,17 @@ package object maude {
       maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
     }
 
+
+    /** Hack to work around the fact the the Maude runtime is not 
+     * thread safe. See https://github.com/demiourgoi/Linoleum/issues/16
+     * for long term fix ideas
+     *  */ 
+    def runWithLock[A](body: => A): A = {
+      maudeRuntime.synchronized{
+        body
+      }
+    }
+
     lazy val traceTypesModule: MaudeModule =
       loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
   }
@@ -252,7 +263,7 @@ package object maude {
               | attributes : ${spanAttributesToMaude(event.getAttributesList())}
             | > """.stripMargin.replaceAll("[\r\n]", "")
           }
-          .mkString(" ")
+          .mkString(", ")
 
     s"""| < span("$spanOid") : Span |
               | traceId : "$traceId", 
@@ -619,11 +630,8 @@ object PropertyInstances extends Serializable {
         onEvaluationStep: Option[(LinoleumEvent, Term, TruthValue) => Unit] =
           None
     ): TruthValue = {
-      // FIXME HACK
-      val lock = MaudeRuntime.getInstance()
       val traceId = traceIdFor(orderedEvents)
-
-      lock.synchronized {
+      MaudeModules.runWithLock { 
         val monitorModule = ensureModulesLoaded(mon)
 
         val initialSoup = s"""${mon.initialSoup}""""
@@ -657,10 +665,9 @@ object PropertyInstances extends Serializable {
           )
           soup.rewrite(mon.config.messageRewriteBound)
           log.debug(
-            "Evaluating monitor {} for traceId {}: after event {}, current soup [{}]",
+            "Evaluating monitor {}:\n\tnext soup {} \n\trewritten to current soup {}",
             mon.name,
-            traceId,
-            event,
+            nextSoup,
             soup
           )
           onEvaluationStep.foreach { cb =>

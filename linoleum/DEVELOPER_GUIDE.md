@@ -65,8 +65,6 @@ make clean run EXAMPLE=MaudeLotrImageGenSafety 2>&1 | tee run.log
 ### Sscheck basic liveness example
 make clean run EXAMPLE=SscheckBasicLiveness 2>&1 | tee run.log
 
-
-
 # 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
 ```

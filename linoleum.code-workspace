@@ -18,9 +18,23 @@
 	],
 	"settings": {
 		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "automatic",
+		// remove bloop generated files in lib/bin and .bloop, as well
+		// as Maven target from the files considered by VsCode
 		"files.watcherExclude": {
-			"**/target": true
+			"**/target": true,
+			"**/lib/bin": true,
+			"**/.bloop": true
 		},
-		"java.configuration.updateBuildConfiguration": "automatic"
+		"search.exclude": {
+			"**/target": true,
+			"**/lib/bin": true,
+			"**/.bloop": true
+		},
+		"files.exclude": {
+			"**/target": true,
+			"**/lib/bin": true,
+			"**/.bloop": true
+		}
 	}
 }

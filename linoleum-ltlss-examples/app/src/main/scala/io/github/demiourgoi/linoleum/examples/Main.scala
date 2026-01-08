@@ -51,6 +51,8 @@ package object sscheckBasicLivenessFormula {
   }
 
   def run(): Unit = {
+    import Main.localCfg
+
     val formula = LinoleumFormula(
       "Luego basic liveness",
       LinoleumFormula.EvaluationConfig(
@@ -59,22 +61,16 @@ package object sscheckBasicLivenessFormula {
       ),
       new HelloFormula()
     )
-    val cfg = LinoleumConfig(
-      jobName = "hello spans",
-      localFlinkEnv = true,
-      sink = SinkConfig().copy(logMaudeTerms = true)
-    )
-
+  
     log.warn("Evaluating traces for formula {}", formula)
-
-    Linoleum.execute(cfg, formula)
-
+    Linoleum.execute(localCfg.copy(jobName = "hello spans"), formula)
     log.warn("Ending program")
   }
 }
 
 package object maudeLotrImageGenSafetyMonitor {
   import io.github.demiourgoi.linoleum.maude._
+  import Main.localCfg
 
   val log = LoggerFactory.getLogger(
     "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
@@ -95,23 +91,29 @@ package object maudeLotrImageGenSafetyMonitor {
       )
     )
 
+
+  /*
+  Check with 
+  
+  $ grep  "rewritten to current soup" run.log
+
+  and check first occurrence changing from zero. 
+  Note we might need two lotrbot runs to push the events
+  */
   def run(): Unit = {
-
-    val cfg = LinoleumConfig(
-      jobName = "maudeLotrImageGenSafetyMonitor",
-      localFlinkEnv = true,
-      sink = SinkConfig().copy(logMaudeTerms = true)
-    )
-
     log.warn("Running maudeLotrImageGenSafetyMonitor example")
-    Linoleum.execute(cfg, monitor)
-
+    Linoleum.execute(localCfg.copy(jobName = "maudeLotrImageGenSafetyMonitor"), monitor)
     log.warn("Ending program")
   }
 }
 
 object Main {
   private val log = LoggerFactory.getLogger(Main.getClass.getName)
+  val localCfg = LinoleumConfig(
+      jobName = "",
+      localFlinkEnv = true,
+      sink = SinkConfig().copy(logMaudeTerms = true)
+    )
 
   object ExampleId extends Enumeration {
     type ExampleId = Value
