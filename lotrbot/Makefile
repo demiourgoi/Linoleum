@@ -24,7 +24,7 @@ default: help
 help:	### list main targets
 
 ifeq ($(UNAME), Linux)
-	@grep -P '^[a-zA-Z_-_/]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	@grep -P '^[a-zA-Z_/-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 else
 	@# this is not tested, but prepared in advance for you, Mac drivers
@@ -112,4 +112,12 @@ test/integration:	### run integration tests
 	echo "Running integration tests ..."
 	mkdir -p $(REPORTS_DIR)
 	$(PYTHON) -m pytest tests/integration/ -v --html=$(REPORTS_DIR)/integration-report.html --self-contained-html
+	echo "See test report at file://$(REPORTS_DIR)"
+
+
+.PHONY: run/simple-canned-chat
+run/simple-canned-chat: export LOTRBOT_ENV_FILE_PATH=$(shell echo $${LOTRBOT_ENV_FILE_PATH:-$(HOME)/.lotrbot.env})
+run/simple-canned-chat: export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+run/simple-canned-chat:	### run a simple canned conversation
+	$(PYTHON) -m pytest tests/integration/test_simple_canned_conversation.py::test_simple_conversation -v --html=$(REPORTS_DIR)/integration-report.html --self-contained-html
 	echo "See test report at file://$(REPORTS_DIR)"
