@@ -69,7 +69,7 @@ endom
 mod IMAGEGEN-SAFETY-PROPS-PARAMS is
   protecting NAT .
   op maxTimeSpentOnImageGenAllowedNanos : -> Nat .
-  eq maxTimeSpentOnImageGenAllowedNanos = 3000000000 .
+  eq maxTimeSpentOnImageGenAllowedNanos = 1000000000 .
 endm
 
 --- Following LTL Model Checking pattern

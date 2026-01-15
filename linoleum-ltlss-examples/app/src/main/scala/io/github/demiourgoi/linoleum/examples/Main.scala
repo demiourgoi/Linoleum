@@ -3,6 +3,8 @@ package io.github.demiourgoi.linoleum.examples
 import java.time.Duration
 import org.slf4j.LoggerFactory
 
+import scala.jdk.CollectionConverters._
+
 import io.github.demiourgoi.linoleum.Linoleum
 import io.github.demiourgoi.linoleum.config._
 import io.github.demiourgoi.linoleum.formulas._
@@ -61,7 +63,7 @@ package object sscheckBasicLivenessFormula {
       ),
       new HelloFormula()
     )
-  
+
     log.warn("Evaluating traces for formula {}", formula)
     Linoleum.execute(localCfg.copy(jobName = "hello spans"), formula)
     log.warn("Ending program")
@@ -76,6 +78,25 @@ package object maudeLotrImageGenSafetyMonitor {
     "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
   )
 
+  // Groups together by the value of the attribute key "gen_ai.agent.name" 
+  // if it exists, otherwise by trace id
+  def keyByAgentName(span: SpanInfo): String = {
+    val agentNameOpt = span
+      .getSpan()
+      .getAttributesList()
+      .asScala
+      .toList
+      .collectFirst {
+        case kv
+            if (kv.getKey() == "gen_ai.agent.name") && (kv
+              .getValue()
+              .hasStringValue()) =>
+          kv.getValue().getStringValue()
+      }
+
+    agentNameOpt.getOrElse(span.hexTraceId)
+  }
+
   val monOid = s"""mon("safety")"""
   val monitor =
     MaudeMonitor(
@@ -85,24 +106,27 @@ package object maudeLotrImageGenSafetyMonitor {
       monitorOid = monOid,
       initialSoup = s"""initConfig($monOid)""",
       property = "imageGenUsageWithinLimits",
+      keyBy = Some(keyByAgentName),
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)
       )
     )
 
-
   /*
-  Check with 
+  Check with
   
   $ grep  "rewritten to current soup" run.log
 
-  and check first occurrence changing from zero. 
+  and check first occurrence changing from zero.
   Note we might need two lotrbot runs to push the events
-  */
+   */
   def run(): Unit = {
     log.warn("Running maudeLotrImageGenSafetyMonitor example")
-    Linoleum.execute(localCfg.copy(jobName = "maudeLotrImageGenSafetyMonitor"), monitor)
+    Linoleum.execute(
+      localCfg.copy(jobName = "maudeLotrImageGenSafetyMonitor"),
+      monitor
+    )
     log.warn("Ending program")
   }
 }
@@ -110,10 +134,10 @@ package object maudeLotrImageGenSafetyMonitor {
 object Main {
   private val log = LoggerFactory.getLogger(Main.getClass.getName)
   val localCfg = LinoleumConfig(
-      jobName = "",
-      localFlinkEnv = true,
-      sink = SinkConfig().copy(logMaudeTerms = true)
-    )
+    jobName = "",
+    localFlinkEnv = true,
+    sink = SinkConfig().copy(logMaudeTerms = true)
+  )
 
   object ExampleId extends Enumeration {
     type ExampleId = Value

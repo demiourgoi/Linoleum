@@ -160,6 +160,11 @@ package object maude {
     * @param property
     *   Maude term for the property for which object configuration will be
     *   evaluated using the `_|=_` rules
+    * @param keyBy
+    *   To evaluate the property we'll group spans by this key, construct
+    *   session windows for each of those groups, and evaluate the events for
+    *   each of those windows. If None then we group together spans for the same
+    *   trace, if some we group by the provided criteria.
     * @param dependencyPrograms
     *   List of resources paths for other dependent programs. Note the trace
     *   types program ("maude/linoleum/trace.maude") defined here is always
@@ -176,6 +181,7 @@ package object maude {
       monitorOid: String,
       initialSoup: String,
       property: String,
+      keyBy: Option[SpanInfo => String] = None,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
       config: MaudeMonitor.EvaluationConfig
@@ -217,13 +223,12 @@ package object maude {
       maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
     }
 
-
-    /** Hack to work around the fact the the Maude runtime is not 
-     * thread safe. See https://github.com/demiourgoi/Linoleum/issues/16
-     * for long term fix ideas
-     *  */ 
+    /** Hack to work around the fact the the Maude runtime is not thread safe.
+      * See https://github.com/demiourgoi/Linoleum/issues/16 for long term fix
+      * ideas
+      */
     def runWithLock[A](body: => A): A = {
-      maudeRuntime.synchronized{
+      maudeRuntime.synchronized {
         body
       }
     }
@@ -441,6 +446,14 @@ trait Property[P] {
     * evaluator.SpanStreamEvaluator.rootSpanFor) are discarded )
     */
   def evaluate(property: P)(orderedEvents: List[LinoleumEvent]): TruthValue
+
+  /** To evaluate the property we'll group spans by this key, construct session
+    * windows for each of those groups, and evaluate the events for each of
+    * those windows
+    *
+    * By default we group together spans for the same trace.
+    */
+  def keyBy(property: P)(span: SpanInfo): String = span.hexTraceId
 }
 
 object PropertySyntax {
@@ -451,14 +464,18 @@ object PropertySyntax {
       propertyInstance.propertyName(value)
     }
 
-    def evaluate(orderedEvents: List[LinoleumEvent])(implicit
-        propertyInstance: Property[P]
-    ): TruthValue = propertyInstance.evaluate(value)(orderedEvents)
-
     def streamEvaluatorParams(implicit
         propertyInstance: Property[P]
     ): SpanStreamEvaluatorParams[P] =
       propertyInstance.streamEvaluatorParams(value)
+
+    def evaluate(orderedEvents: List[LinoleumEvent])(implicit
+        propertyInstance: Property[P]
+    ): TruthValue = propertyInstance.evaluate(value)(orderedEvents)
+
+    def keyBy(span: SpanInfo)(implicit
+        propertyInstance: Property[P]
+    ): String = propertyInstance.keyBy(value)(span)
   }
 }
 
@@ -631,7 +648,7 @@ object PropertyInstances extends Serializable {
           None
     ): TruthValue = {
       val traceId = traceIdFor(orderedEvents)
-      MaudeModules.runWithLock { 
+      MaudeModules.runWithLock {
         val monitorModule = ensureModulesLoaded(mon)
 
         val initialSoup = s"""${mon.initialSoup}""""
@@ -715,12 +732,14 @@ object PropertyInstances extends Serializable {
           allowedLateness = mon.config.allowedLateness
         )
 
-      def evaluate(
+      override def evaluate(
           mon: MaudeMonitor
       )(orderedEvents: List[LinoleumEvent]): TruthValue =
         evaluateWithCallback(mon)(orderedEvents)
-    }
 
+      override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String =
+        mon.keyBy.fold(super.keyBy(mon)(span))(_(span))
+    }
 }
 
 sealed trait TruthValue
@@ -873,12 +892,12 @@ package evaluator {
 
     import SpanStreamEvaluator._
 
-    override def apply(spanStream: SpanInfoStream): VerifiedTraceStream = {
-      val traceStream = spanStream.keyBy { span: SpanInfo =>
-        span.getSpan.getTraceId
-      }
+    private val property = params.property
 
-      traceStream
+    override def apply(spanStream: SpanInfoStream): VerifiedTraceStream = {
+      import PropertySyntax.PropertyOps
+
+      spanStream.keyBy(property.keyBy(_))
         .window(EventTimeSessionWindows.withGap(params.sessionGap))
         .allowedLateness(params.allowedLateness)
         .process(processWindow())
@@ -919,15 +938,15 @@ package evaluator {
     private[evaluator] class ProcessWindow[W <: TimeWindow, P](
         private val params: SpanStreamEvaluatorParams[P]
     )(implicit propInstance: Property[P])
-        extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, ByteString, W] {
+        extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, String, W] {
       import messages._
 
       override def process(
-          key: ByteString,
+          key: String,
           context: ProcessWindowFunction[
             SpanInfo,
             EvaluatedTrace,
-            ByteString,
+            String,
             W
           ]#Context,
           spanInfos: jlang.Iterable[SpanInfo],

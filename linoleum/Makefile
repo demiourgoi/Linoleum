@@ -82,6 +82,7 @@ compose/start: compose/stop   ### launch all dev containers using the compose fi
 	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml up --detach
 	echo "Using UID=${UID}, GID=${GID}"
 	echo "See Jaeger UI at http://localhost:16686"
+	echo "   - Note traces in Jaeger are different than in OTEL: attributes are tags events are logs"
 	echo "See Kafka UI at  http://localhost:9090"
 	echo "Use MongoDB Compass UI to connect to mongoDB at mongodb://localhost:27017"
  

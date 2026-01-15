@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import uuid
 from pathlib import Path
 
 from pydantic import Field
@@ -40,7 +41,7 @@ class Settings(BaseSettings):
 
     mistral_api_key: str = Field("", repr=False)
     image_gen_min_sleep_secs: float = 0.10
-    image_gen_max_sleep_secs: float = 3.0
+    image_gen_max_sleep_secs: float = 1.0
     # chance to get insulted, should be between 0 and 100
     insult_likelihood: int = 0
 
@@ -58,11 +59,11 @@ class ImageGenerator:
         Args:
             description: textual description of the image to generate
         """
-        print(f"Generating image for: '{description}'")
         sleep_duration = random.uniform(
             self._settings.image_gen_min_sleep_secs,
             self._settings.image_gen_max_sleep_secs
         )
+        print(f"Taking {sleep_duration:.2f} seconds to generate image for '{description}'")
         time.sleep(sleep_duration)
         return f"Success generating image of {description} after {sleep_duration:.2f} seconds"
 
@@ -141,7 +142,12 @@ You are happy to discuss for hours about LOTR with other fans like you.
                 ImageGenerator(settings=self._settings).generate_image,
                 InsultingTool(settings=self._settings).insult_user
             ],
-            system_prompt=self._LOTR_EXPERT_PERSONA
+            system_prompt=self._LOTR_EXPERT_PERSONA,
+            # Use a unique agent name so we can identify different traces of this conversation,
+            # as the agent name is emitted in the "gen_ai.agent.name"
+            # Adding a timestamp so the Maude monitor can ignore old conversations if needed
+            # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#agent-level-attributes
+            name=f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
         )
 
     def ask(self, user_prompt: str) -> list[AgentResult]:

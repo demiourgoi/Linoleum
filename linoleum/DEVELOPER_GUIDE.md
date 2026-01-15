@@ -47,7 +47,13 @@ make compose/start
 
 # 2. Generate some traces
 ## Trigger a canned interaction with lotrbot 
-make -C ../lotrbot test/integration
+make -C ../lotrbot run/simple-canned-chat
+### Optionally control agent behaviour parameters: 
+#### this forces a fail of MaudeLotrImageGenSafety as it checks a 1 second limit in the image generation time
+make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.6 IMAGE_GEN_MAX_SLEEP_SECS=0.7 INSULT_LIKELIHOOD=0
+#### this forces a pass of MaudeLotrImageGenSafety
+make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.1 IMAGE_GEN_MAX_SLEEP_SECS=0.2 INSULT_LIKELIHOOD=0
+
 ## Alternatively, generate and replay some traces
 cd ../maude
 rm -rf json_tmp &&  ./generate.sh 10 json_tmp
@@ -67,6 +73,10 @@ make clean run EXAMPLE=SscheckBasicLiveness 2>&1 | tee run.log
 
 # 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
+## Check the logs
+grep EvaluatedTrace run.log | grep False
+grep "rewritten to current soup" run.log
+tail -f run.log | grep "rewritten to current soup"
 ```
 
 ### Simple local benchmarking
