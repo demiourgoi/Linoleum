@@ -223,6 +223,8 @@ package object messages {
     /** Return a Maude representation of the corresponding message, 
      * targetting the Oid specified, that should be a string for
      * a valid Maude term
+     * 
+     * FIXME this fits better on a case class
     */
     def toMaude(oid: String): String
   }

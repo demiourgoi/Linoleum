@@ -1,6 +1,7 @@
 package io.github.demiourgoi.linoleum.examples
 
-import java.time.Duration
+import java.time.{Duration, Instant}
+import java.time.temporal.ChronoUnit
 import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
@@ -96,6 +97,18 @@ package object maudeLotrImageGenSafetyMonitor {
 
     agentNameOpt.getOrElse(span.hexTraceId)
   }
+
+  def shouldIgnoreWindowOlderThanOneDay(agentName: String, events: List[LinoleumEvent]): Boolean = {
+    // Using agent names with format f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
+    val epoch = agentName.split("/").last.toLong
+    Instant.ofEpochSecond(epoch).isBefore(Instant.now().minus(1, ChronoUnit.DAYS))
+  }
+
+  val stateConfig = MaudeMonitor.StateConfig(
+    ttl = Duration.ofDays(1),
+    // note Linoleum refreshes TTL on state read
+    shouldIgnoreWindow=shouldIgnoreWindowOlderThanOneDay
+  )
 
   val monOid = s"""mon("safety")"""
   val monitor =

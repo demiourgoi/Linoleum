@@ -141,9 +141,26 @@ package object maude {
         sessionGap: Duration,
         allowedLateness: Duration = Duration.ofMillis(0)
     )
+
+    /** Flink keyed window global state configuration
+      *
+      * @param ttl
+      *   TTL to enable on the global state (as returned by
+      *   `context.globalState()`) of the keyed window. We always use
+      *   StateTtlConfig.UpdateType.OnCreateAndWrite and
+      *   StateTtlConfig.StateVisibility.ReturnExpiredIfNotCleanedUp
+      * @param shouldIgnoreWindow
+      */
+    case class StateConfig(
+        ttl: Duration,
+        shouldIgnoreWindow: (String, List[LinoleumEvent]) => Boolean = (_, _) =>
+          false
+    )
   }
 
-  /** @param name
+  /** A Linoleum property based on a Maude program
+    *
+    * @param name
     *   human-readable description for this property.
     * @param program
     *   Resources path (e.g. "maude/lotrbot_imagegen_safety.maude") for the
@@ -173,6 +190,8 @@ package object maude {
     *   List of Maude standard library programs (e.g. "model-checker.maude")
     *   that module depends on. Note "model-checker.maude" is always loaded
     *   additionally
+    * @param stateConfig
+    *   Optional Flink keyed window state configuration
     */
   case class MaudeMonitor(
       name: String,
@@ -184,6 +203,7 @@ package object maude {
       keyBy: Option[SpanInfo => String] = None,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
+      stateConfig: Option[MaudeMonitor.StateConfig] = None,
       config: MaudeMonitor.EvaluationConfig
   )
 
@@ -420,7 +440,14 @@ package object formulas {
 
   // Note: trying to avoid serializing sscheck formulas by requiring a formula supplier
   // that should be a stateless class that is trivial to serialize
-  /** @param name
+  /** A Linoleum property based on a LTLss formula
+    *
+    * Limitations:
+    *
+    * \- Grouping spans by arbitrary keys is not supported, spans are always
+    * grouped by trace id
+    *
+    * @param name
     *   human-readable description for the formula
     * @param config
     *   formula evaluation configuration
@@ -454,6 +481,10 @@ trait Property[P] {
     * By default we group together spans for the same trace.
     */
   def keyBy(property: P)(span: SpanInfo): String = span.hexTraceId
+
+  def shouldIgnoreWindow(
+      property: P
+  )(windowKey: String, orderedEvents: List[LinoleumEvent]): Boolean = false
 }
 
 object PropertySyntax {
@@ -476,6 +507,14 @@ object PropertySyntax {
     def keyBy(span: SpanInfo)(implicit
         propertyInstance: Property[P]
     ): String = propertyInstance.keyBy(value)(span)
+
+    def shouldIgnoreWindow(
+        windowKey: String,
+        orderedEvents: List[LinoleumEvent]
+    )(implicit
+        propertyInstance: Property[P]
+    ): Boolean =
+      propertyInstance.shouldIgnoreWindow(value)(windowKey, orderedEvents)
   }
 }
 
@@ -593,6 +632,16 @@ object PropertyInstances extends Serializable {
           evaluateLetters(formula)(rootSpan.hexTraceId, letters.iterator)
         truthValue
       }
+
+      /** Only take into account the first window, as we do not have state. This
+        * is characterized by containing the root span. Per
+        * https://opentelemetry.io/docs/concepts/signals/traces/ there is always
+        * a single root span on every trace
+        */
+      override def shouldIgnoreWindow(
+          formula: LinoleumFormula
+      )(windowKey: String, orderedEvents: List[LinoleumEvent]): Boolean =
+        !orderedEvents.exists { _.span.isRoot }
     }
 
   @SerialVersionUID(1L)
@@ -739,6 +788,13 @@ object PropertyInstances extends Serializable {
 
       override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String =
         mon.keyBy.fold(super.keyBy(mon)(span))(_(span))
+
+      override def shouldIgnoreWindow(
+          mon: MaudeMonitor
+      )(windowKey: String, orderedEvents: List[LinoleumEvent]): Boolean =
+        mon.stateConfig.fold(false) {
+          _.shouldIgnoreWindow(windowKey, orderedEvents)
+        }
     }
 }
 
@@ -897,7 +953,8 @@ package evaluator {
     override def apply(spanStream: SpanInfoStream): VerifiedTraceStream = {
       import PropertySyntax.PropertyOps
 
-      spanStream.keyBy(property.keyBy(_))
+      spanStream
+        .keyBy(property.keyBy(_))
         .window(EventTimeSessionWindows.withGap(params.sessionGap))
         .allowedLateness(params.allowedLateness)
         .process(processWindow())
@@ -953,44 +1010,39 @@ package evaluator {
           out: Collector[EvaluatedTrace]
       ): Unit = {
         import PropertySyntax.PropertyOps
+        val property = params.property
+        val events = collectEvents(spanInfos)
+        val orderedEvents = events.sorted(linoleumEventOrdering).toList
 
-        // Build letters starting from the root span
-        val (rootSpanOpt, events, failures) = collectLinoleumEvents(spanInfos)
-        // TODO use side output to handle errors with simple error event with level, message and span, defined in proto
-        failures.foreach { t => log.error(t.exception.getMessage()) }
-
-        rootSpanOpt.fold({
-          // If the root span is missing then this is a window for a late span not added to the first session,
-          // so we just discard this window
-          // Per https://opentelemetry.io/docs/concepts/signals/traces/ there is always a single root span on every trace
+        if (property.shouldIgnoreWindow(key, orderedEvents)) {
           val someEvents = events.take(5)
           if (someEvents.nonEmpty) {
             log.warn(
-              "Found late window for trace with id {}, skipping events {}, ... ",
-              someEvents.head.span.hexTraceId,
+              "Ignoring window for key {} with events {}, ... ",
+              key,
               someEvents.mkString(", ")
             )
           }
-        }) { rootSpan =>
-          log.info("Evaluating trace with id {}", rootSpan.hexTraceId)
-          val property = params.property
-          val orderedEvents = orderEvents(rootSpan, events)
+        } else {
+          log.info("Evaluating trace with key {}", key)
           val truthValue = property.evaluate(orderedEvents)
+          // FIXME Here:
           val evaluatedTrace = EvaluatedTrace(
-            rootSpan.hexTraceId,
-            rootSpan.getSpan.getStartTimeUnixNano,
+            key,
+            context.currentWatermark, // FIXME double check
             property.propertyName,
             truthValue
           )
           log.info(
-            s"Evaluated trace with id {} to {}",
-            rootSpan.hexTraceId,
+            s"Evaluated window with key {} to {}",
+            key,
             evaluatedTrace
           )
           out.collect(evaluatedTrace)
         }
       }
 
+      @Deprecated
       private[evaluator] def orderEvents(
           rootSpan: SpanInfo,
           events: ListBuffer[LinoleumEvent]
@@ -1014,6 +1066,33 @@ package evaluator {
         orderedEvents
       }
 
+      private[evaluator] def collectEvents(
+          spanInfos: jlang.Iterable[SpanInfo]
+      ): ListBuffer[LinoleumEvent] = {
+        val events = new ListBuffer[LinoleumEvent]
+        val seenSpans = new util.HashSet[ByteString]()
+        val eventFactories = List(SpanStart, SpanEnd)
+
+        spanInfos.forEach { spanInfo =>
+          val spanId = spanInfo.getSpan.getSpanId
+          if (seenSpans.contains(spanId)) {
+            log.warn("Skipping duplicate occurrence of span {}", spanInfo)
+          } else {
+            seenSpans.add(spanId)
+            if (spanInfo.isRoot) {
+              log.info(
+                "Found root span with span id {}, for trace with id {}",
+                spanInfo.hexSpanId,
+                spanInfo.hexTraceId
+              )
+            }
+            events.addAll(eventFactories.map { _.apply(spanInfo) })
+          }
+        }
+        events
+      }
+
+      @Deprecated
       private[evaluator] def collectLinoleumEvents(
           spanInfos: jlang.Iterable[SpanInfo]
       ): (
