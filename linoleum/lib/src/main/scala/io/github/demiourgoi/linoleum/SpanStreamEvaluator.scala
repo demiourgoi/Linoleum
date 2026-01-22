@@ -472,7 +472,9 @@ trait Property[P] {
   /** Assumes events are ordered and events before the root span (as defined by
     * evaluator.SpanStreamEvaluator.rootSpanFor) are discarded )
     */
-  def evaluate(property: P)(orderedEvents: List[LinoleumEvent]): TruthValue
+  def evaluate(
+      property: P
+  )(key: String, orderedEvents: List[LinoleumEvent]): TruthValue
 
   /** To evaluate the property we'll group spans by this key, construct session
     * windows for each of those groups, and evaluate the events for each of
@@ -500,9 +502,9 @@ object PropertySyntax {
     ): SpanStreamEvaluatorParams[P] =
       propertyInstance.streamEvaluatorParams(value)
 
-    def evaluate(orderedEvents: List[LinoleumEvent])(implicit
+    def evaluate(key: String, orderedEvents: List[LinoleumEvent])(implicit
         propertyInstance: Property[P]
-    ): TruthValue = propertyInstance.evaluate(value)(orderedEvents)
+    ): TruthValue = propertyInstance.evaluate(value)(key, orderedEvents)
 
     def keyBy(span: SpanInfo)(implicit
         propertyInstance: Property[P]
@@ -522,7 +524,6 @@ object PropertySyntax {
 object PropertyInstances extends Serializable {
   import formulas._
   import maude._
-  import evaluator.SpanStreamEvaluator.{rootSpanFor, traceIdFor}
 
   @SerialVersionUID(1L)
   object FormulaProperty extends Serializable {
@@ -541,20 +542,18 @@ object PropertyInstances extends Serializable {
       * Precondition: events for rootSpan are NOT added to events
       */
     def buildLetters(formula: LinoleumFormula)(
+        traceId: String,
         orderedEvents: List[LinoleumEvent]
     ): Iterator[TimedLetter] = {
       val startEvent = orderedEvents.head
-      val rootSpan = rootSpanFor(orderedEvents)
       log.debug(
-        "Building letters for trace {} with rootSpan {} and abridged orderedEvents {}",
-        rootSpan.hexTraceId,
-        rootSpan.hexSpanId,
+        "Building letters for traceId {} and abridged orderedEvents {}",
+        traceId,
         orderedEvents.map { _.shortToString }.mkString(lineSeparator)
       )
       log.debug(
-        "Building letters for trace {} with rootSpan {} and orderedEvents {}",
-        rootSpan.hexTraceId,
-        rootSpan.hexSpanId,
+        "Building letters for traceId {} and orderedEvents {}",
+        traceId,
         orderedEvents.map { _.toString() }.mkString(lineSeparator)
       )
 
@@ -587,7 +586,7 @@ object PropertyInstances extends Serializable {
         (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
           val (letterTime, letter) = timedLetter
           log.debug(
-            "Current formula for trace id {} at time {} is {}",
+            "Current formula for traceId {} at time {} is {}",
             traceId,
             letterTime,
             currentFormula
@@ -624,12 +623,15 @@ object PropertyInstances extends Serializable {
         )
 
       override def evaluate(formula: LinoleumFormula)(
+          key: String,
           orderedEvents: List[LinoleumEvent]
       ): TruthValue = {
-        val letters = buildLetters(formula)(orderedEvents)
-        val rootSpan = rootSpanFor(orderedEvents)
+        // Note this Property does not override `keyBy` so it keys
+        // by traceID
+        val traceId = key
+        val letters = buildLetters(formula)(traceId, orderedEvents)
         val truthValue =
-          evaluateLetters(formula)(rootSpan.hexTraceId, letters.iterator)
+          evaluateLetters(formula)(traceId, letters.iterator)
         truthValue
       }
 
@@ -692,11 +694,11 @@ object PropertyInstances extends Serializable {
       * changes with every event
       */
     def evaluateWithCallback(mon: MaudeMonitor)(
+        key: String,
         orderedEvents: List[LinoleumEvent],
         onEvaluationStep: Option[(LinoleumEvent, Term, TruthValue) => Unit] =
           None
     ): TruthValue = {
-      val traceId = traceIdFor(orderedEvents)
       MaudeModules.runWithLock {
         val monitorModule = ensureModulesLoaded(mon)
 
@@ -710,9 +712,9 @@ object PropertyInstances extends Serializable {
           soup.toString
         )
         log.debug(
-          "Evaluating monitor {} for traceId {}: initial soup [{}]",
+          "Evaluating monitor {} for key {}: initial soup [{}]",
           mon,
-          traceId,
+          key,
           soup
         )
 
@@ -750,12 +752,14 @@ object PropertyInstances extends Serializable {
       * processed
       */
     def evaluateWithSteps(mon: MaudeMonitor)(
+        key: String,
         orderedEvents: List[LinoleumEvent]
     ): (TruthValue, List[(String, TruthValue)]) = {
       import scala.collection.mutable.ListBuffer
 
       val soups = new ListBuffer[(String, TruthValue)]
       val truthValue = evaluateWithCallback(mon)(
+        key,
         orderedEvents,
         Some((event, soup, truthVal) => {
           soups.addOne((soup.toString, truthVal))
@@ -783,8 +787,8 @@ object PropertyInstances extends Serializable {
 
       override def evaluate(
           mon: MaudeMonitor
-      )(orderedEvents: List[LinoleumEvent]): TruthValue =
-        evaluateWithCallback(mon)(orderedEvents)
+      )(key: String, orderedEvents: List[LinoleumEvent]): TruthValue =
+        evaluateWithCallback(mon)(key, orderedEvents)
 
       override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String =
         mon.keyBy.fold(super.keyBy(mon)(span))(_(span))
@@ -831,18 +835,19 @@ object TimeUtils {
   *
   * @param propertyName
   *   Name of the property that was evaluated on the trace.
-  * @param rootTraceHexId
-  *   Trace id in hex format for the root spand of the evaluated trace.
-  * @param traceStartTimeUnixNano
-  *   Start time of the evaluated trace. Note this is stable even when late
-  *   spans arrive, that's why we use the start and not the end time.
+  * @param key
+  *   Value of the key that groups these spans: e.g. trace id, or some span
+  *   attribute.
+  * @param startTimeUnixNano
+  *   Event time for the keyed window that group these spans, as returned by
+  *   Flink's context.currentWatermark
   * @param truthValue
   *   Value to which the property is evaluated to for this trace.
   */
 @SerialVersionUID(1L)
-case class EvaluatedTrace(
-    rootTraceHexId: String,
-    traceStartTimeUnixNano: Long,
+case class EvaluatedSpans(
+    key: String,
+    startTimeUnixNano: Long,
     propertyName: String,
     truthValue: TruthValue
 ) {
@@ -850,24 +855,22 @@ case class EvaluatedTrace(
   import TimeUtils.nanosToMs
 
   /** @return
-    *   a BSON document for this evaluated trace with fields:
+    *   a BSON document for this evaluated set of span with fields:
     *
     *   - propertyName: this.propertyName, expected to be used as metaField
     *     identifying the time series to MongoDB
-    *   - traceStartDate: this.traceStartTimeUnixNano, expected to be used as
-    *     timeField for
-    * the MongoDB time series
-    *   - traceId: this.rootTraceHexId
+    *   - startDate: this.startTimeUnixNano, expected to be used as timeField
+    *     for the MongoDB time series
+    *   - key: this.key
     *   - evaluationDate: mongo date for the time this method is called.
     *   - truthValue: this.truthValue
     *
     * The _id of the document is autogenerated instead of being defined in terms
-    * of (trace id, date, propertyName), which is not possible due to
-    * limitations in MongoDB supported data types. This implies that if the same
-    * trace is reevaluated then it would have more than 1 document in the target
-    * database and collection. This field evaluationDate can be used to
-    * distinguish evaluations, and do things like only querying the latest
-    * evaluations.
+    * of (key, date, propertyName), which is not possible due to limitations in
+    * MongoDB supported data types. This implies that if the same key is
+    * reevaluated then it would have more than 1 document in the target database
+    * and collection. This field evaluationDate can be used to distinguish
+    * evaluations, and do things like only querying the latest evaluations.
     */
   def toBsonDocument: BsonDocument = {
     /*
@@ -880,10 +883,10 @@ case class EvaluatedTrace(
      */
     val now = Instant.now()
     new BsonDocument()
-      .append("traceId", new BsonString(rootTraceHexId))
+      .append("key", new BsonString(key))
       .append(
-        "traceStartDate",
-        new BsonDateTime(nanosToMs(traceStartTimeUnixNano))
+        "startDate",
+        new BsonDateTime(nanosToMs(startTimeUnixNano))
       )
       .append("evaluationDate", new BsonDateTime(now.toEpochMilli()))
       .append("propertyName", new BsonString(propertyName))
@@ -892,7 +895,7 @@ case class EvaluatedTrace(
 }
 
 package object evaluator {
-  type VerifiedTraceStream = DataStream[EvaluatedTrace]
+  type VerifiedSpansStream = DataStream[EvaluatedSpans]
 }
 package evaluator {
   import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
@@ -943,14 +946,14 @@ package evaluator {
   class SpanStreamEvaluator[P](
       @transient private val params: SpanStreamEvaluatorParams[P]
   )(implicit propInstance: Property[P])
-      extends Function[SpanInfoStream, VerifiedTraceStream]
+      extends Function[SpanInfoStream, VerifiedSpansStream]
       with Serializable {
 
     import SpanStreamEvaluator._
 
     private val property = params.property
 
-    override def apply(spanStream: SpanInfoStream): VerifiedTraceStream = {
+    override def apply(spanStream: SpanInfoStream): VerifiedSpansStream = {
       import PropertySyntax.PropertyOps
 
       spanStream
@@ -966,15 +969,6 @@ package evaluator {
   object SpanStreamEvaluator {
     private val log =
       LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
-
-    /** Gets the root span for orderedEvents, assuming that list is not empty
-      * and the first event is a start event for the root span
-      */
-    def rootSpanFor(orderedEvents: List[LinoleumEvent]): SpanInfo =
-      orderedEvents.head.span
-
-    def traceIdFor(orderedEvents: List[LinoleumEvent]): String =
-      rootSpanFor(orderedEvents).hexTraceId
 
     object EventCollectionMultipleRootSpansError {
       import io.github.demiourgoi.linoleum.messages._
@@ -995,19 +989,19 @@ package evaluator {
     private[evaluator] class ProcessWindow[W <: TimeWindow, P](
         private val params: SpanStreamEvaluatorParams[P]
     )(implicit propInstance: Property[P])
-        extends ProcessWindowFunction[SpanInfo, EvaluatedTrace, String, W] {
+        extends ProcessWindowFunction[SpanInfo, EvaluatedSpans, String, W] {
       import messages._
 
       override def process(
           key: String,
           context: ProcessWindowFunction[
             SpanInfo,
-            EvaluatedTrace,
+            EvaluatedSpans,
             String,
             W
           ]#Context,
           spanInfos: jlang.Iterable[SpanInfo],
-          out: Collector[EvaluatedTrace]
+          out: Collector[EvaluatedSpans]
       ): Unit = {
         import PropertySyntax.PropertyOps
         val property = params.property
@@ -1024,21 +1018,20 @@ package evaluator {
             )
           }
         } else {
-          log.info("Evaluating trace with key {}", key)
-          val truthValue = property.evaluate(orderedEvents)
-          // FIXME Here:
-          val evaluatedTrace = EvaluatedTrace(
+          log.info("Evaluating spans with key {}", key)
+          val truthValue = property.evaluate(key, orderedEvents)
+          val evaluatedSpans = EvaluatedSpans(
             key,
-            context.currentWatermark, // FIXME double check
+            context.currentWatermark,
             property.propertyName,
             truthValue
           )
           log.info(
             s"Evaluated window with key {} to {}",
             key,
-            evaluatedTrace
+            evaluatedSpans
           )
-          out.collect(evaluatedTrace)
+          out.collect(evaluatedSpans)
         }
       }
 

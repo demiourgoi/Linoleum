@@ -105,7 +105,7 @@ class SpanStreamEvaluatorLinoleaumFormulaTest
 
         val windowProcessor = f.evaluator.processWindow()
         val orderedEvents = windowProcessor.orderEvents(rootSpan, events)
-        val letters = PropertyInstances.FormulaProperty.buildLetters(f.formula)(orderedEvents).toList
+        val letters = PropertyInstances.FormulaProperty.buildLetters(f.formula)("fooKey", orderedEvents).toList
         // val property = f.evaluatorParams.property
         // property.buildLetters
 

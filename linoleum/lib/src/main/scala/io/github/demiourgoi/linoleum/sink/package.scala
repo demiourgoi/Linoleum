@@ -9,10 +9,6 @@ import org.slf4j.LoggerFactory
 
 import config.LinoleumConfig
 
-package object sink {
-  type EvaluatedTraceSink = MongoSink[EvaluatedTrace]
-}
-
 package sink {
   object LinoleumSink {
     private val log = LoggerFactory.getLogger(classOf[LinoleumSink])
@@ -20,13 +16,13 @@ package sink {
   class LinoleumSink(cfg: LinoleumConfig) {
     import LinoleumSink._
 
-    def apply(evaluatedTraces: DataStream[EvaluatedTrace]): Unit = {
-      evaluatedTraces.sinkTo(buildSink())
+    def apply(evaluatedSpans: DataStream[EvaluatedSpans]): Unit = {
+      evaluatedSpans.sinkTo(buildSink())
     }
 
-    private def buildSink(): MongoSink[EvaluatedTrace] = {
+    private def buildSink(): MongoSink[EvaluatedSpans] = {
       val mongoCfg = cfg.sink.mongoDb
-      MongoSink.builder[EvaluatedTrace]()
+      MongoSink.builder[EvaluatedSpans]()
         .setUri(mongoCfg.mongoUri)
         .setDatabase(mongoCfg.mongoDatabase)
         .setCollection(mongoCfg.mongoCollection)

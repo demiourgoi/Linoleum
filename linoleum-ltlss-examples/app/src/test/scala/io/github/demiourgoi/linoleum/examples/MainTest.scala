@@ -67,7 +67,7 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
       for (_ <- 1 to 3) { 
         val (truthValue, soups) =
           PropertyInstances.MaudeMonitorProperty.evaluateWithSteps(monitor)(
-            orderedEvents
+            "fooKey", orderedEvents
           )
         (truthValue === False) and (
           soups === List(

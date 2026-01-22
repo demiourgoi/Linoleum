@@ -27,7 +27,7 @@ package object config {
   case class MongoDbConfig(
     mongoUri: String = "mongodb://localhost:27017",
     mongoDatabase: String = "linoleum",
-    mongoCollection: String = "evaluatedTraces",
+    mongoCollection: String = "evaluatedSpans",
     mongoBatchSize: Int = 10,
     mongoBatchIntervalMs: Long = 1000L,
     mongoMaxRetries: Int = 3
