@@ -68,13 +68,13 @@ def test_simple_conversation(lotr_agent, test_run_id):
     # Request for picture (should trigger generate_image tool)
     results = lotr_agent.ask("Cool! Can you show me a picture?")
     assert results is not None and len(results) > 0, "Should return at least one AgentResult"
-    ## Check for generate_image tool usage
+    # Check for generate_image tool usage
     assert _has_tool_usage(results, "generate_image"), "At least one response should use the generate_image tool"
 
     # Request for picture (should trigger generate_image tool)
     results = lotr_agent.ask("Amazing! Can you show me another picture? Please!")
     assert results is not None and len(results) > 0, "Should return at least one AgentResult"
-    ## Check for generate_image tool usage
+    # Check for generate_image tool usage
     assert _has_tool_usage(results, "generate_image"), "At least one response should use the generate_image tool"
 
     # Reaction to the picture

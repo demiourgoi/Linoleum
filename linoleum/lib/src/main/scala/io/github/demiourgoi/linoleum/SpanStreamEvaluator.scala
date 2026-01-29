@@ -10,6 +10,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink
 import org.apache.flink.core.fs.Path
 import org.apache.flink.api.common.serialization.SimpleStringEncoder
+import org.apache.flink.api.common.state.KeyedStateStore
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy
 
 import org.slf4j.LoggerFactory
@@ -474,7 +475,11 @@ trait Property[P] {
     */
   def evaluate(
       property: P
-  )(key: String, orderedEvents: List[LinoleumEvent]): TruthValue
+  )(
+      key: String,
+      globalStateStore: KeyedStateStore,
+      orderedEvents: List[LinoleumEvent]
+  ): TruthValue
 
   /** To evaluate the property we'll group spans by this key, construct session
     * windows for each of those groups, and evaluate the events for each of
@@ -502,9 +507,14 @@ object PropertySyntax {
     ): SpanStreamEvaluatorParams[P] =
       propertyInstance.streamEvaluatorParams(value)
 
-    def evaluate(key: String, orderedEvents: List[LinoleumEvent])(implicit
+    def evaluate(
+        key: String,
+        globalStateStore: KeyedStateStore,
+        orderedEvents: List[LinoleumEvent]
+    )(implicit
         propertyInstance: Property[P]
-    ): TruthValue = propertyInstance.evaluate(value)(key, orderedEvents)
+    ): TruthValue =
+      propertyInstance.evaluate(value)(key, globalStateStore, orderedEvents)
 
     def keyBy(span: SpanInfo)(implicit
         propertyInstance: Property[P]
@@ -624,6 +634,7 @@ object PropertyInstances extends Serializable {
 
       override def evaluate(formula: LinoleumFormula)(
           key: String,
+          globalStateStore: KeyedStateStore,
           orderedEvents: List[LinoleumEvent]
       ): TruthValue = {
         // Note this Property does not override `keyBy` so it keys
@@ -649,8 +660,15 @@ object PropertyInstances extends Serializable {
   @SerialVersionUID(1L)
   object MaudeMonitorProperty extends Serializable {
     import es.ucm.maude.bindings._
+    import org.apache.flink.api.common.state.{
+      StateTtlConfig,
+      ValueState,
+      ValueStateDescriptor
+    }
 
     val log = LoggerFactory.getLogger(MaudeMonitorProperty.getClass.getName)
+
+    val soupStateName = "soup"
 
     def soupToTruthValue(propertyModule: Module, maudeProperty: String)(
         soup: Term
@@ -685,6 +703,27 @@ object PropertyInstances extends Serializable {
       monitorModule
     }
 
+    def getSoupState(
+        mon: MaudeMonitor,
+        globalStateStore: KeyedStateStore
+    ): ValueState[String] = {
+      val soupStateDescriptor =
+        new ValueStateDescriptor[String](soupStateName, classOf[String])
+      mon.stateConfig.foreach { stateConfig =>
+        val ttlCfg = StateTtlConfig
+          .newBuilder(stateConfig.ttl)
+          // TTL refreshed (extended) on reads and writes
+          .setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+          // TTL is best effort, this says we are ok with seeing expired state if it was not cleaned up yet
+          .setStateVisibility(
+            StateTtlConfig.StateVisibility.ReturnExpiredIfNotCleanedUp
+          )
+          .build()
+        soupStateDescriptor.enableTimeToLive(ttlCfg)
+      }
+      globalStateStore.getState(soupStateDescriptor)
+    }
+
     /** Loads the Maude monitor modules and initializes the soup as specified in
       * mon. Then this traverses the events, sending each event to
       * mon.monitorOid and rewriting the soup; finally it returns the truth
@@ -695,15 +734,24 @@ object PropertyInstances extends Serializable {
       */
     def evaluateWithCallback(mon: MaudeMonitor)(
         key: String,
+        globalStateStore: KeyedStateStore,
         orderedEvents: List[LinoleumEvent],
         onEvaluationStep: Option[(LinoleumEvent, Term, TruthValue) => Unit] =
           None
     ): TruthValue = {
-      MaudeModules.runWithLock {
-        val monitorModule = ensureModulesLoaded(mon)
+      val soupState = getSoupState(mon, globalStateStore)
+      val initialSoup = s"""${Option({
+          // this is null if not set
+          val stateValue = soupState.value()
+          if (stateValue != null) {
+            log.debug("Restoring soup from Flink state for key {} as {}", key, stateValue)
+          }
+          stateValue 
+        }).getOrElse(mon.initialSoup)}""""
+      log.debug("initialSoup soup term: parsing {}", initialSoup)
 
-        val initialSoup = s"""${mon.initialSoup}""""
-        log.debug("initialSoup soup term: parsing {}", initialSoup)
+      val (truthValue, soupStr) = MaudeModules.runWithLock {
+        val monitorModule = ensureModulesLoaded(mon)
         var soup = monitorModule.parseTerm(initialSoup)
         checkNotNull(soup)
         log.debug(
@@ -743,8 +791,12 @@ object PropertyInstances extends Serializable {
           }
         }
 
-        getTruthValue(soup)
+        (getTruthValue(soup), soup.toString)
       }
+
+      soupState.update(soupStr)
+      log.debug("Saved soup on Flink state for key {} as {}", key, soupStr)
+      truthValue
     }
 
     /** Uses evaluateWithCallback returning on the second element of the tuple
@@ -753,6 +805,7 @@ object PropertyInstances extends Serializable {
       */
     def evaluateWithSteps(mon: MaudeMonitor)(
         key: String,
+        globalStateStore: KeyedStateStore,
         orderedEvents: List[LinoleumEvent]
     ): (TruthValue, List[(String, TruthValue)]) = {
       import scala.collection.mutable.ListBuffer
@@ -760,6 +813,7 @@ object PropertyInstances extends Serializable {
       val soups = new ListBuffer[(String, TruthValue)]
       val truthValue = evaluateWithCallback(mon)(
         key,
+        globalStateStore,
         orderedEvents,
         Some((event, soup, truthVal) => {
           soups.addOne((soup.toString, truthVal))
@@ -787,11 +841,20 @@ object PropertyInstances extends Serializable {
 
       override def evaluate(
           mon: MaudeMonitor
-      )(key: String, orderedEvents: List[LinoleumEvent]): TruthValue =
-        evaluateWithCallback(mon)(key, orderedEvents)
+      )(
+          key: String,
+          globalStateStore: KeyedStateStore,
+          orderedEvents: List[LinoleumEvent]
+      ): TruthValue =
+        evaluateWithCallback(mon)(key, globalStateStore, orderedEvents)
 
-      override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String =
-        mon.keyBy.fold(super.keyBy(mon)(span))(_(span))
+      override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String = mon.keyBy match {
+        case None => super.keyBy(mon)(span)
+        case Some(keyByFun) => {
+          log.debug("Grouping spans by custom monitor keyBy function")
+          keyByFun(span)
+        }
+      }
 
       override def shouldIgnoreWindow(
           mon: MaudeMonitor
@@ -941,7 +1004,6 @@ package evaluator {
     * arbitrarily, so this assumes the trace instrumentation libraries only use
     * the same span id for identical spans.
     */
-
   @SerialVersionUID(1L)
   class SpanStreamEvaluator[P](
       @transient private val params: SpanStreamEvaluatorParams[P]
@@ -967,6 +1029,13 @@ package evaluator {
   }
 
   object SpanStreamEvaluator {
+    type ProcessWindowsCtx[W <: TimeWindow] = ProcessWindowFunction[
+      SpanInfo,
+      EvaluatedSpans,
+      String,
+      W
+    ]#Context
+
     private val log =
       LoggerFactory.getLogger(SpanStreamEvaluator.getClass.getName)
 
@@ -994,12 +1063,7 @@ package evaluator {
 
       override def process(
           key: String,
-          context: ProcessWindowFunction[
-            SpanInfo,
-            EvaluatedSpans,
-            String,
-            W
-          ]#Context,
+          context: ProcessWindowsCtx[W],
           spanInfos: jlang.Iterable[SpanInfo],
           out: Collector[EvaluatedSpans]
       ): Unit = {
@@ -1019,7 +1083,8 @@ package evaluator {
           }
         } else {
           log.info("Evaluating spans with key {}", key)
-          val truthValue = property.evaluate(key, orderedEvents)
+          val truthValue =
+            property.evaluate(key, context.globalState(), orderedEvents)
           val evaluatedSpans = EvaluatedSpans(
             key,
             context.currentWatermark,

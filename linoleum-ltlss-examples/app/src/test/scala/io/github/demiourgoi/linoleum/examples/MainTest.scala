@@ -12,6 +12,9 @@ import io.opentelemetry.proto.trace.v1.Span
 import io.github.demiourgoi.linoleum._
 import io.github.demiourgoi.linoleum.messages._
 import io.github.demiourgoi.linoleum.maude._
+import org.apache.flink.api.common.state.{KeyedStateStore, ValueState, ValueStateDescriptor}
+import org.mockito.Mockito._
+import org.mockito.ArgumentMatchers._
 
 @RunWith(classOf[JUnitRunner])
 class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
@@ -64,10 +67,19 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
         ) // image span end increases time count again
       )
 
-      for (_ <- 1 to 3) { 
+      // Create mock for KeyedStateStore
+      val mockStateStore = mock(classOf[KeyedStateStore])
+      val mockValueState = mock(classOf[ValueState[String]])
+
+      // Configure the mocks as specified
+      when(mockStateStore.getState(any[ValueStateDescriptor[String]]())).thenReturn(mockValueState)
+      when(mockValueState.value()).thenReturn(null)
+      doNothing().when(mockValueState).update(any[String]())
+
+      for (_ <- 1 to 3) {
         val (truthValue, soups) =
           PropertyInstances.MaudeMonitorProperty.evaluateWithSteps(monitor)(
-            "fooKey", orderedEvents
+            "fooKey", mockStateStore, orderedEvents
           )
         (truthValue === False) and (
           soups === List(

@@ -8,7 +8,7 @@ A chatbot for querying knowledge about The Lord of the Rings, and role-playing  
 
 Install prerequisites:
 
-- [pyenv](https://github.com/pyenv/pyenv)
+- [uv](https://docs.astral.sh/uv/)
 - `make`
 - If you are in windows consider installing a bash shell like [git bash](https://gitforwindows.org/) or [MinGW](https://sourceforge.net/projects/mingw/)
 

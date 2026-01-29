@@ -11,6 +11,17 @@ podman machine init
 podman machine start
 ```
 
+On openSUSE Tumbleweed you might need to add this to your shell rc file as a workaround:
+
+```bash
+# Prevent Starting machine "podman-machine-default"
+# ERRO[0000] process 11780 has not ended                  
+# Error: failed to find virtiofsd: exec: "virtiofsd": executable file not found in $PATH
+export PATH="${PATH}:/usr/libexec"
+```
+
+You might also need to `export JAVA_HOME=/usr/lib64/jvm/java-21-openjdk-21` or wherever your JDK 21 is located for this to build
+
 - `make`
 - Optionally [`scala-cli`](https://scala-cli.virtuslab.org/install) is useful for trying out stuff quickly
 

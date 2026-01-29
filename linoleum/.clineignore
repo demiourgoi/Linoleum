@@ -1,12 +1,8 @@
 target/
 # devenv/
-*.log
 gradle/wrapper
 gradlew
 gradlew.bat
-
-# avoid crashes with previous approaches
-docs/
 
 # generated code
 app/src/main/java/io/

@@ -11,10 +11,10 @@ function create_venv {
     ls ${VENV_DIR} &> /dev/null && return 0
 
     if [ "$PYTHON_VERSION" != "local" ]; then
-        eval "$(pyenv init -)"
-        pyenv shell ${PYTHON_VERSION} || pyenv install ${PYTHON_VERSION}
-        pyenv shell ${PYTHON_VERSION}
+       uv python find ${PYTHON_VERSION} || uv python install ${PYTHON_VERSION}
     fi
 
-    python -m venv ${VENV_DIR}
+    # this does not install pip in the venv. We can fully migrate to uv but later on
+    # uv venv --python ${PYTHON_VERSION}
+    $(uv python find ${PYTHON_VERSION}) -m venv ${VENV_DIR}
 }

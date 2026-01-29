@@ -25,10 +25,10 @@ jobs:
           java-version: '20'
           distribution: 'temurin'
 
-      - name: Setup sbt
-        uses: sbt/setup-sbt@v1
-
       # Reenable only if we want to use an unreleased branch
+      # - name: Setup sbt
+      #   uses: sbt/setup-sbt@v1
+      #
       # - name: Checkout sscheck-core
       #   uses: actions/checkout@v4
       #   with:
