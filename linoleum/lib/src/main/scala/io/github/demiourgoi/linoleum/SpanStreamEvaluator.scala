@@ -136,6 +136,40 @@ package object utils {
 package object maude {
   import utils.byteString2HexString
 
+  trait KeyByCriteria {
+    def keyBy(span: SpanInfo): String
+  }
+
+  /** Groups spans by the value of the specified string span attribute key if it
+    * exists, otherwise fallsback to trace id
+    */
+  @SerialVersionUID(1L)
+  case class KeyByStringSpanAttribute(key: String) extends KeyByCriteria {
+    override def keyBy(span: SpanInfo): String = {
+      val agentNameOpt = span
+        .getSpan()
+        .getAttributesList()
+        .asScala
+        .toList
+        .collectFirst {
+          case kv
+              if (kv.getKey() == key) && (kv
+                .getValue()
+                .hasStringValue()) =>
+            kv.getValue().getStringValue()
+        }
+
+      agentNameOpt.getOrElse(KeyByTraceId.keyBy(span))
+    }
+  }
+
+  /** Groups spans by trace id
+    */
+  @SerialVersionUID(1L)
+  case object KeyByTraceId extends KeyByCriteria {
+    override def keyBy(span: SpanInfo): String = span.hexTraceId
+  }
+
   object MaudeMonitor {
     case class EvaluationConfig(
         messageRewriteBound: Int = 100,
@@ -201,7 +235,7 @@ package object maude {
       monitorOid: String,
       initialSoup: String,
       property: String,
-      keyBy: Option[SpanInfo => String] = None,
+      keyBy: KeyByCriteria = KeyByTraceId,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
       stateConfig: Option[MaudeMonitor.StateConfig] = None,
@@ -744,9 +778,13 @@ object PropertyInstances extends Serializable {
           // this is null if not set
           val stateValue = soupState.value()
           if (stateValue != null) {
-            log.debug("Restoring soup from Flink state for key {} as {}", key, stateValue)
+            log.debug(
+              "Restoring soup from Flink state for key {} as {}",
+              key,
+              stateValue
+            )
           }
-          stateValue 
+          stateValue
         }).getOrElse(mon.initialSoup)}""""
       log.debug("initialSoup soup term: parsing {}", initialSoup)
 
@@ -848,13 +886,8 @@ object PropertyInstances extends Serializable {
       ): TruthValue =
         evaluateWithCallback(mon)(key, globalStateStore, orderedEvents)
 
-      override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String = mon.keyBy match {
-        case None => super.keyBy(mon)(span)
-        case Some(keyByFun) => {
-          log.debug("Grouping spans by custom monitor keyBy function")
-          keyByFun(span)
-        }
-      }
+      override def keyBy(mon: MaudeMonitor)(span: SpanInfo): String =
+        mon.keyBy.keyBy(span)
 
       override def shouldIgnoreWindow(
           mon: MaudeMonitor

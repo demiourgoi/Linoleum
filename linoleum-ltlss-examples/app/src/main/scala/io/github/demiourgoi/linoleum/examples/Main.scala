@@ -79,25 +79,6 @@ package object maudeLotrImageGenSafetyMonitor {
     "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
   )
 
-  // Groups together by the value of the attribute key "gen_ai.agent.name" 
-  // if it exists, otherwise by trace id
-  def keyByAgentName(span: SpanInfo): String = {
-    val agentNameOpt = span
-      .getSpan()
-      .getAttributesList()
-      .asScala
-      .toList
-      .collectFirst {
-        case kv
-            if (kv.getKey() == "gen_ai.agent.name") && (kv
-              .getValue()
-              .hasStringValue()) =>
-          kv.getValue().getStringValue()
-      }
-
-    agentNameOpt.getOrElse(span.hexTraceId)
-  }
-
   def shouldIgnoreWindowOlderThanOneDay(agentName: String, events: List[LinoleumEvent]): Boolean = {
     // Using agent names with format f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
     val epoch = agentName.split("/").last.toLong
@@ -119,7 +100,7 @@ package object maudeLotrImageGenSafetyMonitor {
       monitorOid = monOid,
       initialSoup = s"""initConfig($monOid)""",
       property = "imageGenUsageWithinLimits",
-      keyBy = Some(keyByAgentName),
+      keyBy = KeyByStringSpanAttribute("gen_ai.agent.name"),
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)
