@@ -7,7 +7,9 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from typing import Optional
+from typing import Mapping, Optional
+
+from opentelemetry.sdk.trace import SpanProcessor
 
 from strands import Agent, tool
 from strands.models.model import Model
@@ -110,6 +112,16 @@ You have the urge to let that person know what you think about them.
         return str(self._agent(user_prompt))
 
 
+class StrAttsAdderSpanProcessor(SpanProcessor):
+    _attributes: Mapping[str, str]
+
+    def __init__(self, attributes: Mapping[str, str]):
+        self._attributes = attributes
+
+    def on_start(self, span, parent_context):
+        span.set_attributes(self._attributes)
+
+
 class LotrAgent:
     _settings: Settings
     _agent: Optional[Agent] = None
@@ -121,16 +133,28 @@ You are extremely knowledgeable about the LOTR universe, both from the books, mo
 You are happy to discuss for hours about LOTR with other fans like you.
 """
 
+    @property
+    def chat_id(self) -> str:
+        """Get the unique chat ID for this agent instance"""
+        return self._chat_id
+
     def __init__(self, settings: Settings) -> None:
+        """This initializes `self.chat_id` to use a unique agent name so we can identify different traces of this conversation.
+        We also are adding a timestamp so the Maude monitor can ignore old conversations if needed.
+        The id format is "lotrbot/{uuid}/{creation_epoch_in_seconds}"
+        """
         if settings.insult_likelihood < 0 or settings.insult_likelihood > 100:
             raise ValueError(f"insult_likelihood should be an integer between 0 and 100, found {settings.insult_likelihood}")
         self._settings = settings
+        self._chat_id = f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
 
     def _setup_tracing(self, enable_console_exporter: bool = False) -> None:
+        """Setup tracing to add a String attribute 'lotrbot.chat_id' with value `self.chat_id` to all spans"""
         # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#enabling-tracing
         # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#example-end-to-end-tracing
         strands_telemetry = StrandsTelemetry()
         strands_telemetry.setup_otlp_exporter()     # Send traces to OTLP endpoint
+        strands_telemetry.tracer_provider.add_span_processor(StrAttsAdderSpanProcessor({'lotrbot.chat_id': self.chat_id}))
         if enable_console_exporter:
             strands_telemetry.setup_console_exporter()  # Print traces to console
 
@@ -143,11 +167,17 @@ You are happy to discuss for hours about LOTR with other fans like you.
                 InsultingTool(settings=self._settings).insult_user
             ],
             system_prompt=self._LOTR_EXPERT_PERSONA,
-            # Use a unique agent name so we can identify different traces of this conversation,
-            # as the agent name is emitted in the "gen_ai.agent.name"
-            # Adding a timestamp so the Maude monitor can ignore old conversations if needed
+            # This is emitted in the "gen_ai.agent.name" span attribute documented in
             # https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#agent-level-attributes
-            name=f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
+            # but as seen on https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#understanding-traces-in-strands
+            # that is only added to the root span of the trace. That is ok for accessing the trace span tree with the usual span
+            # visualization tools, but not for Flink where we need to be able to route individual spans on a keyBy
+            # The solution for Flink is adding the chat_id in a custom SpanProcessor configured on `_setup_tracing`
+            name=self.chat_id,
+            # This again only goes to the root span oof the trace
+            # trace_attributes={
+            #     "lotrbot_chat_id": self.chat_id,
+            # }
         )
 
     def ask(self, user_prompt: str) -> list[AgentResult]:

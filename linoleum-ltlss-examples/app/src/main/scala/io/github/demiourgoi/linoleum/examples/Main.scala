@@ -79,16 +79,21 @@ package object maudeLotrImageGenSafetyMonitor {
     "io.github.demiourgoi.linoleum.examples.maudeLotrImageGenSafetyMonitor"
   )
 
-  def shouldIgnoreWindowOlderThanOneDay(agentName: String, events: List[LinoleumEvent]): Boolean = {
+  def shouldIgnoreWindowOlderThanOneDay(
+      agentName: String,
+      events: List[LinoleumEvent]
+  ): Boolean = {
     // Using agent names with format f"lotrbot/{uuid.uuid4()}/{int(time.time())}"
     val epoch = agentName.split("/").last.toLong
-    Instant.ofEpochSecond(epoch).isBefore(Instant.now().minus(1, ChronoUnit.DAYS))
+    Instant
+      .ofEpochSecond(epoch)
+      .isBefore(Instant.now().minus(1, ChronoUnit.DAYS))
   }
 
   val stateConfig = MaudeMonitor.StateConfig(
     ttl = Duration.ofDays(1),
     // note Linoleum refreshes TTL on state read
-    shouldIgnoreWindow=shouldIgnoreWindowOlderThanOneDay
+    shouldIgnoreWindow = shouldIgnoreWindowOlderThanOneDay
   )
 
   val monOid = s"""mon("safety")"""
@@ -100,7 +105,10 @@ package object maudeLotrImageGenSafetyMonitor {
       monitorOid = monOid,
       initialSoup = s"""initConfig($monOid)""",
       property = "imageGenUsageWithinLimits",
-      keyBy = KeyByStringSpanAttribute("gen_ai.agent.name"),
+      // Note this works because lotrbot makes sure to add "lotrbot.chat_id" to all
+      // trace spans, not only the root spans, and that way Flink is able to group
+      // all spans by the lotrbot chat id
+      keyBy = KeyByStringSpanAttribute("lotrbot.chat_id"),
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)

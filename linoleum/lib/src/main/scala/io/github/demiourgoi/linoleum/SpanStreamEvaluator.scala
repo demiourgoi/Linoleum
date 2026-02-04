@@ -141,7 +141,9 @@ package object maude {
   }
 
   /** Groups spans by the value of the specified string span attribute key if it
-    * exists, otherwise fallsback to trace id
+    * exists, otherwise fallsback to trace id. Note this means that spans for
+    * the same trace may fall on different keys of the attribute key is not
+    * present in all spans of the trace.
     */
   @SerialVersionUID(1L)
   case class KeyByStringSpanAttribute(key: String) extends KeyByCriteria {
