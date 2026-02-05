@@ -173,6 +173,13 @@ package object maude {
   }
 
   object MaudeMonitor {
+
+    /** Evaluation parameters
+      * @param messageRewriteBound
+      *   Bound to the number of rewrite steps for each rewrite of the soup when
+      *   sending a Linoulem event to the monitorOid object specified in the
+      *   Maude monitor
+      */
     case class EvaluationConfig(
         messageRewriteBound: Int = 100,
         sessionGap: Duration,
@@ -187,6 +194,12 @@ package object maude {
       *   StateTtlConfig.UpdateType.OnCreateAndWrite and
       *   StateTtlConfig.StateVisibility.ReturnExpiredIfNotCleanedUp
       * @param shouldIgnoreWindow
+      *   when enabling TTL we cannot distinguish before the first time the
+      *   state for a key is initialized, and subsequent times that state is
+      *   re-initialized because it was deleted by the TTL mechanism. So this
+      *   function can be used to ignore windows if we are not sure if their
+      *   state has been cleaned up by the TTL. This function is domain
+      *   dependent, see examples on linoleum-ltlss-examples/
       */
     case class StateConfig(
         ttl: Duration,
@@ -195,7 +208,16 @@ package object maude {
     )
   }
 
-  /** A Linoleum property based on a Maude program
+  /** A Linoleum property based on a Maude program.
+    *
+    * It groups spans by the criteria specified in `keyBy` and starting with the
+    * specified initial soup, it sends start and end events to the
+    * mon.monitorOid to rewrite the soup. The soup is persisted accross session
+    * windows for the same key, with an optional TTL mechanism as specified on
+    * stateConfig.
+    *
+    * For the session windows concept see
+    * https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/operators/windows/#session-windows
     *
     * @param name
     *   human-readable description for this property.
@@ -479,10 +501,16 @@ package object formulas {
   // that should be a stateless class that is trivial to serialize
   /** A Linoleum property based on a LTLss formula
     *
-    * Limitations:
+    * Limitations: it evaluates each trace separately, and for each trace it
+    * only considers the spans up to the first session gap as specified in
+    * config. For the session windows concept see
+    * https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/operators/windows/#session-windows
     *
-    * \- Grouping spans by arbitrary keys is not supported, spans are always
-    * grouped by trace id
+    *   - Grouping spans by arbitrary keys is not supported, spans are always
+    *     grouped by trace id
+    *   - No window state support: it only handles the first session window for
+    *     a trace, characterized by containing the root span. It ignores all
+    *     subsequent windows
     *
     * @param name
     *   human-readable description for the formula
@@ -506,8 +534,7 @@ trait Property[P] {
 
   def streamEvaluatorParams(property: P): SpanStreamEvaluatorParams[P]
 
-  /** Assumes events are ordered and events before the root span (as defined by
-    * evaluator.SpanStreamEvaluator.rootSpanFor) are discarded )
+  /** Assumes events are ordered
     */
   def evaluate(
       property: P
