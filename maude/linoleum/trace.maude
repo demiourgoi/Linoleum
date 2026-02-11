@@ -10,11 +10,16 @@ view KeyEvent from TRIV to KEY-EVENT is
 endv
 
 omod OBJECT-NAMES is
+ pr STRING .
+
  sorts EventObject SpanObject .
  subsorts EventObject SpanObject < Object .
 
  sorts EventId SpanId .
  subsort EventId SpanId < Oid .
+
+ op span : String -> SpanId [ctor] .
+ op event : String -> EventId [ctor] .
 endom
 
 view EventObject from TRIV to OBJECT-NAMES is
@@ -22,7 +27,6 @@ view EventObject from TRIV to OBJECT-NAMES is
 endv
 
 omod TRACE-CLASS-DECLS is
- pr STRING .
  pr (LIST * (op __ to _`,_)){EventObject} * (sort List{EventObject} to EventObjectList) .
  pr LIST{KeyEvent} * (sort List{KeyEvent} to KeyEventList) .
 
@@ -31,9 +35,6 @@ omod TRACE-CLASS-DECLS is
  class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
               startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : KeyEventList,
               events : EventObjectList .
-
- op span : String -> SpanId [ctor] .
- op event : String -> EventId [ctor] .
 
  *** Messages that wrap Span objects: these are LinoleumEvent
  *** in the Linoleum Scala code
