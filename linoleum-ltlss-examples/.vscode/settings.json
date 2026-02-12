@@ -17,6 +17,9 @@
     "files.exclude": {
         "**/target": true,
         "**/lib/bin": true,
-        "**/.bloop": true
+        "**/.bloop": true,
+    },
+    "java.test.config": {
+        "envFile": "${userHome}/.lotrbot.env",
     }
 }

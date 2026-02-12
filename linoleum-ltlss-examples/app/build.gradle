@@ -74,6 +74,11 @@ dependencies {
     implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}"
     implementation ("es.ucm.maude:bindings:3.5.0.0")
 
+    // Writing manual HTTP client, because we cannot use langchain4j or spring-ai because both need Java 17,
+    // and Flink only supports Java 8 or 11 (https://nightlies.apache.org/flink/flink-docs-release-2.0-preview1/docs/dev/configuration/gradle/)
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.6")
+    implementation libs.gson
+
     // This dependency is used by the application.
     implementation libs.guava
     implementation ("io.github.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
@@ -120,8 +125,8 @@ dependencies {
     runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    
     // Add test dependencies here.
-    // testCompile "junit:junit:4.12"
     testImplementation "org.mockito:mockito-core:3.12.4"
 }
 

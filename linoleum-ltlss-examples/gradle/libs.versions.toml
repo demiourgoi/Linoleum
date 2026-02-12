@@ -2,6 +2,7 @@
 # https://docs.gradle.org/current/userguide/platforms.html#sub::toml-dependencies-format
 
 [versions]
+gson = "2.13.2"
 guava = "33.2.1-jre"
 junit = "4.13.2"
 junit-v4-v13-v2-v13 = "3.2.2.0"
@@ -10,6 +11,7 @@ scala-xml-v2-v13 = "1.2.0"
 scalatest-v2-v13 = "3.2.19"
 
 [libraries]
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 junit = { module = "junit:junit", version.ref = "junit" }
 junit-v4-v13-v2-v13 = { module = "org.scalatestplus:junit-4-13_2.13", version.ref = "junit-v4-v13-v2-v13" }
