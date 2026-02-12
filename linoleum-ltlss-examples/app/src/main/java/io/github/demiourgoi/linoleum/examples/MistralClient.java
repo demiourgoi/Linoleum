@@ -5,7 +5,10 @@ import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.classic.BasicHttpClientResponseHandler;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
@@ -87,6 +90,39 @@ public class MistralClient implements AutoCloseable {
     }
 
     /**
+     * Response handler for Mistral API responses
+     */
+    private class MistralResponseHandler implements HttpClientResponseHandler<MistralChatResponse> {
+        @Override
+        public MistralChatResponse handleResponse(
+                final ClassicHttpResponse response) throws IOException {
+            // Check response status code
+            int statusCode = response.getCode();
+            if (statusCode != 200) {
+                response.close();
+                throw new MistralClientException(statusCode, response.getReasonPhrase());
+            }
+
+            // Get the response entity and parse it
+            HttpEntity entity = response.getEntity();
+            if (entity != null) {
+                try {
+                    String responseBody = EntityUtils.toString(entity);
+                    // Parse the response using Gson
+                    return gson.fromJson(responseBody, MistralChatResponse.class);
+                } catch (ParseException e) {
+                    throw new MistralClientException("Failed to parse response from Mistral API", e);
+                } finally {
+                    response.close();
+                }
+            } else {
+                response.close();
+                throw new MistralClientException("Empty response from Mistral API");
+            }
+        }
+    }
+
+    /**
      * Sends a completion request to the Mistral API
      * 
      * @param messageContent The content of the message to send
@@ -100,7 +136,7 @@ public class MistralClient implements AutoCloseable {
         MistralChatRequest chatRequest = new MistralChatRequest(Arrays.asList(message), model);
 
         // Serialize to JSON using Gson
-        String jsonRequest = this.gson.toJson(chatRequest);
+        String jsonRequest = gson.toJson(chatRequest);
 
         // Build the HTTP request
         ClassicHttpRequest postChat = ClassicRequestBuilder.post(baseUrl + "/chat/completions")
@@ -109,27 +145,12 @@ public class MistralClient implements AutoCloseable {
                 .setEntity(new StringEntity(jsonRequest))
                 .build();
 
-        // Execute the request and get the response
-        try (CloseableHttpResponse response = httpClient.execute(postChat)) {
-            // Check response status code
-            int statusCode = response.getCode();
-            if (statusCode != 200) {
-                throw new MistralClientException(statusCode, response.getReasonPhrase());
-            }
-
-            // Get the response entity and parse it
-            HttpEntity entity = response.getEntity();
-            if (entity != null) {
-                String responseBody = EntityUtils.toString(entity);
-                // Parse the response using Gson
-                return this.gson.fromJson(responseBody, MistralChatResponse.class);
-            } else {
-                throw new MistralClientException("Empty response from Mistral API");
-            }
+        // FIXME add retries
+        // Execute the request using the recommended approach with response handler
+        try {
+            return httpClient.execute(postChat, new MistralResponseHandler());
         } catch (IOException e) {
             throw new MistralClientException("Failed to communicate with Mistral API", e);
-        } catch (ParseException e) {
-            throw new MistralClientException("Failed to parse response from Mistral API", e);
         }
     }
 }
