@@ -1,11 +1,12 @@
 package io.github.demiourgoi.linoleum.examples;
 
+import java.io.IOException;
+import java.util.Arrays;
+
 import com.google.gson.Gson;
-import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
+
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.classic.BasicHttpClientResponseHandler;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.apache.hc.core5.http.ClassicHttpResponse;
@@ -14,10 +15,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.apache.hc.core5.http.ParseException;
-
-import java.io.IOException;
-
-import java.util.Arrays;
 
 /**
  * Client for interacting with the Mistral AI API
@@ -31,6 +28,15 @@ public class MistralClient implements AutoCloseable {
 
     public static final String MISTRALAI_API_KEY_ENV_VAR = "MISTRAL_API_KEY";
 
+    static {
+        // Hack to avoid java.lang.illegalargumentexception: error in security property.
+        // constraint unknown: c2tnb191v1 when calling httpclients.createdefault()
+        // in Java 8. We should upgrade to Java 11 ASAP
+        // This force-overwrites the property in memory before the
+        // SSLContext class can read the corrupt java.security file.
+        java.security.Security.setProperty("jdk.disabled.namedCurves", "");
+    }
+
     public static String getMistralApiKey() {
         return System.getenv(MISTRALAI_API_KEY_ENV_VAR);
     }
@@ -40,11 +46,15 @@ public class MistralClient implements AutoCloseable {
      * the environment
      */
     public static void checkMistralApiKeyAvailableOnEnv() {
-        String mistralApiKey = getMistralApiKey();
-        if (mistralApiKey == null || mistralApiKey.trim().isEmpty()) {
+        if (!isMistralApiKeyAvailableOnEnv()) {
             throw new MistralClientException(MISTRALAI_API_KEY_ENV_VAR +
                     " environment variable is not set or is empty. Skipping test.");
         }
+    }
+
+    public static boolean isMistralApiKeyAvailableOnEnv() {
+        String mistralApiKey = getMistralApiKey();
+        return !(mistralApiKey == null || mistralApiKey.trim().isEmpty());
     }
 
     /**

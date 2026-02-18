@@ -179,4 +179,8 @@ public class MistralChatResponse {
         }
         return contents;
     }
+
+    public String getChoiceContentsString() {
+        return String.join(", ", getChoiceContents());
+    }
 }

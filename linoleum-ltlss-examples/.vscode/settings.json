@@ -1,5 +1,6 @@
 {
     "makefile.configureOnOpen": false,
+    "java.jdt.ls.java.home": "/usr/lib64/jvm/java-21-openjdk",
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "automatic",
     // remove bloop generated files in lib/bin and .bloop, as well
@@ -21,5 +22,5 @@
     },
     "java.test.config": {
         "envFile": "${userHome}/.lotrbot.env",
-    }
+    },    
 }

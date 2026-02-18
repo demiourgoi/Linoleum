@@ -38,6 +38,7 @@ import io.github.demiourgoi.sscheck.prop.tl.{
 }
 import es.ucm.maude.bindings.{
   maude => jMaude,
+  Hook => MaudeHook,
   MaudeRuntime,
   Module => MaudeModule
 }
@@ -282,6 +283,9 @@ package object maude {
       jMaude.getModule(moduleName)
     }
 
+    lazy val traceTypesModule: MaudeModule =
+      loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
+
     def loadProgram(
         maudeProgramResourcePath: String
     ): Unit = {
@@ -302,6 +306,21 @@ package object maude {
       maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
     }
 
+    /** Register an equality hook Accepting a thunk for the hook, because the
+      * Maude runtime must be initialized before instantiating this class,
+      * otherwise we get a java.lang.UnsatisfiedLinkError due to super class
+      * logic
+      * 
+      * Returns the hook
+      */
+    def connectEqHook[H <: MaudeHook](operatorName: String, hookThunk: => H): H = {
+      // just make sure the Maude runtime is initialized
+      checkNotNull(maudeRuntime)
+      val hook = hookThunk
+      jMaude.connectEqHook(operatorName, hook)
+      hook
+    }
+
     /** Hack to work around the fact the the Maude runtime is not thread safe.
       * See https://github.com/demiourgoi/Linoleum/issues/16 for long term fix
       * ideas
@@ -311,9 +330,6 @@ package object maude {
         body
       }
     }
-
-    lazy val traceTypesModule: MaudeModule =
-      loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
   }
 
   /** Return a string representation of a Maude SpanObject
