@@ -3,6 +3,7 @@ package io.github.demiourgoi.linoleum.examples
 import org.slf4j.LoggerFactory
 
 import es.ucm.maude.bindings.{Hook, Term, HookData}
+import io.github.demiourgoi.linoleum.maude.MaudeModules
 
 /**
  * Custom special operator hook for Maude that checks if text is polite.
@@ -46,12 +47,29 @@ class IsPoliteTextOpHook extends Hook {
    * @return The result of the politeness check as a Maude term
    */
   override def run(term: Term, data: HookData): Term = {
-    var text: String = null // FIXME
+    log.debug(s"run with term='$term', data='${data.getData()}'")
+
+    // Crashes with
+    // terminate called after throwing an instance of 'Swig::DirectorException'
+    // what():  Unspecified DirectorException message
+    // term.reduce()
+    // println(s"term='$term'")
+
+    // Remove operation names + parentesis + sorrounding quotes
+    val text = term.toString().drop(hookOpName.length() + 2).dropRight(2)
+    // Do not forget surrounding quotes
+    val resultTerm = String.valueOf(isPoliteText(text))
+
     // as in https://fadoss.github.io/maude-bindings/#custom-special-operators
     val module = term.symbol().getModule()
-    module.parseTerm(String.valueOf(isPoliteText(text)))
+    module.parseTerm(resultTerm)
   }
 }
 object IsPoliteTextOpHook {
- val log = LoggerFactory.getLogger(classOf[IsPoliteTextOpHook])
+  val log = LoggerFactory.getLogger(classOf[IsPoliteTextOpHook])
+  private val hookOpName = "isPoliteText"
+
+  // FIXME should actually be rewrite as this is non-deterministic
+  def register(): IsPoliteTextOpHook =
+    MaudeModules.connectEqHook(hookOpName, new IsPoliteTextOpHook())
 }
