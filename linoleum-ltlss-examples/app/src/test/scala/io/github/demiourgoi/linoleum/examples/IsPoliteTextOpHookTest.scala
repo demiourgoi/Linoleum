@@ -58,8 +58,8 @@ class IsPoliteTextOpHookTest extends Specification {
 
           isPoliteTerm must not beNull
 
-          isPoliteTerm.reduce()
-          isPoliteTerm.toString === "true"
+          isPoliteTerm.rewrite(100)
+          isPoliteTerm.toString.toBoolean must beTrue
         }
       }
     }

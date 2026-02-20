@@ -306,7 +306,7 @@ package object maude {
       maudeRuntime.loadStdlibFileFromResources(maudeProgramFileName)
     }
 
-    /** Register an equality hook Accepting a thunk for the hook, because the
+    /** Register an equality hook accepting a thunk for the hook, because the
       * Maude runtime must be initialized before instantiating this class,
       * otherwise we get a java.lang.UnsatisfiedLinkError due to super class
       * logic
@@ -318,6 +318,22 @@ package object maude {
       checkNotNull(maudeRuntime)
       val hook = hookThunk
       jMaude.connectEqHook(operatorName, hook)
+      hook
+    }
+
+
+    /** Register an rule rewriting hook accepting a thunk for the hook, because the
+      * Maude runtime must be initialized before instantiating this class,
+      * otherwise we get a java.lang.UnsatisfiedLinkError due to super class
+      * logic
+      * 
+      * Returns the hook
+      */
+    def connectRlHook[H <: MaudeHook](operatorName: String, hookThunk: => H): H = {
+      // just make sure the Maude runtime is initialized
+      checkNotNull(maudeRuntime)
+      val hook = hookThunk
+      jMaude.connectRlHook(operatorName, hook)
       hook
     }
 

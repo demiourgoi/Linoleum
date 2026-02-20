@@ -5,9 +5,7 @@ endom
 
 mod HOOK-TEST is
   protecting STRING .
-  op isPoliteText : String ~> Bool [special (
-    id-hook SpecialHubSymbol
-  )] .
+  op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
 endm
 
 eof
