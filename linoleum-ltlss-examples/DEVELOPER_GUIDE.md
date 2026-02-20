@@ -1,5 +1,9 @@
 # Developer guide
 
+## Dev env setup
+
+Some examples use a Mistal API key. If the key is not present then the corresponding unit tests will be skipped, but the corresponding example will fail. See the [lotrbot README](../lotrbot/README.md) for intructions to setup an env file `~/.lotrbot.env`, and then `source ~/.lotrbot.env` to make the Mistral API key available to the code.  
+
 ## How to
 
 ### How to identify how long it takes to generate an image in the Lotrbot example

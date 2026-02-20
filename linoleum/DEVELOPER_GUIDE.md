@@ -53,10 +53,18 @@ Note on a remove SSH session with VsCode this works because VsCode auto forwards
 
 
 ```bash
-# 1. Start the local fake dependencies
+# One time setup
+## Install the dependencies locally
+git clone -b java_bindings git@github.com:demiourgoi/maude-bindings.git
+cd maude-bindings/maude_java_lib && make clean release 
+
+## Publish linoleum locally
+cd linoleum && make release
+
+## Start the local fake dependencies
 make compose/start
 
-# 2. Generate some traces
+# Generate some traces
 ## Trigger a canned interaction with lotrbot 
 make -C ../lotrbot run/simple-canned-chat
 ### Optionally control agent behaviour parameters: 
@@ -70,13 +78,17 @@ cd ../maude
 rm -rf json_tmp &&  ./generate.sh 10 json_tmp
 cd ../sim_file_replayer && make run SIM_FILE_DIR_PATH=$(pwd)/../maude/json_tmp
 
-# 3. Process the traces 
+# Process the traces 
 ## NOTE: this will fail if the source Kafka topic it's not created. The OTEL collector
 ##       creates the topic on the first replay
 ## NOTE: for small trace batches (e.g. 10) we have to run the replayer twice to
 ##       get a second Kafka message with the batch of topic, so Linoleum actually
 ##       evaluates the first batch. This could be improved tunning the Flink job parameters
 cd ../linoleum-ltlss-examples
+# Get Mistral credentials: See the [lotrbot README](../lotrbot/README.md) for intructions to setup 
+# this env file
+source ~/.lotrbot.env
+
 ### Maude image generation safety example
 make clean run EXAMPLE=MaudeLotrImageGenSafety 2>&1 | tee run.log
 ### Sscheck basic liveness example
