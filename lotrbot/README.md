@@ -77,6 +77,13 @@ make run INSULT_LIKELIHOOD=50
 make run INSULT_LIKELIHOOD=100
 ```
 
+Run somem canned interactions
+
+```bash
+make run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 INSULT_LIKELIHOOD=0
+make run/bombadil-chat
+```
+
 ## TODO
 
 - Inject misbehaviour

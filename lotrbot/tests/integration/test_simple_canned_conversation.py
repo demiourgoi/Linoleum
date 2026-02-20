@@ -1,57 +1,16 @@
-"""Integration test for LotrAgent."""
+"""Integration test for LotrAgent: simple canned conversation."""
 
-import uuid
 import pytest
-from lotrbot.main import LotrAgent, Settings
 
-
-@pytest.fixture
-def lotr_agent():
-    """Fixture that creates and initializes a LotrAgent."""
-    settings = Settings()
-    agent = LotrAgent(settings=settings)
-    agent.init()
-    return agent
-
-
-@pytest.fixture
-def test_run_id():
-    """Fixture that generates a unique test run ID for the test session."""
-    return str(uuid.uuid4())
-
-
-def _has_non_empty_text(agent_results):
-    """Check if any agent result has non-empty text content."""
-    for result in agent_results:
-        # AgentResult has a message attribute that contains the response
-        if hasattr(result, 'message') and result.message:
-            # The message contains content array with text blocks
-            content_array = result.message.get('content', [])
-            for item in content_array:
-                if isinstance(item, dict) and 'text' in item:
-                    text_content = item.get('text', '')
-                    if text_content and len(text_content.strip()) > 0:
-                        return True
-    return False
-
-
-def _has_tool_usage(agent_results, tool_name):
-    """Check if any agent result includes usage of the specified tool."""
-    for result in agent_results:
-        # Check the metrics for tool usage
-        if hasattr(result, 'metrics') and result.metrics:
-            # Check if the tool name exists in the tool_metrics dictionary
-            if tool_name in result.metrics.tool_metrics:
-                return True
-    return False
+from .assertions import _has_non_empty_text, _has_tool_usage
 
 
 @pytest.mark.integration
-def test_simple_conversation(lotr_agent, test_run_id):
+def test_simple_conversation(lotr_agent):
     """Integration test for LotrAgent conversation flow."""
 
     # Hello!
-    results = lotr_agent.ask(f"Hello from test id {test_run_id}!")
+    results = lotr_agent.ask(f"Hello from chat id {lotr_agent.chat_id}!")
     assert results is not None and len(results) > 0, "Should return at least one AgentResult"
     assert _has_non_empty_text(results), "At least one response to 'Hello!' should have non-empty text"
 
