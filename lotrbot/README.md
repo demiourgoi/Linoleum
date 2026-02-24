@@ -71,16 +71,16 @@ If you like getting __insulted__:
 
 ```bash
 # half of the time
-make run INSULT_LIKELIHOOD=50
+make run INSULT_PROBABILITY=50
 
 # always
-make run INSULT_LIKELIHOOD=100
+make run INSULT_PROBABILITY=100
 ```
 
 Run somem canned interactions
 
 ```bash
-make run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 INSULT_LIKELIHOOD=0
+make run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 INSULT_PROBABILITY=0
 make run/bombadil-chat
 ```
 

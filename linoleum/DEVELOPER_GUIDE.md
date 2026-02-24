@@ -69,9 +69,9 @@ make compose/start
 make -C ../lotrbot run/simple-canned-chat
 ### Optionally control agent behaviour parameters: 
 #### this forces a fail of MaudeLotrImageGenSafety as it checks a 1 second limit in the image generation time
-make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 INSULT_LIKELIHOOD=0
+make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 
 #### this forces a pass of MaudeLotrImageGenSafety
-make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.1 IMAGE_GEN_MAX_SLEEP_SECS=0.2 INSULT_LIKELIHOOD=0
+make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.1 IMAGE_GEN_MAX_SLEEP_SECS=0.2
 
 ## Alternatively, generate and replay some traces
 cd ../maude
