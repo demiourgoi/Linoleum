@@ -286,6 +286,9 @@ package object maude {
     lazy val traceTypesModule: MaudeModule =
       loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
 
+    lazy val satisfactionModule: MaudeModule =
+      loadStdLibModule("model-checker.maude", "SATISFACTION")
+
     lazy val jsonModule: MaudeModule = {
       loadProgram("maude/json/date.maude")
       loadProgram("maude/json/value.maude")

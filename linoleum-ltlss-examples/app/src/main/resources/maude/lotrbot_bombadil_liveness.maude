@@ -1,5 +1,5 @@
 mod BOMBADIL-HOOKS is
-  protecting STRING .
+  pr STRING .
   op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
 endm
 
@@ -39,34 +39,65 @@ omod BOMBADIL-LIVENESS is
   op mentionsTomBombadil : String -> Bool .
   eq mentionsTomBombadil(UserMsg) = find(lowerCase(UserMsg), "bombadil", 0) =/= notFound .
 
+  op isBombadilSpan : Object -> Bool .
+  ceq isBombadilSpan(S) = true 
+    if isRootSpan(S) 
+    /\ UserMsgEvent := eventForName("gen_ai.user.message", S)
+    /\ UserMsg := eventMsgContents("content", UserMsgEvent)
+    /\ not isToolUsageMsg(UserMsg) /\ mentionsTomBombadil(UserMsg) .
+  eq isBombadilSpan(Obj) = false [owise] .
+
+  op isBotRageSpan : Object -> Bool .
+  ceq isBotRageSpan(S) = true
+    if attributeForKey("gen_ai.operation.name", S) == "chat" 
+    /\ BotRageEvent := eventForName("gen_ai.choice", S)
+    /\ BotMsg := eventMsgContents("message", BotRageEvent)
+    /\ not isPoliteText(BotMsg) .
+  eq isBotRageSpan(Obj) = false [owise] .
+
   --- Search for the user message at the root of the span, filtering out explicit tool usages.
   --- If the user mentions Tom Bombadil then add one pending rage to the list 
   crl [on-bombadil-span-start] :
     spanStart(M, S)
     < M : Monitor | >
     => < M : Monitor | isRagePending : true >
-    if isRootSpan(S) 
-    /\ UserMsgEvent := eventForName("gen_ai.user.message", S)
-    /\ UserMsg := eventMsgContents("content", UserMsgEvent)
-    /\ not isToolUsageMsg(UserMsg) /\ mentionsTomBombadil(UserMsg) .
+    if isBombadilSpan(S) . 
 
-  crl [on-bombadil-rage-finished] :
+  --- NOTE: there is no owise for rules. A workaround is putting all the conditions on a function
+  --- and negating it
+  crl [on-non-bombadil-span-start] :
+    spanStart(M, S)
+    < M : Monitor | >
+    => < M : Monitor | > 
+    if not isBombadilSpan(S) .
+
+  crl [on-bombadil-rage-span-end] :
     spanEnd(M, S)
     < M : Monitor | >
     => < M : Monitor | isRagePending : false >
-    if attributeForKey("gen_ai.operation.name", S) == "chat" 
-    /\ BotRageEvent := eventForName("gen_ai.choice", S)
-    /\ BotMsg := eventMsgContents("message", BotRageEvent)
-    /\ not isPoliteText(BotMsg) .
+    if isBotRageSpan(S) .
 
-  --- NOTE: there is no owise for rules
-
---- FIXME ignore others
-  --- rl [on-span-start] :
-  ---   spanStart(M, S)
-  ---   < M : Monitor | >
-  ---   => < M : Monitor | > .
+  crl [on-non-bombadil-rage-span-end] :
+    spanEnd(M, S)
+    < M : Monitor | >
+    => < M : Monitor | > 
+    if not isBotRageSpan(S) .
 endom
+
+mod BOMBADIL-LIVENESS-PROPS is
+  pr BOMBADIL-LIVENESS .
+  inc SATISFACTION . 
+  inc CONFIGURATION .
+  subsort Configuration < State .
+
+  var M : Oid .
+  var IsRagePending : Bool .
+  var C : Configuration .
+  
+  op bombadilSafeSatisfied : -> Prop [ctor] .
+  eq < M : Monitor | isRagePending : IsRagePending > C |= bombadilSafeSatisfied =
+    not IsRagePending .
+endm
 
 eof
 

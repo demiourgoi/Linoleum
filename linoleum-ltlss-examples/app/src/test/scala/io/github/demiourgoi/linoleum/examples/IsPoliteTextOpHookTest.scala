@@ -49,6 +49,8 @@ class IsPoliteTextOpHookTest extends Specification {
         MaudeModules.runWithLock {
           MaudeModules.traceTypesModule must not beNull
 
+          MaudeModules.satisfactionModule  must not beNull
+
           MaudeModules.jsonModule must not beNull
 
           val module = MaudeModules.loadModule(
