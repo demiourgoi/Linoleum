@@ -210,10 +210,10 @@ class LinoleumSpanInfoTest
 
             ok
           }
-      }.set(minTestsOk = 100, workers = 1)
+      }.set(minTestsOk = 100, workers = 2)
 
       "should escape string values using Json String rules" >> {
-        val jsonStringValue = """[{"text": "Hello!"}]"""
+        val jsonStringValue = """[{\"text\": \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}]"""
         val spanBuilder = Span
           .newBuilder()
           .setTraceId(ByteString.copyFromUtf8("testTraceId"))
@@ -238,13 +238,14 @@ class LinoleumSpanInfoTest
 
         val linoleumSpanInfo = new LinoleumSpanInfo(spanInfo)
         val spanTermStr = linoleumSpanInfo.toMaude
+        println(s"spanTermStr: $spanTermStr")
 
         // Verify the Maude term is not null and not empty
         (spanTermStr must not beNull) and (spanTermStr must not be empty)
 
         spanTermStr must contain("content")
 
-        spanTermStr must contain("[{%22text%22: %22Hello!%22}]")
+        spanTermStr must contain(jsonStringValue)
 
         MaudeModules.runWithLock {
           // Verify the Maude term can be parsed and reduced

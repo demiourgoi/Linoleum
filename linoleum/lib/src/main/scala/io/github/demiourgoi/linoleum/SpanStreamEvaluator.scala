@@ -446,14 +446,14 @@ package object maude {
     * escaped as "\\'", which transforms nested JSON strings into invalid JSON
     * strings, as JSON requires double quotes enclosing strings
     */
-  private def stringValueToMaude(stringValue: String): String =
+  private def stringValueToMaude(stringValue: String): String = stringValue
     // stringValue.replace("\"", "'") // Fake JSON with single quotes
     // StringEscapeUtils.escapeJson(av.getStringValue())
     // stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes
-    stringValue.replace(
-      "\"",
-      "%22"
-    ) // use perc scape for single quotes as in json/json.maude
+    // stringValue.replace(
+    //   "\"",
+    //   "%22"
+    // ) // use perc scape for single quotes as in json/json.maude
 }
 package object formulas {
   import messages._

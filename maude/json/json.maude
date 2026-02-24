@@ -90,7 +90,7 @@ fmod JSON-OPS is
      S' := substr(S, 1, sd(length(S), 2)) /\
      LV := parse*(S') .
  ceq parse(S) = v(S1)
-  if substr(S, 0, 3) == "%22" /\
+  if substr(S, 0, 1) == "\"" /\
      S1 := getFirstString(S) .
  ceq parse(S) = parseDict(S1)
   if substr(S, 0, 1) == "{" /\
@@ -113,7 +113,7 @@ fmod JSON-OPS is
   if (substr(S, 0, 1) == ",") or (substr(S, 0, 1) == " ") /\
      S' := substr(S, 1, length(S)) .
  ceq $parseDict(S) = S1 |-> V, MSV
-  if substr(S, 0, 3) == "%22" /\
+  if substr(S, 0, 1) == "\"" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) /\
      < V, S3 > := valueAndRest(S2) /\
@@ -130,7 +130,7 @@ fmod JSON-OPS is
   if substr(S, 0, 5) == "false" /\
      S' := substr(S, 5, length(S)) .
  ceq valueAndRest(S) = < v(S1), S2 >
-  if substr(S, 0, 3) == "%22" /\
+  if substr(S, 0, 1) == "\"" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) .
  ceq valueAndRest(S) = < V, S2 >
@@ -146,6 +146,7 @@ fmod JSON-OPS is
      N := rat(S, 10) /\
      < V, S2 > := natAndRest(S) .
 
+ --- Parses JSON scaped strings like "[{\"text\" : \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}\n]"
  op parse* : String -> List{Value} .
  eq parse*("") = nil .
  ceq parse*(S) = v(true) parse*(S')
@@ -159,7 +160,7 @@ fmod JSON-OPS is
      *** Until the end - more characters than available, Maude takes them all.
      S' := substr(S, 1, length(S)) .
  ceq parse*(S) = v(S1) parse*(S2)
-  if substr(S, 0, 3) == "%22" /\
+  if substr(S, 0, 1) == "\"" /\
      S1 := getFirstString(S) /\
      S2 := afterFirstString(S) .
  ceq parse*(S) = parseDict(S1) parse*(S2)
@@ -207,15 +208,15 @@ fmod JSON-OPS is
 
  op getFirstString : String -> String .
  ceq getFirstString(S) = S'
-  if N := find(S, "%22", 3) /\
-     S' := substr(S, 3, sd(N, 3)) .
+  if N := find(S, "\"", 1) /\
+     S' := substr(S, 1, sd(N, 1)) .
  eq getFirstString(S) = S [owise] .
 
  op afterFirstString : String -> String .
  ceq afterFirstString(S) = S'
-  if N := find(S, "%22", 3) /\
+  if N := find(S, "\"", 1) /\
      *** Until the end - more characters than available, Maude takes them all.
-     S' := substr(S, N + 3, length(S)) .
+     S' := substr(S, N + 1, length(S)) .
  eq afterFirstString(S) = S [owise] .
 
  op print* : JL -> String .
@@ -254,3 +255,10 @@ view JSON from TRIV to JSON is
     sort Elt to JSON .
 endv
 
+eof
+
+load json.maude 
+--- Expected: result Value: v(v("text" |-> v("Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!")))
+red parse("[{\"text\": \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}]") .
+--- Expected: result String: "[{\"text\" : \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}\n]"
+red print(parse("[{\"text\": \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}]")) .
