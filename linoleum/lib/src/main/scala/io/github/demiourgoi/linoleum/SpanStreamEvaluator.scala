@@ -310,10 +310,13 @@ package object maude {
       * Maude runtime must be initialized before instantiating this class,
       * otherwise we get a java.lang.UnsatisfiedLinkError due to super class
       * logic
-      * 
+      *
       * Returns the hook
       */
-    def connectEqHook[H <: MaudeHook](operatorName: String, hookThunk: => H): H = {
+    def connectEqHook[H <: MaudeHook](
+        operatorName: String,
+        hookThunk: => H
+    ): H = {
       // just make sure the Maude runtime is initialized
       checkNotNull(maudeRuntime)
       val hook = hookThunk
@@ -321,15 +324,17 @@ package object maude {
       hook
     }
 
-
-    /** Register an rule rewriting hook accepting a thunk for the hook, because the
-      * Maude runtime must be initialized before instantiating this class,
+    /** Register an rule rewriting hook accepting a thunk for the hook, because
+      * the Maude runtime must be initialized before instantiating this class,
       * otherwise we get a java.lang.UnsatisfiedLinkError due to super class
       * logic
-      * 
+      *
       * Returns the hook
       */
-    def connectRlHook[H <: MaudeHook](operatorName: String, hookThunk: => H): H = {
+    def connectRlHook[H <: MaudeHook](
+        operatorName: String,
+        hookThunk: => H
+    ): H = {
       // just make sure the Maude runtime is initialized
       checkNotNull(maudeRuntime)
       val hook = hookThunk
@@ -446,7 +451,9 @@ package object maude {
     * escaped as "\\'", which transforms nested JSON strings into invalid JSON
     * strings, as JSON requires double quotes enclosing strings
     */
-  private def stringValueToMaude(stringValue: String): String = stringValue
+  private def stringValueToMaude(stringValue: String): String = {
+    import org.apache.commons.text.StringEscapeUtils
+    StringEscapeUtils.escapeJson(stringValue)
     // stringValue.replace("\"", "'") // Fake JSON with single quotes
     // StringEscapeUtils.escapeJson(av.getStringValue())
     // stringValue.replace("\"", "\\'") // Fake JSON with escaped single quotes
@@ -454,6 +461,7 @@ package object maude {
     //   "\"",
     //   "%22"
     // ) // use perc scape for single quotes as in json/json.maude
+  }
 }
 package object formulas {
   import messages._

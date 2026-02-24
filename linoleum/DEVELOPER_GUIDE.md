@@ -72,6 +72,8 @@ make -C ../lotrbot run/simple-canned-chat
 make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.5 IMAGE_GEN_MAX_SLEEP_SECS=0.6 
 #### this forces a pass of MaudeLotrImageGenSafety
 make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.1 IMAGE_GEN_MAX_SLEEP_SECS=0.2
+## Trigger the Tom Bombadil interaction for the liveness example
+make -C ../lotrbot run/bombadil-chat
 
 ## Alternatively, generate and replay some traces
 cd ../maude
@@ -100,6 +102,7 @@ find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
 grep EvaluatedSpans run.log | grep False
 grep "rewritten to current soup" run.log
 tail -f run.log | grep "rewritten to current soup"
+tail -f run.log | grep EvaluatedSpans
 ```
 
 ### Simple local benchmarking

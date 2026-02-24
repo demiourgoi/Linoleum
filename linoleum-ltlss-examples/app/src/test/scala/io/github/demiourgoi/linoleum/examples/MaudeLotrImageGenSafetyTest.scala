@@ -66,6 +66,8 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
           imageSpan(3000000000L)
         ) // image span end increases time count again
       )
+      println("orderedEvents:")
+      orderedEvents.foreach{ev => println(ev.toMaude("oid"))}
 
       // Create mock for KeyedStateStore
       val mockStateStore = mock(classOf[KeyedStateStore])
