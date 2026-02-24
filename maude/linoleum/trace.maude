@@ -60,7 +60,7 @@ omod TRACE-CLASS-DECLS is
  --- similar to Maybe / Option. 
  --- Use := to extract result if present, see 
  --- `containsEventWithName` for an example
- op lookupEventByName : String EventObjectList -> [EventObject] .
+ op lookupEventByName : String EventObjectList ~> EventObject .
  ceq lookupEventByName(EventName, (Event , Events)) = Event
   if name(Event) == EventName . 
  eq lookupEventByName(EventName, (Event , Events)) = 
@@ -73,7 +73,7 @@ omod TRACE-CLASS-DECLS is
 
  --- Lookup failure marked by reducing to term without a sort
  --- See more in `lookupEventByName`
- op eventForName : String Object -> [EventObject] .
+ op eventForName : String Object ~> EventObject .
  ceq eventForName(EventName, < O:Oid : Span | events : Events >) = Event
   if Event := lookupEventByName(EventName, Events) .
 
@@ -81,13 +81,13 @@ omod TRACE-CLASS-DECLS is
  --- with the specified key
  --- Lookup failure marked by reducing to term without a sort
  --- See more in `lookupEventByName`
- op lookupAttribute : String KeyEventList -> [String] .
+ op lookupAttribute : String KeyEventList ~> String .
  ceq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = AttValue
   if AttKey == AttKey' .
  eq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = 
   lookupAttribute(AttKey, Atts) [owise] .
 
- op attributeForKey : String Object -> [String] .
+ op attributeForKey : String Object ~> String .
  ceq attributeForKey(AttKey, < O:Oid : Event | attributes : Atts >) = AttValue
   if AttValue := lookupAttribute(AttKey, Atts) .
  ceq attributeForKey(AttKey, < O:Oid : Span | attributes : Atts >) = AttValue
@@ -155,5 +155,10 @@ red attributeForKey("content", < event("1") : Event | name : "gen_ai.user.messag
 
 --- Expected: result String: "lotrbot/3d333518-3d52-4422-a930-300b603e4dbd/1771934341"
 red attributeForKey("lotrbot.chat_id", 
+  < span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
+    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : ["lotrbot.chat_id", "lotrbot/3d333518-3d52-4422-a930-300b603e4dbd/1771934341"] ,  events : < event("2") : Event | name : "invoke_agent" > ,  < event("1") : Event | name : "gen_ai.user.message" > >) .
+
+--- Expected: result Bool: true
+red isRootSpan( 
   < span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
     startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : ["lotrbot.chat_id", "lotrbot/3d333518-3d52-4422-a930-300b603e4dbd/1771934341"] ,  events : < event("2") : Event | name : "invoke_agent" > ,  < event("1") : Event | name : "gen_ai.user.message" > >) .
