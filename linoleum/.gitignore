@@ -23,3 +23,4 @@ docs/papers
 
 # Ignore files from the Maude project that are copied during the build
 lib/src/main/resources/maude/linoleum/
+lib/src/main/resources/maude/json

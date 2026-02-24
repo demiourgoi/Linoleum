@@ -53,7 +53,10 @@ build: maude/copysrc	### build app (this also runs unit tests)
 maude/copysrc: clean/maude/copysrc
 	mkdir -p $(MAUDE_RES)/linoleum
 	cp $(MAUDE_SRC)/linoleum/trace.maude $(MAUDE_RES)/linoleum
-
+	mkdir -p $(MAUDE_RES)/json
+	cp $(MAUDE_SRC)/json/date.maude $(MAUDE_RES)/json
+	cp $(MAUDE_SRC)/json/json.maude $(MAUDE_RES)/json
+	cp $(MAUDE_SRC)/json/value.maude $(MAUDE_RES)/json
 
 .PHONY: clean/maude/copysrc
 clean/maude/copysrc:

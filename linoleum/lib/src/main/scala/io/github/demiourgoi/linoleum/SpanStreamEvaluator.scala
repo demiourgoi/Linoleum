@@ -286,6 +286,12 @@ package object maude {
     lazy val traceTypesModule: MaudeModule =
       loadModule("maude/linoleum/trace.maude", "TRACE-CLASS-OBJECTS")
 
+    lazy val jsonModule: MaudeModule = {
+      loadProgram("maude/json/date.maude")
+      loadProgram("maude/json/value.maude")
+      loadModule("maude/json/json.maude", "JSON-OPS")
+    }
+
     def loadProgram(
         maudeProgramResourcePath: String
     ): Unit = {

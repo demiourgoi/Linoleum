@@ -47,9 +47,13 @@ class IsPoliteTextOpHookTest extends Specification {
     "correctly use the hook on a program" in {
       fixture.fold(skipTest()) { f =>
         MaudeModules.runWithLock {
+          MaudeModules.traceTypesModule must not beNull
+
+          MaudeModules.jsonModule must not beNull
+
           val module = MaudeModules.loadModule(
             "maude/lotrbot_bombadil_liveness.maude",
-            "HOOK-TEST"
+            "BOMBADIL-HOOKS"
           )
           module must not beNull
 

@@ -40,6 +40,58 @@ omod TRACE-CLASS-DECLS is
  *** in the Linoleum Scala code
  msg spanStart : Oid Object -> Msg .
  msg spanEnd : Oid Object -> Msg .
+
+ var Events : EventObjectList .
+ var Event : EventObject .
+ vars EventName AttKey AttKey' AttValue : String .
+ var Atts : KeyEventList .
+
+ op isRootSpan : Object -> Bool .
+ eq isRootSpan(< O:Oid : Span | parentSpanId : "" >) = true .
+ eq isRootSpan(Obj:Object) = false [owise] .
+
+ op name : EventObject -> String .
+ eq name(< O:Oid : Event | name : EventName >) = EventName .
+
+ op events : SpanObject -> EventObjectList .
+ eq events(< O:Oid : Span | events : Events >) = Events .
+
+ --- Lookup failure marked by reducing to term without a sort, 
+ --- similar to Maybe / Option. 
+ --- Use := to extract result if present, see 
+ --- `containsEventWithName` for an example
+ op lookupEventByName : String EventObjectList -> [EventObject] .
+ ceq lookupEventByName(EventName, (Event , Events)) = Event
+  if name(Event) == EventName . 
+ eq lookupEventByName(EventName, (Event , Events)) = 
+  lookupEventByName(EventName, Events) [owise] .
+
+ op containsEventWithName : String EventObjectList -> Bool .
+ ceq containsEventWithName(EventName, Events) = true
+  if Event := lookupEventByName(EventName, Events) .
+ eq containsEventWithName(EventName, Events) = false .
+
+ --- Lookup failure marked by reducing to term without a sort
+ --- See more in `lookupEventByName`
+ op eventForName : String Object -> [EventObject] .
+ ceq eventForName(EventName, < O:Oid : Span | events : Events >) = Event
+  if Event := lookupEventByName(EventName, Events) .
+
+ --- Returns the value of the first attribute in the KeyEventList
+ --- with the specified key
+ --- Lookup failure marked by reducing to term without a sort
+ --- See more in `lookupEventByName`
+ op lookupAttribute : String KeyEventList -> [String] .
+ ceq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = AttValue
+  if AttKey == AttKey' .
+ eq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = 
+  lookupAttribute(AttKey, Atts) [owise] .
+
+ op attributeForKey : String Object -> [String] .
+ ceq attributeForKey(AttKey, < O:Oid : Event | attributes : Atts >) = AttValue
+  if AttValue := lookupAttribute(AttKey, Atts) .
+ ceq attributeForKey(AttKey, < O:Oid : Span | attributes : Atts >) = AttValue
+  if AttValue := lookupAttribute(AttKey, Atts) .
 endom
 
 omod TRACE-CLASS-OBJECTS is
@@ -53,6 +105,7 @@ endom
 
 eof
 
+
 red < event("event0") : Event | timeUnixNano : 5, name : "event0",
                                 attributes : ["key2", "value2"] ["key3", "value3"] > .
 
@@ -60,3 +113,47 @@ red < span("b") : Span | traceId : "a", spanId : "b", parentSpanId : "", name : 
                          startTimeUnixNano : 0, endTimeUnixNano : 10, attributes : ["key0", "value0"] ["key1", "value1"],
                          events : < event("event0") : Event | timeUnixNano : 5, name : "event0",
                                                               attributes : ["key2", "value2"] ["key3", "value3"] > > .
+
+--- Note we must use "," as TRACE-CLASS-DECLS maps __ to _`,_ to avoid clash with the Configuration operator
+--- Expected: result NeList{EventObject} ...
+red < event("3f136d38b08bcc6e3b4504df9b3fba28/a29887e7c1047451/0") : Event | > , < event("3f136d38b08bcc6e3b4504df9b3fba28/a29887e7c1047451/0") : Event | > .
+
+--- Expected: result EventObject: < event("1") : Event | name : "gen_ai.user.message" >
+red lookupEventByName("gen_ai.user.message", (
+  < event("2") : Event | name : "invoke_agent" > ,
+  < event("1") : Event | name : "gen_ai.user.message" > , nil
+)) .
+--- Expected: result [EventObjectList,Configuration]: lookupEventByName("missing", nil)
+red lookupEventByName("missing", (
+  < event("2") : Event | name : "invoke_agent" > ,
+  < event("1") : Event | name : "gen_ai.user.message" > , nil
+)) .
+
+--- Expected: result EventObject: < event("1") : Event | name : "gen_ai.user.message" >
+red containsEventWithName("gen_ai.user.message", (
+  < event("2") : Event | name : "invoke_agent" > ,
+  < event("1") : Event | name : "gen_ai.user.message" > , nil
+)) .
+--- Expected: result [EventObjectList,Configuration]: lookupEventByName("missing", nil)
+red containsEventWithName("missing", (
+  < event("2") : Event | name : "invoke_agent" > ,
+  < event("1") : Event | name : "gen_ai.user.message" > , nil
+)) .
+
+--- Expected: result EventObject: < event("1") : Event | name : "gen_ai.user.message" >
+red eventForName("gen_ai.user.message", 
+  < span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
+    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : nil,  events : < event("2") : Event | name : "invoke_agent" > ,  < event("1") : Event | name : "gen_ai.user.message" > >) .
+
+--- Expected: result [EventObjectList,Configuration]: ...
+red eventForName("gen_ai.user.message", 
+  < span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
+    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : nil,  events : nil >) .
+
+--- Expected: result String: ...
+red attributeForKey("content", < event("1") : Event | name : "gen_ai.user.message" ,  attributes : ["content", "[{\"text\": \"Hello from chat id lotrbot/69ff8d10-fc30-424d-8271-504acdc782c2/1771929767!\"}]"] > ) .
+
+--- Expected: result String: "lotrbot/3d333518-3d52-4422-a930-300b603e4dbd/1771934341"
+red attributeForKey("lotrbot.chat_id", 
+  < span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
+    startTimeUnixNano : 0, endTimeUnixNano : 0, attributes : ["lotrbot.chat_id", "lotrbot/3d333518-3d52-4422-a930-300b603e4dbd/1771934341"] ,  events : < event("2") : Event | name : "invoke_agent" > ,  < event("1") : Event | name : "gen_ai.user.message" > >) .
