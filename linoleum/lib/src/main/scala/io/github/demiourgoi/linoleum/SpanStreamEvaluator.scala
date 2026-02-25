@@ -250,6 +250,10 @@ package object maude {
     *   List of Maude standard library programs (e.g. "model-checker.maude")
     *   that module depends on. Note "model-checker.maude" is always loaded
     *   additionally
+    * @param eqHooks
+    *   List of equality hooks, as pairs operator name and a hook supplier
+    * @param rlHooks
+    *   List of rewriting hooks, as pairs operator name and a hook supplier
     * @param stateConfig
     *   Optional Flink keyed window state configuration
     */
@@ -263,6 +267,8 @@ package object maude {
       keyBy: KeyByCriteria = KeyByTraceId,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
+      eqHooks: List[(String, () => MaudeHook)] = List.empty,
+      rlHooks: List[(String, () => MaudeHook)] = List.empty,
       stateConfig: Option[MaudeMonitor.StateConfig] = None,
       config: MaudeMonitor.EvaluationConfig
   )
@@ -810,6 +816,12 @@ object PropertyInstances extends Serializable {
       mon.dependencyPrograms.foreach(MaudeModules.loadProgram)
       (mon.dependencyStdlibPrograms.toSet + "model-checker.maude")
         .foreach(MaudeModules.loadStdLibProgram)
+      mon.eqHooks.foreach{case (operatorName, hookThunk) => 
+        MaudeModules.connectEqHook(operatorName, hookThunk())
+      }
+      mon.rlHooks.foreach{case (operatorName, hookThunk) => 
+        MaudeModules.connectRlHook(operatorName, hookThunk())
+      }
       val monitorModule = MaudeModules.loadModule(mon.program, mon.module)
       checkNotNull(monitorModule)
       monitorModule
