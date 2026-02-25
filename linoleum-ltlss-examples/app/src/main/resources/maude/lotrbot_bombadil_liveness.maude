@@ -1,21 +1,32 @@
 mod BOMBADIL-HOOKS is
   pr STRING .
+  --- implemented by a rewrite hook
   op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
+endm
+
+mod BOMBADIL-LIVENESS-PARAMS is
+  pr NAT .
+  op turnsToRageTimeout : -> Nat .
+  eq turnsToRageTimeout = 5 . 
 endm
 
 omod BOMBADIL-LIVENESS is
   pr TRACE-CLASS-OBJECTS .
   pr JSON-OPS .
   pr BOMBADIL-HOOKS .
+  pr BOMBADIL-LIVENESS-PARAMS .
 
   vars M O : Oid .
   vars Obj S : Object .
   var IsRagePending : Bool .
+  var TurnsToRage : Nat .
   vars UserMsgEvent BotRageEvent Event : EventObject .
   vars UserMsg BotMsg AttKey : String .
   var I : Nat .
 
-  class Monitor | isRagePending : Bool  .
+  --- isRagePending: whether or not we are waiting for the bot rage
+  --- turnsToRage: how many conversation turns the bot has left to rage
+  class Monitor | isRagePending : Bool, turnsToRage : Nat  .
   sorts MonitorId MonitorObject .
   subsort MonitorObject < Object .
   mb < O:Oid : Monitor | AtS:AttributeSet > : MonitorObject .
@@ -23,7 +34,15 @@ omod BOMBADIL-LIVENESS is
   op mon : String -> MonitorId [ctor] .
   op initConfig : Oid -> Configuration .
   eq initConfig(M)
-    = < M : Monitor | isRagePending : false > .
+    = < M : Monitor | isRagePending : false, turnsToRage : turnsToRageTimeout > .
+
+  --- These rules make the monitor move between true and undecided, but once it gets to false then 
+  --- it stabilizes there
+  op evaluate : MonitorObject -> Bool .
+  eq evaluate(< M : Monitor | isRagePending : false >) = true .
+  --- Using an if because we want an undefined property if we are still waiting for the timeout
+  ceq evaluate(< M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >) = false
+    if TurnsToRage == 0 .
 
   var ContentAtt : String .
   var ParsedContent : Value . 
@@ -48,40 +67,63 @@ omod BOMBADIL-LIVENESS is
   eq isBombadilSpan(Obj) = false [owise] .
 
   op isBotRageSpan : Object -> Bool .
-  ceq isBotRageSpan(S) = true
+    --- Note isPoliteText is implemented by a rewrite hook
+  ceq isBotRageSpan(S) = not isPoliteText(BotMsg) 
     if attributeForKey("gen_ai.operation.name", S) == "chat" 
     /\ BotRageEvent := eventForName("gen_ai.choice", S)
-    /\ BotMsg := eventMsgContents("message", BotRageEvent)
-    /\ not isPoliteText(BotMsg) .
+    /\ BotMsg := eventMsgContents("message", BotRageEvent) .
   eq isBotRageSpan(Obj) = false [owise] .
+
+  op countDown : Nat -> Nat .
+  eq countDown(0) = 0 .
+  ceq countDown(I) = sd(I, 1) 
+   if I > 0 .
 
   --- Search for the user message at the root of the span, filtering out explicit tool usages.
   --- If the user mentions Tom Bombadil then add one pending rage to the list 
-  crl [on-bombadil-span-start] :
+  crl [span-start-first-bombadil] :
     spanStart(M, S)
-    < M : Monitor | >
-    => < M : Monitor | isRagePending : true >
+    < M : Monitor | isRagePending : false >
+    => < M : Monitor | isRagePending : true, turnsToRage : turnsToRageTimeout >
     if isBombadilSpan(S) . 
 
   --- NOTE: there is no owise for rules. A workaround is putting all the conditions on a function
   --- and negating it
-  crl [on-non-bombadil-span-start] :
+  crl [span-start-non-bombadil] :
     spanStart(M, S)
-    < M : Monitor | >
+    < M : Monitor | isRagePending : false >
     => < M : Monitor | > 
     if not isBombadilSpan(S) .
 
-  crl [on-bombadil-rage-span-end] :
-    spanEnd(M, S)
-    < M : Monitor | >
-    => < M : Monitor | isRagePending : false >
-    if isBotRageSpan(S) .
+  rl [span-start-other-noop] :
+     spanStart(M, S)
+    < M : Monitor | isRagePending : true >
+    => < M : Monitor | > .
 
-  crl [on-non-bombadil-rage-span-end] :
+  crl [span-end-bombadil-rage] :
     spanEnd(M, S)
-    < M : Monitor | >
+    < M : Monitor | isRagePending : true >
+    => < M : Monitor | isRagePending : false >
+    if isBotRageSpan(S) => true .
+
+  --- Note isBombadilSpan implies isRootSpan, but on-first-bombadil-span-start is a
+  --- spanStart rule and thus does not overlap with this one
+  crl [span-end-no-rage-end-turn] :
+    spanEnd(M, S)
+    < M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >
+    => < M : Monitor | turnsToRage : countDown(TurnsToRage) > 
+    if isBotRageSpan(S) => false /\ isRootSpan(S) .
+
+  crl [span-end-no-rage-no-end-turn] :
+    spanEnd(M, S)
+    < M : Monitor | isRagePending : true >
     => < M : Monitor | > 
-    if not isBotRageSpan(S) .
+    if isBotRageSpan(S) => false /\ not isRootSpan(S) .
+
+  rl [span-end-no-rage-pending-noop] :
+    spanEnd(M, S)
+    < M : Monitor | isRagePending : false >
+    => < M : Monitor | > .
 endom
 
 mod BOMBADIL-LIVENESS-PROPS is
@@ -90,13 +132,13 @@ mod BOMBADIL-LIVENESS-PROPS is
   inc CONFIGURATION .
   subsort Configuration < State .
 
-  var M : Oid .
-  var IsRagePending : Bool .
+  var Monitor : Object .
   var C : Configuration .
-  
+  var B : Bool .
+
   op bombadilSafeSatisfied : -> Prop [ctor] .
-  eq < M : Monitor | isRagePending : IsRagePending > C |= bombadilSafeSatisfied =
-    not IsRagePending .
+  ceq Monitor C |= bombadilSafeSatisfied = B
+    if B := evaluate(Monitor) .
 endm
 
 eof

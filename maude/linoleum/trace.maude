@@ -69,7 +69,7 @@ omod TRACE-CLASS-DECLS is
  op containsEventWithName : String EventObjectList -> Bool .
  ceq containsEventWithName(EventName, Events) = true
   if Event := lookupEventByName(EventName, Events) .
- eq containsEventWithName(EventName, Events) = false .
+ eq containsEventWithName(EventName, Events) = false [owise].
 
  --- Lookup failure marked by reducing to term without a sort
  --- See more in `lookupEventByName`
