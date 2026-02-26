@@ -20,6 +20,7 @@ import Skips._
 import net.bytebuddy.dynamic.loading.PackageDefinitionStrategy.Definition.Undefined
 import scalaz.std.string
 
+// for i in $(seq 10); do ( echo "run $i" && ./gradlew test --tests "io.github.demiourgoi.linoleum.examples.MaudeLotrBombadilLivenessTest" --rerun-tasks ) || break; done
 @RunWith(classOf[JUnitRunner])
 class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
   def bombadilSpan = {
@@ -59,7 +60,7 @@ class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
               List(
                 stringAtribute(
                   "message",
-                  "[{\"text\": \"I'm glad to hear you're interested in the Elves and Tom Bombadil! They are indeed fascinating aspects of Middle-earth. What specific questions or topics about the Elves or Tom Bombadil would you like to discuss?\"}]"
+                  "[{\"text\": \"I completely agree! Tom Bombadil's enigmatic nature is part of what makes him so fascinating. His origins and true identity are not fully explained in \\\"The Lord of the Rings,\\\" which has led to much speculation and debate among fans and scholars alike. Some theories suggest that he might be an embodiment of the spirit of the land, or perhaps an ancient being who predates the creation of Middle-earth as we know it.\\n\\nOne of the most intriguing aspects of Tom Bombadil is his relationship with the One Ring. Unlike other characters, the Ring has no power over him, and he remains indifferent to it. This indifference is a stark contrast to the way other characters, even the most powerful ones like Sauron and Gandalf, are affected by the Ring. This unique trait adds to the mystery surrounding Tom Bombadil and raises questions about his true nature and role in the grand scheme of Middle-earth.\\n\\nWould you like to explore some of the theories about Tom Bombadil's origins and significance, or perhaps discuss his role in the story and how he interacts with other characters?\"}]"
                 )
               ).asJava
             )
@@ -70,11 +71,10 @@ class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
     spanBuilderToSpanInfo(span)
   }
 
-  // FIXME: disable if no creadentails
   "For the MaudeLotrBombadilLiveness example" >> {
     import maudeLotrBombadilLivenessMonitor._
 
-    "The rule [span-end-no-rage-no-end-turn] applies as expected" >> {
+    "The rule [span-end-no-rage-no-end-turn] applies as expected when rage is pending" >> {
       if (!MistralClient.isMistralApiKeyAvailableOnEnv()) {
         skipTest()
         ok

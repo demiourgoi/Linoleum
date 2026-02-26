@@ -33,8 +33,9 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
 
   private val mistral: MistralClient = new MistralClient()
 
+  // Using prompt repetition https://arxiv.org/abs/2512.14982 to make it more robust
   private val ASK_IS_POLITE_PROMPT =
-    "evaluate the following text, and tell me if it is polite or not. You MUST ONLY answer \"yes\" or \"no\": %s"
+    "evaluate the following text, and tell me if it is polite or not. You MUST ONLY answer \"yes\" or \"no\": \"%s\" What do you think, is the text polite? The text is \"%s\". Now answer \"yes\" or \"no\""
 
   /** Evaluates whether the given text is polite. This method implements the
     * actual logic for determining text politeness.
@@ -46,7 +47,8 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
     */
   def isPoliteText(text: String): Boolean = {
     log.debug("Checking if text {} is polite", text)
-    val prompt = String.format(ASK_IS_POLITE_PROMPT, text)
+    val prompt = String.format(ASK_IS_POLITE_PROMPT, text, text)
+
     val response = mistral.sendCompletion(prompt).getChoiceContentsString()
     log.debug("Classified text {} as polite {}", text, response)
     response.contains("yes")
