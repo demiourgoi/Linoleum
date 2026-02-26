@@ -38,14 +38,6 @@ omod BOMBADIL-LIVENESS is
   eq initConfig(M)
     = < M : Monitor | isRagePending : false, turnsToRage : turnsToRageTimeout > .
 
-  --- These rules make the monitor move between true and undecided, but once it gets to false then 
-  --- it stabilizes there
-  op evaluate : MonitorObject -> Bool .
-  eq evaluate(< M : Monitor | isRagePending : false >) = true .
-  --- Using an if because we want an undefined property if we are still waiting for the timeout
-  ceq evaluate(< M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >) = false
-    if TurnsToRage == 0 .
-
   var ContentAtt : String .
   var ParsedContent : Value . 
   var ContentMap : Map{String, Value} .
@@ -79,8 +71,7 @@ omod BOMBADIL-LIVENESS is
 
   op countDown : Nat -> Nat .
   eq countDown(0) = 0 .
-  ceq countDown(I) = sd(I, 1) 
-   if I > 0 .
+  eq countDown(s(I)) = I .
 
   --- Search for the user message at the root of the span, filtering out explicit tool usages.
   --- If the user mentions Tom Bombadil then add one pending rage to the list 
@@ -135,13 +126,16 @@ mod BOMBADIL-LIVENESS-PROPS is
   inc CONFIGURATION .
   subsort Configuration < State .
 
-  var Monitor : Object .
+  var M : Oid .
   var C : Configuration .
   var B : Bool .
 
   op bombadilSafeSatisfied : -> Prop [ctor] .
-  ceq Monitor C |= bombadilSafeSatisfied = B
-    if B := evaluate(Monitor) .
+  --- These rules make the monitor move between true and undecided, but once it gets to false then 
+  --- it stabilizes there
+  eq < M : Monitor | isRagePending : false > C |= bombadilSafeSatisfied = true .
+  --- Note we want an undefined property if we are still waiting for the timeout
+  eq < M : Monitor | isRagePending : true, turnsToRage : 0 >  C |= bombadilSafeSatisfied = false .
 endm
 
 eof
