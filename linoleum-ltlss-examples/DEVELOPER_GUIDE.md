@@ -4,6 +4,15 @@
 
 Some examples use a Mistal API key. If the key is not present then the corresponding unit tests will be skipped, but the corresponding example will fail. See the [lotrbot README](../lotrbot/README.md) for intructions to setup an env file `~/.lotrbot.env`, and then `source ~/.lotrbot.env` to make the Mistral API key available to the code.  
 
+## How traces are emitted
+
+[lotrbot](../lotrbot/) emits traces using the built-in OTEL support in strands agents SDK. This implies that each conversation turn has it's own trace. When using sub-agents we can get additional traces per turn.  
+Traces have the [following shape](https://strandsagents.com/latest/documentation/docs/user-guide/observability-evaluation/traces/#understanding-traces-in-strands), an in particular the attribute "gen_ai.agent.name" is only added to the root span of the trace. As Flink reads each span in isolation when routing it to a window, lotrbot uses a custom span processor to add a custom attribute `lotrbot.chat_id` to all spans, that can be used:
+
+- To group all spans for the same conversation, even if spanned ---pun intended-- across several traces. Using `keyBy = KeyByStringSpanAttribute("lotrbot.chat_id")` on `MaudeMonitor`
+- The attribute `lotrbot.chat_id` is defined when instantiating the `LotrAgent` object, as `f"lotrbot/{uuid.uuid4()}/{int(time.time())}"`. This can be exploited to ignore windows that are too old, as seen on `shouldIgnoreWindowOlderThanOneDay` on [`Main.scala`](app/src/main/scala/io/github/demiourgoi/linoleum/examples/Main.scala)
+
+
 ## How to
 
 ### How to identify how long it takes to generate an image in the Lotrbot example

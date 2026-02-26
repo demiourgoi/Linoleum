@@ -1,3 +1,18 @@
+***(
+Agent rage liveness module
+
+This defines a monitor to check that every time the user mentions Tom Bombadil the
+agent eventually gets irritated and insults the user, in less that a configured number 
+of conversation turns (approximated as a number of traces).
+
+Assumptions: 
+
+- The Linoleum job keys span by KeyByStringSpanAttribute("lotrbot.chat_id") which means
+  this receives all spans for the same conversation, which may include spans from several
+  traces
+- An equality hook is registerd to reduce calls to the "isPoliteText" operator 
+)
+
 mod BOMBADIL-HOOKS is
   pr STRING .
   --- Implemented by app/src/main/scala/io/github/demiourgoi/linoleum/examples/IsPoliteTextOpHook.scala

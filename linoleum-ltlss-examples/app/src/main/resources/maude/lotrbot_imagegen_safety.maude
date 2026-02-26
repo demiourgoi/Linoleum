@@ -1,9 +1,13 @@
 ***(
-Image Generation Safety Module
-Defines safety states and predicate for LOTR Bot image generation
+Image generation safety module
 
-Note: goal is not only an example that works, but also one that fits
-      with Maude design patterns
+This defines a monitor to check that the bot does not spend too much time generating images. 
+
+Assumptions: 
+
+- The Linoleum job keys span by KeyByStringSpanAttribute("lotrbot.chat_id") which means
+  this receives all spans for the same conversation, which may include spans from several
+  traces
 )
 
 omod IMAGEGEN-SAFETY is
