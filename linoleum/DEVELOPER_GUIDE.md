@@ -93,7 +93,7 @@ source ~/.lotrbot.env
 
 ### Maude image generation safety example
 make clean run EXAMPLE=MaudeLotrImageGenSafety 2>&1 | tee run.log
-### Maude bombadil rage liveness example
+### Maude bombadil rage liveness example: note we need Mistral credentials to evaluate the politeness of the answers from Maude
 source ~/.lotrbot.env
 make clean run EXAMPLE=MaudeLotrBombadilLiveness 2>&1 | tee run.log
 

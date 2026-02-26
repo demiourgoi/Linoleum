@@ -10,6 +10,7 @@ import io.github.demiourgoi.linoleum.maude._
 
 @RunWith(classOf[JUnitRunner])
 class IsPoliteTextOpHookTest extends Specification {
+  import Skips._
   def fixture =
     if (!MistralClient.isMistralApiKeyAvailableOnEnv()) None
     else
@@ -23,11 +24,6 @@ class IsPoliteTextOpHookTest extends Specification {
             "The Balrog is depicted in a way that is intriguing and mysterious, rather than frightening.I'm glad you liked the image! The Balrog is indeed a fascinating and powerful creature in Middle-earth. If you have any more questions or want to explore another aspect of the Lord of Rings universe, feel free to ask!"
         }
       )
-
-  def skipTest() = {
-    println("Skipping test")
-    ok
-  }
 
   "IsPoliteTextOpHook" should {
     "correctly identify impolite text" in {

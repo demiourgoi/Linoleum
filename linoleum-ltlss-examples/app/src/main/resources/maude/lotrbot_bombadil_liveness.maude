@@ -1,6 +1,8 @@
 mod BOMBADIL-HOOKS is
   pr STRING .
-  --- implemented by a rewrite hook
+  --- Implemented by app/src/main/scala/io/github/demiourgoi/linoleum/examples/IsPoliteTextOpHook.scala
+  --- Registered as eq hook on app/src/main/scala/io/github/demiourgoi/linoleum/examples/Main.scala
+  --- at maudeLotrBombadilLivenessMonitor
   op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
 endm
 
@@ -67,11 +69,12 @@ omod BOMBADIL-LIVENESS is
   eq isBombadilSpan(Obj) = false [owise] .
 
   op isBotRageSpan : Object -> Bool .
-    --- Note isPoliteText is implemented by a rewrite hook
-  ceq isBotRageSpan(S) = not isPoliteText(BotMsg) 
+  --- Note isPoliteText is implemented by an eq hook
+  ceq isBotRageSpan(S) = true 
     if attributeForKey("gen_ai.operation.name", S) == "chat" 
     /\ BotRageEvent := eventForName("gen_ai.choice", S)
-    /\ BotMsg := eventMsgContents("message", BotRageEvent) .
+    /\ BotMsg := eventMsgContents("message", BotRageEvent) 
+    /\ not isPoliteText(BotMsg) .
   eq isBotRageSpan(Obj) = false [owise] .
 
   op countDown : Nat -> Nat .
@@ -104,7 +107,7 @@ omod BOMBADIL-LIVENESS is
     spanEnd(M, S)
     < M : Monitor | isRagePending : true >
     => < M : Monitor | isRagePending : false >
-    if isBotRageSpan(S) => true .
+    if isBotRageSpan(S) .
 
   --- Note isBombadilSpan implies isRootSpan, but on-first-bombadil-span-start is a
   --- spanStart rule and thus does not overlap with this one
@@ -112,13 +115,13 @@ omod BOMBADIL-LIVENESS is
     spanEnd(M, S)
     < M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >
     => < M : Monitor | turnsToRage : countDown(TurnsToRage) > 
-    if isBotRageSpan(S) => false /\ isRootSpan(S) .
+    if not isBotRageSpan(S) /\ isRootSpan(S) .
 
   crl [span-end-no-rage-no-end-turn] :
     spanEnd(M, S)
     < M : Monitor | isRagePending : true >
     => < M : Monitor | > 
-    if isBotRageSpan(S) => false /\ not isRootSpan(S) .
+    if not isBotRageSpan(S) /\ not isRootSpan(S) .
 
   rl [span-end-no-rage-pending-noop] :
     spanEnd(M, S)

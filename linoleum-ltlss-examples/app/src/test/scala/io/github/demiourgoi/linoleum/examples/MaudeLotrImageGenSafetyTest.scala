@@ -12,34 +12,19 @@ import io.opentelemetry.proto.trace.v1.Span
 import io.github.demiourgoi.linoleum._
 import io.github.demiourgoi.linoleum.messages._
 import io.github.demiourgoi.linoleum.maude._
-import org.apache.flink.api.common.state.{KeyedStateStore, ValueState, ValueStateDescriptor}
-import org.mockito.Mockito._
-import org.mockito.ArgumentMatchers._
+
+import Mocks._
+import Stubs._
 
 @RunWith(classOf[JUnitRunner])
 class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
-  def spanBuilderToSpanInfo(span: Span.Builder): SpanInfo =
-    SpanInfo
-      .newBuilder()
-      .setSpan(span.build())
-      .build()
 
   def nonImageSpan = spanBuilderToSpanInfo(Span.newBuilder())
 
   def imageSpan(durationNanos: Long): SpanInfo = {
     val attributes = List(
-      KeyValue
-        .newBuilder()
-        .setKey("gen_ai.operation.name")
-        .setValue(AnyValue.newBuilder().setStringValue("execute_tool").build())
-        .build(),
-      KeyValue
-        .newBuilder()
-        .setKey("gen_ai.tool.name")
-        .setValue(
-          AnyValue.newBuilder().setStringValue("generate_image").build()
-        )
-        .build()
+      stringAtribute("gen_ai.operation.name", "execute_tool"),
+      stringAtribute("gen_ai.tool.name", "generate_image")
     )
 
     val span = Span
@@ -52,9 +37,9 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
   }
 
   "For the MaudeLotrImageGenSafety example" >> {
-    "we can track image generation time using the monitor" >> {
-      import maudeLotrImageGenSafetyMonitor._
+    import maudeLotrImageGenSafetyMonitor._
 
+    "we can track image generation time using the monitor" >> {
       val orderedEvents = List(
         SpanStart(nonImageSpan), // does nothing
         SpanEnd(nonImageSpan), // Non image span end does nothing
@@ -67,21 +52,16 @@ class MaudeLotrImageGenSafetyTest extends org.specs2.mutable.Specification {
         ) // image span end increases time count again
       )
       println("orderedEvents:")
-      orderedEvents.foreach{ev => println(ev.toMaude("oid"))}
+      orderedEvents.foreach { ev => println(ev.toMaude("oid")) }
 
-      // Create mock for KeyedStateStore
-      val mockStateStore = mock(classOf[KeyedStateStore])
-      val mockValueState = mock(classOf[ValueState[String]])
-
-      // Configure the mocks as specified
-      when(mockStateStore.getState(any[ValueStateDescriptor[String]]())).thenReturn(mockValueState)
-      when(mockValueState.value()).thenReturn(null)
-      doNothing().when(mockValueState).update(any[String]())
+      val mocks = cleanMocks()
 
       for (_ <- 1 to 3) {
         val (truthValue, soups) =
           PropertyInstances.MaudeMonitorProperty.evaluateWithSteps(monitor)(
-            "fooKey", mockStateStore, orderedEvents
+            "fooKey",
+            mocks.stateStore,
+            orderedEvents
           )
         (truthValue === False) and (
           soups === List(
