@@ -120,7 +120,8 @@ omod BOMBADIL-LIVENESS is
     => < M : Monitor | > .
 endom
 
-mod BOMBADIL-LIVENESS-PROPS is
+--- Note: must be an omod for partial matching on object fields to work
+omod BOMBADIL-LIVENESS-PROPS is
   pr BOMBADIL-LIVENESS .
   inc SATISFACTION . 
   inc CONFIGURATION .
@@ -136,7 +137,7 @@ mod BOMBADIL-LIVENESS-PROPS is
   eq < M : Monitor | isRagePending : false > C |= bombadilSafeSatisfied = true .
   --- Note we want an undefined property if we are still waiting for the timeout
   eq < M : Monitor | isRagePending : true, turnsToRage : 0 >  C |= bombadilSafeSatisfied = false .
-endm
+endom
 
 eof
 
