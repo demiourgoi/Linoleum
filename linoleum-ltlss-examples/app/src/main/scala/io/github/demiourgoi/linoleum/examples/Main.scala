@@ -166,7 +166,7 @@ package object maudeLotrBombadilLivenessMonitor {
         "maude/json/value.maude",
         "maude/json/json.maude"
       ),
-      eqHooks = List((IsPoliteTextOpHook.hookOpName, IsPoliteTextOpHook.apply)),
+      rlHooks = List((IsPoliteTextOpHook.hookOpName, IsPoliteTextOpHook.apply)),
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)

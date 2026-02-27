@@ -77,7 +77,7 @@ def _create_model(settings: Settings) -> Model:
         # https://ollama.com/library/qwen3 very low resource usage
         return OllamaModel(
             host="http://localhost:11434",
-            model_id="qwen3:0.6b"
+            model_id="ministral-3:8b"
         )
     # https://docs.mistral.ai/#free-models
     return MistralModel(

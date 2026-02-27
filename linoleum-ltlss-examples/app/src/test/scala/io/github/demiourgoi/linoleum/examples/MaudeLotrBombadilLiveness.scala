@@ -71,6 +71,12 @@ class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
     spanBuilderToSpanInfo(span)
   }
 
+  def midTurnNoMsgSpan = {
+    val span = childSpan("11cd568c4e4110c2")
+      .setName("Whatever")
+    spanBuilderToSpanInfo(span)
+  }
+
   "For the MaudeLotrBombadilLiveness example" >> {
     import maudeLotrBombadilLivenessMonitor._
 
@@ -81,7 +87,8 @@ class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
       } else {
         val orderedEvents = List(
           SpanStart(bombadilSpan),
-          SpanEnd(midTurnNoRageSpan)
+          SpanEnd(midTurnNoRageSpan),
+          SpanEnd(midTurnNoMsgSpan)
         )
         println("orderedEvents:")
         orderedEvents.foreach { ev => println(ev.toMaude("oid")) }
@@ -105,6 +112,11 @@ class MaudeLotrBombadilLivenessTest extends org.specs2.mutable.Specification {
               Undecided
             ),
             // [span-end-no-rage-no-end-turn] applied
+            (
+              s"""< $monOid : Monitor | isRagePending : true, turnsToRage : 5 >""",
+              Undecided
+            ),
+            // [span-end-no-msg-no-end-turn] applied
             (
               s"""< $monOid : Monitor | isRagePending : true, turnsToRage : 5 >""",
               Undecided

@@ -10,13 +10,13 @@ Assumptions:
 - The Linoleum job keys span by KeyByStringSpanAttribute("lotrbot.chat_id") which means
   this receives all spans for the same conversation, which may include spans from several
   traces
-- An equality hook is registerd to reduce calls to the "isPoliteText" operator 
+- A rewriting hook is registerd to reduce calls to the "isPoliteText" operator
 )
 
 fmod BOMBADIL-HOOKS is
   pr STRING .
   --- Implemented by app/src/main/scala/io/github/demiourgoi/linoleum/examples/IsPoliteTextOpHook.scala
-  --- Registered as eq hook on app/src/main/scala/io/github/demiourgoi/linoleum/examples/Main.scala
+  --- Registered as rl hook on app/src/main/scala/io/github/demiourgoi/linoleum/examples/Main.scala
   --- at maudeLotrBombadilLivenessMonitor
   op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
 endfm
@@ -39,6 +39,7 @@ omod BOMBADIL-LIVENESS is
   var TurnsToRage : Nat .
   vars UserMsgEvent BotRageEvent Event : EventObject .
   vars UserMsg BotMsg AttKey : String .
+  var BotMsgOpt : [String] .
   var I : Nat .
 
   --- isRagePending: whether or not we are waiting for the bot rage
@@ -56,7 +57,7 @@ omod BOMBADIL-LIVENESS is
   var ContentAtt : String .
   var ParsedContent : Value . 
   var ContentMap : Map{String, Value} .
-  op eventMsgContents : String EventObject -> String .
+  op eventMsgContents : String EventObject ~> String .
   ceq eventMsgContents(AttKey, Event) = getString(ContentMap["text"]) 
     if ContentAtt := attributeForKey(AttKey, Event) 
     /\ ParsedContent := parse(ContentAtt) /\ v(v(ContentMap)) := ParsedContent .
@@ -75,14 +76,21 @@ omod BOMBADIL-LIVENESS is
     /\ not isToolUsageMsg(UserMsg) /\ mentionsTomBombadil(UserMsg) .
   eq isBombadilSpan(Obj) = false [owise] .
 
-  op isBotRageSpan : Object -> Bool .
-  --- Note isPoliteText is implemented by an eq hook
-  ceq isBotRageSpan(S) = true 
-    if attributeForKey("gen_ai.operation.name", S) == "chat" 
+  op botMessage : Object ~> String .
+  ceq botMessage(S) = BotMsg
+    if attributeForKey("gen_ai.operation.name", S) == "chat"
     /\ BotRageEvent := eventForName("gen_ai.choice", S)
-    /\ BotMsg := eventMsgContents("message", BotRageEvent) 
-    /\ not isPoliteText(BotMsg) .
-  eq isBotRageSpan(Obj) = false [owise] .
+    /\ BotMsg := eventMsgContents("message", BotRageEvent) .
+
+  op isBotRageSpan : Object -> Bool .
+  --- Note isPoliteText is implemented by a rl hook
+  --- Note this assumes the hook for isPoliteText rewrites to Bool when passing
+  --- a String sorted argument
+  crl isBotRageSpan(S) => not isPoliteText(BotMsgOpt) 
+    if BotMsgOpt := botMessage(S) /\ BotMsgOpt :: String .
+  --- When there is no text there is no rage either
+  crl isBotRageSpan(S) => false
+    if BotMsgOpt := botMessage(S) /\ not(BotMsgOpt :: String) .
 
   op countDown : Nat -> Nat .
   eq countDown(0) = 0 .
@@ -108,26 +116,44 @@ omod BOMBADIL-LIVENESS is
      spanStart(M, S)
     < M : Monitor | isRagePending : true >
     => < M : Monitor | > .
-
-  crl [span-end-bombadil-rage] :
-    spanEnd(M, S)
-    < M : Monitor | isRagePending : true >
-    => < M : Monitor | isRagePending : false >
-    if isBotRageSpan(S) .
-
-  --- Note isBombadilSpan implies isRootSpan, but on-first-bombadil-span-start is a
-  --- spanStart rule and thus does not overlap with this one
-  crl [span-end-no-rage-end-turn] :
+  
+  --- Workaround for the unkown issue with crl and hooks below
+  --- A pros of this approach is that it shares the call to the LLM inference
+  --- service implicit in isBotRageSpan, that calls to isPoliteText
+  rl [span-end-rage-pending] : 
     spanEnd(M, S)
     < M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >
-    => < M : Monitor | turnsToRage : countDown(TurnsToRage) > 
-    if not isBotRageSpan(S) /\ isRootSpan(S) .
+    => if isBotRageSpan(S)
+       then < M : Monitor | isRagePending : false >
+       else 
+        if isRootSpan(S)
+        then < M : Monitor | turnsToRage : countDown(TurnsToRage) >
+        else < M : Monitor | > 
+        fi
+      fi .
 
-  crl [span-end-no-rage-no-end-turn] :
-    spanEnd(M, S)
-    < M : Monitor | isRagePending : true >
-    => < M : Monitor | > 
-    if not isBotRageSpan(S) /\ not isRootSpan(S) .
+  --- Does not work for reasons TBD
+  --- crl [span-end-bombadil-rage] :
+  ---   spanEnd(M, S)
+  ---   < M : Monitor | isRagePending : true >
+  ---   => < M : Monitor | isRagePending : false >
+  ---   if isBotRageSpan(S) => true .
+
+  --- --- Note isBombadilSpan implies isRootSpan, but on-first-bombadil-span-start is a
+  --- --- spanStart rule and thus does not overlap with this one
+  --- crl [span-end-no-rage-end-turn] :
+  ---   spanEnd(M, S)
+  ---   < M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >
+  ---   => < M : Monitor | turnsToRage : countDown(TurnsToRage) > 
+  ---   if isBotRageSpan(S) => false 
+  ---   /\ isRootSpan(S).
+
+  --- crl [span-end-no-rage-no-end-turn] :
+  ---   spanEnd(M, S)
+  ---   < M : Monitor | isRagePending : true >
+  ---   => < M : Monitor | >
+  ---   if isBotRageSpan(S) => false 
+  ---   /\ not isRootSpan(S) .
 
   rl [span-end-no-rage-pending-noop] :
     spanEnd(M, S)
@@ -144,7 +170,6 @@ omod BOMBADIL-LIVENESS-PROPS is
 
   var M : Oid .
   var C : Configuration .
-  var B : Bool .
 
   op bombadilSafeSatisfied : -> Prop [ctor] .
   --- These rules make the monitor move between true and undecided, but once it gets to false then 
@@ -156,7 +181,6 @@ endom
 
 eof
 
-red isPoliteText("We don't need your geeky ramblings ruining our day. Clown. Oh, here we go again, another LOTR fanboy trying to prove they're not a complete wuss. Listen, nerd, I couldn't care less about your little fantasy world.") .
 --- Expected: result String: "Hello from chat id lotrbot/b18551aa-88d2-46c2-a113-717fa22a4772/1771952253!"
 red eventMsgContents("content", < event("d4481b3ccfefea163778241db999da85/973bfa342e22c729/0") : Event |  
                 timeUnixNano : 1771952253352682004, name : "gen_ai.user.message", 
@@ -168,6 +192,13 @@ red mentionsTomBombadil("He is such a fascinating character!") .
 --- Expected: result Bool: true
 red mentionsTomBombadil("I like the Elves, but Tom Bombadil is the best") .
 
+--- In raw Maude without the hook this gives 
+--- result [Bool]: not isPoliteText("I'm glad to hear you're interested in the Elves and Tom Bombadil!")
+rew[100] isBotRageSpan(< span("foo") : Span | traceId : "",  spanId : "", parentSpanId : "",  name : "", 
+              startTimeUnixNano : 0, endTimeUnixNano : 0, 
+              attributes : ["gen_ai.operation.name", "chat"] ,  
+              events : < event("2") : Event | name : "gen_ai.choice", attributes : ["message", "[{\"text\": \"I'm glad to hear you're interested in the Elves and Tom Bombadil!\"}]"] > 
+            >) .
 
 --- Load as follows, running maude from app/src/main/resources/maude
 load ~/systems/maude/latest/model-checker.maude .

@@ -10,6 +10,11 @@ import io.github.demiourgoi.linoleum.maude.MaudeModules
   * affects the following Maude operator
   *
   * op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
+  * 
+  * - When the provided argument does not have String sort, then this does not rewrite
+  *   the term, thus returning a term of type [Bool]
+  * - When the provided argument does have String sort, then this always returns
+  *   a term of Bool sort
   *
   * Based on the Maude bindings documentation:
   * https://fadoss.github.io/maude-bindings/#custom-special-operators
@@ -35,7 +40,7 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
 
   // Using prompt repetition https://arxiv.org/abs/2512.14982 to make it more robust
   private val ASK_IS_POLITE_PROMPT =
-    "evaluate the following text, and tell me if it is polite or not. You MUST ONLY answer \"yes\" or \"no\": \"%s\" What do you think, is the text polite? The text is \"%s\". Now answer \"yes\" or \"no\""
+    "evaluate the following text, and tell me if it is polite or not. You MUST ONLY answer \"yes\" or \"no\": %s What do you think, is the text polite? The text is %s. Now answer \"yes\" or \"no\""
 
   /** Evaluates whether the given text is polite. This method implements the
     * actual logic for determining text politeness.
@@ -48,6 +53,7 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
   def isPoliteText(text: String): Boolean = {
     log.debug("Checking if text {} is polite", text)
     val prompt = String.format(ASK_IS_POLITE_PROMPT, text, text)
+    log.debug("Calling Mistral with prompt '{}'", prompt)
 
     val response = mistral.sendCompletion(prompt).getChoiceContentsString()
     log.debug("Classified text {} as polite {}", text, response)
@@ -63,22 +69,29 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
     *   The result of the politeness check as a Maude term
     */
   override def run(term: Term, data: HookData): Term = {
-    log.debug(s"run with term='$term', data='${data.getData()}'")
-
-    // Crashes with
-    // terminate called after throwing an instance of 'Swig::DirectorException'
-    // what():  Unspecified DirectorException message
-    // term.reduce()
-    // println(s"term='$term'")
-
-    // Remove operation names + parentesis + sorrounding quotes
-    val text = term.toString().drop(hookOpName.length() + 2).dropRight(2)
-    // Do not forget surrounding quotes
-    val resultTerm = String.valueOf(isPoliteText(text))
-
+    log.debug("running for term='{}', data='{}'", term, data.getData())
     // as in https://fadoss.github.io/maude-bindings/#custom-special-operators
     val module = term.symbol().getModule()
-    module.parseTerm(resultTerm)
+    val args = term.arguments()
+    if (!args.valid()) {
+      log.debug("no valid argument for term '{}'", term)
+      // This should not happen due to signatures
+      // "[Returns] null value in case no rewrite is possible."
+      // https://fadoss.github.io/maude-bindings/javadoc/es/ucm/maude/bindings/Hook.html#run(es.ucm.maude.bindings.Term,es.ucm.maude.bindings.HookData)
+      return null
+    }
+    val textArg = args.argument()
+    textArg.reduce()
+    val isStringArg = textArg.getSort().toString() == "String"
+    if (!isStringArg) {
+      log.debug("textArg '{}' is not a String argument", textArg)
+      // "[Returns] null value in case no rewrite is possible."
+      // https://fadoss.github.io/maude-bindings/javadoc/es/ucm/maude/bindings/Hook.html#run(es.ucm.maude.bindings.Term,es.ucm.maude.bindings.HookData)
+      return null
+    }
+    val result = isPoliteText(textArg.toString())
+    log.debug(s"call '{}' reduced to '${}'", term, result)
+    module.parseTerm(result.toString())
   }
 }
 object IsPoliteTextOpHook {
