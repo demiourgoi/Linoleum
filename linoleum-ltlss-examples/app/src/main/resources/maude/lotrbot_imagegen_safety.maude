@@ -70,17 +70,17 @@ endom
 
 --- Single place to store the thresholds and parameters
 --- for IMAGEGEN-SAFEY-PROPS
-mod IMAGEGEN-SAFETY-PROPS-PARAMS is
+fmod IMAGEGEN-SAFETY-PROPS-PARAMS is
   protecting NAT .
   op maxTimeSpentOnImageGenAllowedNanos : -> Nat .
   eq maxTimeSpentOnImageGenAllowedNanos = 1000000000 .
-endm
+endfm
 
 --- Following LTL Model Checking pattern
 --- https://maude.lcc.uma.es/maude-manual/maude-manualch12.html#x84-17900012
 --- This is the property specification
 --- https://maude.lcc.uma.es/maude30-manual-html/maude-manualch1.html#x4-160001.4
-mod IMAGEGEN-SAFETY-PROPS is
+omod IMAGEGEN-SAFETY-PROPS is
   protecting IMAGEGEN-SAFETY .
   protecting IMAGEGEN-SAFETY-PROPS-PARAMS .
   including SATISFACTION . 
@@ -94,7 +94,7 @@ mod IMAGEGEN-SAFETY-PROPS is
   op imageGenUsageWithinLimits : -> Prop [ctor] .
   eq < M : Monitor | timeSpentOnImageGenNanos : TimeSpentOnImageGenNanos > C |= imageGenUsageWithinLimits =
     TimeSpentOnImageGenNanos < maxTimeSpentOnImageGenAllowedNanos .
-endm
+endom
 
 eof
 
