@@ -54,4 +54,7 @@ __Attribution__: Strands Agents SOPs copied from https://github.com/strands-agen
     - [Environment Variable Specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/)
     - [OpenTelemetry Protocol Exporter](https://opentelemetry.io/docs/specs/otel/protocol/exporter/)
 
+## Attribution
 
+- Agent skill specification from https://agentskills.io/specification.md, used as [Apache License 2.0](https://github.com/agentskills/agentskills?tab=Apache-2.0-1-ov-file#readme)
+- Agent SOPs from https://github.com/strands-agents/agent-sop, used as [Apache License 2.0](https://github.com/strands-agents/agent-sop/blob/main/LICENSE)

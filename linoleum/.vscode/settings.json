@@ -17,5 +17,6 @@
         "**/target": true,
         "**/lib/bin": true,
         "**/.bloop": true
-    }
+    },
+    "makefile.configureOnOpen": false
 }
