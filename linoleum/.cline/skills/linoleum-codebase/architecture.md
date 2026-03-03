@@ -34,6 +34,53 @@ graph TB
     end
 ```
 
+## End-to-End Trace Telemetry Data Flow
+
+```mermaid
+flowchart TD
+    %% User Interaction
+    User[User] -->|Chats with| LotrBot[lotrbot<br/>Chatbot]
+    
+    %% Trace Generation
+    LotrBot -->|Uses Strands SDK<br/>OTLP exporter| OTELCollector[OTEL Collector]
+    
+    %% Trace Distribution
+    OTELCollector -->|Sends traces| Jaeger[Jaeger UI<br/>Trace Visualization]
+    OTELCollector -->|Sends traces| Kafka[Kafka<br/>otlp_spans topic]
+    
+    %% Flink Processing Pipeline
+    Kafka -->|Consumes traces| FlinkJob[Flink Job<br/>Linoleum Framework]
+    
+    subgraph FlinkJob [Flink Processing Pipeline]
+        A[LinoleumSrc<br/>Kafka Source] -->|SpanInfo stream| B[SpanStreamEvaluator]
+        B -->|Groups by key| C[Session Windows<br/>EventTimeSessionWindows]
+        C -->|Ordered events| D[Property Evaluation]
+        D -->|Truth values| E[LinoleumSink<br/>MongoDB Sink]
+    end
+    
+    %% Property Evaluation Options
+    D -->|LinoleumFormula<br/>LTLss formulas| D1[Stateless Evaluation]
+    D -->|MaudeMonitor<br/>Maude programs| D2[Stateful Evaluation<br/>with TTL]
+    
+    %% Data Storage and Querying
+    E -->|Writes| MongoDB[(MongoDB<br/>evaluatedSpans collection)]
+    
+    %% User Access Points
+    User -->|Queries| MongoDBQuery[MongoDB Queries<br/>EvaluatedSpans]
+    User -->|Views traces| JaegerQuery[Jaeger Web UI<br/>Trace Inspection]
+    
+    %% Styling
+    classDef user fill:#e1f5fe
+    classDef component fill:#f3e5f5
+    classDef storage fill:#e8f5e8
+    classDef processing fill:#fff3e0
+    
+    class User,LotrBot user
+    class OTELCollector,Kafka,FlinkJob,Jaeger component
+    class MongoDB storage
+    class MongoDBQuery,JaegerQuery processing
+```
+
 ## Component Architecture
 
 ### Data Flow Architecture
