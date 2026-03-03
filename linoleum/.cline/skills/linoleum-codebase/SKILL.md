@@ -7,6 +7,54 @@ description: Understand the design of the 'linoleum' package, and how the codeba
 
 This skill provides comprehensive knowledge about the Linoleum runtime verification system for distributed systems using OpenTelemetry spans and Apache Flink.
 
+## How to Use This Skill
+
+This skill provides progressive disclosure of Linoleum knowledge:
+
+1. **Start here** for high-level overview and quick reference
+2. **Consult specific sections** based on your task
+3. **Use the file references table** below to find detailed documentation
+4. **Follow the quick start guide** for common tasks
+
+## File References
+
+| File | Purpose | Key Contents |
+|------|---------|--------------|
+| `architecture.md` | System architecture | Data flow, component interactions, design patterns, Mermaid diagrams |
+| `components.md` | Component details | Detailed descriptions of each major component, responsibilities, relationships |
+| `interfaces.md` | API interfaces | Type classes, traits, configuration classes, public APIs |
+| `data_models.md` | Data structures | SpanInfo, LinoleumEvent, EvaluatedSpans, Maude terms, BSON documents |
+| `workflows.md` | Key processes | Span ingestion, event processing, property evaluation, result persistence |
+| `dependencies.md` | External dependencies | Flink, Kafka, MongoDB, Maude, OpenTelemetry, build tools |
+| `codebase_info.md` | High-level overview | Project structure, technology stack, key interfaces, design principles |
+| `review_notes.md` | Documentation review | Consistency checks, completeness gaps, improvement recommendations |
+
+## Quick Start Guide
+
+### Common Tasks and Where to Find Information
+
+#### Understanding the Data Flow
+1. **Source**: Kafka → `LinoleumSrc` → `SpanInfo` objects (see `components.md`)
+2. **Processing**: `SpanStreamEvaluator` → `LinoleumEvent` conversion → windowing (see `workflows.md`)
+3. **Evaluation**: `Property[P]` type class → `LinoleumFormula` or `MaudeMonitor` (see `interfaces.md`)
+4. **Sink**: `EvaluatedSpans` → `LinoleumSink` → MongoDB (see `components.md`)
+
+#### Adding New Property Types
+1. Implement `Property[P]` type class (see `interfaces.md`)
+2. Add to `PropertyInstances` companion object
+3. Create factory methods in `Linoleum` object
+4. Update configuration if needed (see `components.md`)
+
+#### Modifying Event Processing
+1. Review `SpanStreamEvaluator` in `components.md`
+2. Understand `LinoleumEvent` hierarchy in `data_models.md`
+3. Check windowing logic in `workflows.md`
+
+#### Working with Maude Integration
+1. See Maude term representation in `data_models.md`
+2. Review `MaudeMonitor` configuration in `components.md`
+3. Check state management in `architecture.md`
+
 ## Overview
 
 Linoleum is a runtime verification system that processes OpenTelemetry (OTEL) spans from Kafka, converts them to Linoleum events, evaluates properties using either LTLss formulas or Maude programs, and stores results in MongoDB.
@@ -50,57 +98,37 @@ Kafka (OTEL spans) → LinoleumSrc → SpanStreamEvaluator → LinoleumSink → 
 - **SourceConfig**: Kafka connection parameters
 - **SinkConfig**: MongoDB connection and logging options
 
-## Directory Structure
-
-```
-linoleum/
-├── lib/                          # Main library module
-│   ├── src/main/scala/io/github/demiourgoi/linoleum/
-│   │   ├── SpanStreamEvaluator.scala  # Main evaluation engine
-│   │   ├── config/package.scala       # Configuration classes
-│   │   ├── source/package.scala       # Kafka source implementation
-│   │   ├── sink/package.scala         # MongoDB sink implementation
-│   │   ├── messages/package.scala     # Data models and events
-│   │   ├── formulas/package.scala     # LTLss formula support
-│   │   └── maude/package.scala         # Maude integration
-│   ├── src/main/java/io/github/demiourgoi/linoleum/messages/
-│   │   └── *.java                     # Protobuf generated classes
-│   ├── src/main/resources/maude/linoleum/
-│   │   └── trace.maude                # Maude trace definitions
-│   └── build.gradle                   # Build configuration
-├── docs/
-│   └── design.md                      # Technical design documentation
-├── devenv/                           # Development environment (Docker compose)
-└── Makefile                          # Build and development commands
-```
-
-## Development Patterns
+## Key Design Patterns
 
 ### Type Class Pattern
-The `Property[P]` type class enables extensible property evaluation:
-```scala
-trait Property[P] {
-  def propertyName(property: P): String
-  def streamEvaluatorParams(property: P): SpanStreamEvaluatorParams[P]
-  def evaluate(property: P)(key: String, globalStateStore: KeyedStateStore, 
-                          orderedEvents: List[LinoleumEvent]): TruthValue
-  def keyBy(property: P)(span: SpanInfo): String = span.hexTraceId
-  def shouldIgnoreWindow(property: P)(windowKey: String, 
-                                    orderedEvents: List[LinoleumEvent]): Boolean = false
-}
-```
+The `Property[P]` trait enables extensible property evaluation. See `interfaces.md` for details.
 
 ### Session Window Processing
-- Uses Flink's `EventTimeSessionWindows` for trace grouping
-- Events ordered by epoch (start time for SpanStart, end time for SpanEnd)
-- Configurable session gap and allowed lateness
-- Keyed state management for MaudeMonitor
+Uses Flink's `EventTimeSessionWindows` for trace grouping. See `workflows.md` for windowing logic.
 
-### Maude Integration
-- Maude programs loaded from resources (`maude/` directory)
-- Soup term represents monitor state across windows
-- Equality and rewriting hooks for custom operations
-- Thread-safe Maude runtime with synchronization
+### Formal Methods Integration
+- **LTLss**: Stateless formula evaluation via `LinoleumFormula`
+- **Maude**: Stateful program evaluation via `MaudeMonitor`
+
+### Configuration Management
+Hierarchical configuration with `LinoleumConfig`, `SourceConfig`, `SinkConfig`. See `components.md`.
+
+## Development Guidelines
+
+### Testing
+- Unit tests in `lib/src/test/scala/io/github/demiourgoi/linoleum/`
+- Integration tests with embedded Kafka/MongoDB
+- Property tests for evaluation logic
+
+### Building and Running
+- Use `make` commands (see `DEVELOPER_GUIDE.md`)
+- Gradle build system with Scala 2.13
+- Flink 1.20.1 with Kafka/MongoDB connectors
+
+### Code Organization
+- Main package: `io.github.demiourgoi.linoleum`
+- Subpackages: `config`, `source`, `sink`, `evaluator`, `formulas`, `maude`, `messages`, `utils`
+- Generated Java code from protobufs in `messages/` package
 
 ## Key Interfaces and Classes
 

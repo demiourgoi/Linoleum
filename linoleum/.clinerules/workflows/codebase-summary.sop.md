@@ -67,8 +67,9 @@ Perform comprehensive analysis of the codebase to understand its structure, comp
 
 Create comprehensive documentation files for different aspects of the system.
 
-**Constraints:**
-- You MUST create a comprehensive knowledge base index file ({output_dir}/index.md) that:
+**Constraints:** 
+- If consolidate_targets is SKILL.md then the index file is {output_dir}/SKILL.md. Otherwise the index file is {output_dir}/index.md
+- You MUST create a comprehensive index file that:
   - Provides explicit instructions for AI assistants on how to use the documentation
   - Contains rich metadata about each file's purpose and content
   - Includes a table of contents with descriptive summaries for each document
@@ -115,6 +116,7 @@ Create consolidated documentation files if requested.
   - AGENTS.md: Focus on AI assistant context, project and directory structure, development patterns, and assistant-specific instructions
   - README.md: Focus on project overview, installation, usage, and getting started information
   - CONTRIBUTING.md: Focus on development setup, coding standards, contribution workflow, and guidelines
+  - SKILL.md: consolidate the content following the Agent Skills format described on .clinerules/agent-skills-specification.md for a skill with the description specified in consolidate_prompt. Consolidate in a file {output_dir}/SKILL.md 
   - Other files: Adapt content based on filename and consolidate_prompt
 - You MUST organize the consolidated content in a coherent structure appropriate for the target audience
 - You MUST include a comprehensive table of contents with descriptive summaries
@@ -133,9 +135,9 @@ Provide a summary of the documentation process and suggest next steps.
 - You MUST suggest next steps for using the documentation
 - You MUST provide guidance on maintaining and updating the documentation
 - You MUST include specific instructions for adding the documentation to AI assistant context:
-  - Recommend using the index.md file as the primary context file
-  - Explain how AI assistants can leverage the index.md file as a knowledge base to find relevant information
-  - Emphasize that the index.md contains sufficient metadata for assistants to understand which files contain detailed information
+  - Recommend using the index file as the primary context file
+  - Explain how AI assistants can leverage the index file as a knowledge base to find relevant information
+  - Emphasize that the index file contains sufficient metadata for assistants to understand which files contain detailed information
   - Provide example queries that demonstrate how to effectively use the documentation
 - If consolidate is true, you MUST provide guidance on using the consolidated files
 - If update_mode was used, you MUST:
