@@ -118,7 +118,7 @@ omod BOMBADIL-LIVENESS is
     => < M : Monitor | > .
   
   --- Workaround for the unkown issue with crl and hooks below
-  --- A pros of this approach is that it shares the call to the LLM inference
+  --- An advantage of this approach is that it shares the call to the LLM inference
   --- service implicit in isBotRageSpan, that calls to isPoliteText
   rl [span-end-rage-pending] : 
     spanEnd(M, S)
