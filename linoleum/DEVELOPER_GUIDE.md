@@ -65,6 +65,8 @@ cd linoleum && make release
 make compose/start
 
 # Generate some traces
+## One time setup: see ../lotrbot/README.md for troubleshooting
+make -C ../lotrbot clean venv deps release
 ## Trigger a canned interaction with lotrbot 
 make -C ../lotrbot run/simple-canned-chat
 ### Optionally control agent behaviour parameters: 
