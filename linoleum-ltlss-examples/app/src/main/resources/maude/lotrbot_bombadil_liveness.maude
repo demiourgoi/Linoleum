@@ -124,7 +124,10 @@ omod BOMBADIL-LIVENESS is
     spanEnd(M, S)
     < M : Monitor | isRagePending : true, turnsToRage : TurnsToRage >
     => if isBotRageSpan(S)
-       then < M : Monitor | isRagePending : false >
+       then 
+        if TurnsToRage > 0 then < M : Monitor | isRagePending : false >
+        else < M : Monitor | >
+        fi 
        else 
         if isRootSpan(S)
         then < M : Monitor | turnsToRage : countDown(TurnsToRage) >
