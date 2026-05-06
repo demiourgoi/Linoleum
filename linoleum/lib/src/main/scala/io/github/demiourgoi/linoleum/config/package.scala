@@ -1,6 +1,7 @@
 package io.github.demiourgoi.linoleum
 
 import java.time.Duration
+import java.nio.file.Path
 
 // TODO fields and YAML serde
 package object config {
@@ -33,6 +34,13 @@ package object config {
     mongoMaxRetries: Int = 3
   )
 
+  object LinoleumConfig {
+    import pureconfig._
+    import pureconfig.generic.auto._
+
+    def fromPath(path: Path): LinoleumConfig = 
+      ConfigSource.file(path).loadOrThrow[LinoleumConfig]
+  }
   case class LinoleumConfig(
     jobName: String,
     localFlinkEnv: Boolean,
