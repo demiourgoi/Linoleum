@@ -6,45 +6,56 @@ import java.nio.file.Path
 // TODO fields and YAML serde
 package object config {
   case class SourceConfig(
-    kafkaBootstrapServers: String = "localhost:9092",
-    kafkaTopics: String = "otlp_spans",
-    kafkaGroupIdPrefix: String = "linolenum-cg",
-    eventsMaxOutOfOrderness: Duration = Duration.ofMillis(500),
+      kafkaBootstrapServers: String = "localhost:9092",
+      kafkaTopics: String = "otlp_spans",
+      kafkaGroupIdPrefix: String = "linolenum-cg",
+      eventsMaxOutOfOrderness: Duration = Duration.ofMillis(500)
   )
 
-  /**
-   * @param logMaudeTerms if true then the driver will write on `SinkConfig.MaudeTermLogPath` 
-   * all the spans read from the source during the job execution, in the following plain text format:
-   * - Each span is written in a line as a Maude term as formatted by `LinoleumSpanInfo.toMaude`
-  */
+  /** @param logMaudeTerms
+    *   if true then the driver will write on `SinkConfig.MaudeTermLogPath` all
+    *   the spans read from the source during the job execution, in the
+    *   following plain text format:
+    *   - Each span is written in a line as a Maude term as formatted by
+    *     `LinoleumSpanInfo.toMaude`
+    */
   case class SinkConfig(
-    mongoDb: MongoDbConfig = MongoDbConfig(),
-    logMaudeTerms: Boolean = false
+      mongoDb: MongoDbConfig = MongoDbConfig(),
+      logMaudeTerms: Boolean = false
   )
   object SinkConfig {
     val MaudeTermLogPath = "./maude_terms"
   }
 
   case class MongoDbConfig(
-    mongoUri: String = "mongodb://localhost:27017",
-    mongoDatabase: String = "linoleum",
-    mongoCollection: String = "evaluatedSpans",
-    mongoBatchSize: Int = 10,
-    mongoBatchIntervalMs: Long = 1000L,
-    mongoMaxRetries: Int = 3
+      mongoUri: String = "mongodb://localhost:27017",
+      mongoDatabase: String = "linoleum",
+      mongoCollection: String = "evaluatedSpans",
+      mongoBatchSize: Int = 10,
+      mongoBatchIntervalMs: Long = 1000L,
+      mongoMaxRetries: Int = 3
   )
 
   object LinoleumConfig {
     import pureconfig._
     import pureconfig.generic.auto._
+    import pureconfig.module.yaml._
+
 
     def fromPath(path: Path): LinoleumConfig = 
-      ConfigSource.file(path).loadOrThrow[LinoleumConfig]
+      YamlConfigSource.file(path).load[LinoleumConfig]
+        .fold(
+          errors =>
+            throw new RuntimeException(
+              s"Failed to parse YAML: ${errors.prettyPrint()}"
+            ),
+          config => config
+        )
   }
   case class LinoleumConfig(
-    jobName: String,
-    localFlinkEnv: Boolean,
-    source: SourceConfig = SourceConfig(),
-    sink: SinkConfig = SinkConfig()
+      jobName: String,
+      localFlinkEnv: Boolean,
+      source: SourceConfig = SourceConfig(),
+      sink: SinkConfig = SinkConfig()
   )
 }

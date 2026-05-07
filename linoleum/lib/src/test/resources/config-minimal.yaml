@@ -1,0 +1,2 @@
+job-name: "minimal-job"
+local-flink-env: false

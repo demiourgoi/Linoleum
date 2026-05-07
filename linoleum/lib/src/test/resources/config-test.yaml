@@ -1,0 +1,16 @@
+job-name: "test-job"
+local-flink-env: true
+source:
+  kafka-bootstrap-servers: "kafka:9092"
+  kafka-topics: "test-spans"
+  kafka-group-id-prefix: "test-cg"
+  events-max-out-of-orderness: "PT1S"
+sink:
+  mongo-db:
+    mongo-uri: "mongodb://test:27017"
+    mongo-database: "test-db"
+    mongo-collection: "test-collection"
+    mongo-batch-size: 20
+    mongo-batch-interval-ms: 500
+    mongo-max-retries: 5
+  log-maude-terms: true

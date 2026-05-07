@@ -111,8 +111,8 @@ dependencies {
     // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
     implementation "org.apache.flink:flink-runtime-web:${flinkVersion}"
 
-    implementation("org.yaml:snakeyaml:2.6")
-    implementation("com.github.pureconfig:pureconfig_2.13:0.17.10")
+    implementation("com.github.pureconfig:pureconfig-yaml_2.13:0.17.4")
+    implementation("com.github.pureconfig:pureconfig_2.13:0.17.4")
 
     // --------------------------------------------------------------
     // Dependencies that should be part of the shadow jar, e.g.
