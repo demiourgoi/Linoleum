@@ -9,31 +9,24 @@ object RunMaudeMonitor {
   private val log = LoggerFactory.getLogger(RunMaudeMonitor.getClass.getName)
 
   def main(args: Array[String]): Unit = {
-    // Validate command line arguments
-    if (args.length == 0) {
-      log.error("No configuration file path provided")
-      println("Usage: Main <config-file-path>")
+    if (args.length == 2) {
+      println("Usage: Main <Linoleum-config-file-path> <Maude-monitor-file-path>")
       System.exit(1)
     }
     
-    if (args.length > 1) {
-      log.error("Too many arguments provided")
-      println("Usage: Main <config-file-path>")
-      System.exit(2)
-    }
-    
-    val configPath = Paths.get(args(0))
+    val linoleumConfigPath = Paths.get(args(0))
+    val monitorConfigPath = Paths.get(args(0))
     
     try {
-      val config = LinoleumConfig.fromPath(configPath)
-      log.info("Linoleum configuration loaded with success from path {}", configPath)
-      log.info("Running Linoleum job {}", config.jobName)
+      val linoleumConfig = LinoleumConfig.fromPath(linoleumConfigPath)
+      log.info("Configurations loaded with success from paths {} and {}", linoleumConfigPath, monitorConfigPath)
+      log.info("Running Linoleum job {}", linoleumConfig.jobName)
       // TODO: load maude monitor configuration from YAML
-      // FIXME: Linoleum.execute(config)
+      // FIXME: Linoleum.execute(linoleumConfig, monitorConfig)
 
     } catch {
       case e: Exception =>
-        log.error("error loading config from path {}", configPath, e)
+        log.error("Failure loading config from from paths {} and {}", linoleumConfigPath, monitorConfigPath, e)
         System.exit(3)
     }
   }
