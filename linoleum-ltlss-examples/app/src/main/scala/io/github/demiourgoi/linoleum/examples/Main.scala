@@ -85,11 +85,11 @@ package object maudeLotrCommon {
       .isBefore(Instant.now().minus(1, ChronoUnit.DAYS))
   }
 
-  val stateConfig = MaudeMonitor.StateConfig(
+  val stateConfig = Some(MaudeMonitor.StateConfig(
     ttl = Duration.ofDays(1),
     // note Linoleum refreshes TTL on state read
     shouldIgnoreWindow = shouldIgnoreWindowOlderThanOneDay
-  )
+  ))
 }
 
 package object maudeLotrImageGenSafetyMonitor {
@@ -114,6 +114,7 @@ package object maudeLotrImageGenSafetyMonitor {
       // trace spans, not only the root spans, and that way Flink is able to group
       // all spans by the lotrbot chat id
       keyBy = KeyByStringSpanAttribute("lotrbot.chat_id"),
+      stateConfig=stateConfig,
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)
@@ -167,6 +168,7 @@ package object maudeLotrBombadilLivenessMonitor {
         "maude/json/json.maude"
       ),
       rlHooks = List((IsPoliteTextOpHook.hookOpName, IsPoliteTextOpHook.apply)),
+      stateConfig=stateConfig,
       config = MaudeMonitor.EvaluationConfig(
         messageRewriteBound = 100,
         sessionGap = Duration.ofSeconds(5)
