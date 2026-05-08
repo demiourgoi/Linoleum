@@ -3,7 +3,6 @@ package io.github.demiourgoi.linoleum
 import java.time.Duration
 import java.nio.file.Path
 
-// TODO fields and YAML serde
 package object config {
   case class SourceConfig(
       kafkaBootstrapServers: String = "localhost:9092",
