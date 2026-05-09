@@ -3,7 +3,7 @@ package io.github.demiourgoi.linoleum.config
 import java.time.Duration
 import java.nio.file.Path
 
-import io.github.demiourgoi.linoleum.maude.{KeyByTraceId, MaudeMonitor}
+import io.github.demiourgoi.linoleum.maude.{KeyByTraceId, KeyByStringSpanAttribute, MaudeMonitor}
 import es.ucm.maude.bindings.{Hook => MaudeHook}
 import io.github.demiourgoi.linoleum.messages.LinoleumEvent
 
@@ -27,6 +27,13 @@ package object monitor {
       ttlSeconds: Long,
       shouldIgnoreWindowFqn: String = ""
   )
+
+  /** YAML-friendly representation of KeyByCriteria for PureConfig deserialization. */
+  sealed trait KeyByCriteriaConfig
+  object KeyByCriteriaConfig {
+    case object TraceId extends KeyByCriteriaConfig
+    case class ByStringAttribute(key: String) extends KeyByCriteriaConfig
+  }
 
   /** YAML-friendly representation of MaudeMonitor.EvaluationConfig. */
   case class EvaluationConfigConfig(
@@ -61,9 +68,6 @@ package object monitor {
     * All fields are primitive/collection types so `pureconfig.generic.auto._`
     * can derive readers automatically. Functions (hooks, shouldIgnoreWindow)
     * are represented as FQN strings and resolved at runtime via reflection.
-    *
-    * `keyBy` is NOT parsed from YAML yet; it always defaults to `KeyByTraceId`.
-    * TODO: support KeyByCriteriaConfig in YAML.
     */
   case class MaudeMonitorConfig(
       name: String,
@@ -72,6 +76,7 @@ package object monitor {
       monitorOid: String,
       initialSoup: String,
       property: String,
+      keyBy: KeyByCriteriaConfig = KeyByCriteriaConfig.TraceId,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
       eqHooks: List[HookConfig] = List.empty,
@@ -127,8 +132,10 @@ package object monitor {
         monitorOid = monitorOid,
         initialSoup = initialSoup,
         property = property,
-        // TODO: parse keyBy from YAML; always default to KeyByTraceId for now
-        keyBy = KeyByTraceId,
+        keyBy = keyBy match {
+          case KeyByCriteriaConfig.TraceId => KeyByTraceId
+          case KeyByCriteriaConfig.ByStringAttribute(key) => KeyByStringSpanAttribute(key)
+        },
         dependencyPrograms = dependencyPrograms,
         dependencyStdlibPrograms = dependencyStdlibPrograms,
         eqHooks = resolvedEqHooks,

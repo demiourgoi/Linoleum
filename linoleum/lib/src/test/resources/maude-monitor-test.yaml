@@ -1,0 +1,20 @@
+name: "Test Maude Monitor"
+program: "maude/lotrbot_imagegen_safety.maude"
+module: "LOTRBOT-IMAGE-SAFETY"
+monitorOid: "monitor"
+initialSoup: "< monitor : Monitor | state : initial >"
+property: "safe"
+keyBy:
+  type: "by-string-attribute"
+  key: "agent.name"
+dependencyPrograms: []
+dependencyStdlibPrograms: []
+eqHooks: []
+rlHooks: []
+stateConfig:
+  ttlSeconds: 3600
+  shouldIgnoreWindowFqn: ""
+config:
+  messageRewriteBound: 100
+  sessionGapSeconds: 300
+  allowedLatenessSeconds: 0

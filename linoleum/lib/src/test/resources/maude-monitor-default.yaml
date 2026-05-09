@@ -1,0 +1,18 @@
+name: "Test Maude Monitor Default"
+program: "maude/lotrbot_imagegen_safety.maude"
+module: "LOTRBOT-IMAGE-SAFETY"
+monitorOid: "monitor"
+initialSoup: "< monitor : Monitor | state : initial >"
+property: "safe"
+# keyBy is omitted, so it defaults to trace-id
+dependencyPrograms: []
+dependencyStdlibPrograms: []
+eqHooks: []
+rlHooks: []
+stateConfig:
+  ttlSeconds: 3600
+  shouldIgnoreWindowFqn: ""
+config:
+  messageRewriteBound: 100
+  sessionGapSeconds: 300
+  allowedLatenessSeconds: 0
