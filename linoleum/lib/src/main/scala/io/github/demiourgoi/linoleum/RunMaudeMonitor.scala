@@ -20,10 +20,10 @@ object RunMaudeMonitor {
     
     try {
       val linoleumConfig = LinoleumConfig.fromPath(linoleumConfigPath)
-      // val monitorConfig = MaudeMonitorConfig.fromPath(monitorConfigPath)
-      // log.info("Configurations loaded with success from paths {} and {}", linoleumConfigPath, monitorConfigPath)
-      // log.info("Running Linoleum job {}", linoleumConfig.jobName)
-      // Linoleum.execute(linoleumConfig, monitorConfig)
+      val monitorConfig = MaudeMonitorConfig.fromPath(monitorConfigPath)
+      log.info("Configurations loaded with success from paths {} and {}", linoleumConfigPath, monitorConfigPath)
+      log.info("Running Linoleum job {}", linoleumConfig.jobName)
+      Linoleum.execute(linoleumConfig, monitorConfig)
 
     } catch {
       case e: Exception =>
