@@ -3,13 +3,13 @@ package io.github.demiourgoi.linoleum.config
 import java.time.Duration
 import java.nio.file.Path
 
-import io.github.demiourgoi.linoleum.maude.{
-  KeyByTraceId,
-  MaudeMonitor
-}
+import io.github.demiourgoi.linoleum.maude.{KeyByTraceId, MaudeMonitor}
 import es.ucm.maude.bindings.{Hook => MaudeHook}
 import io.github.demiourgoi.linoleum.messages.LinoleumEvent
 
+// Note: pureconfig throws a stackoverflow at build when there are nested Options. So when needed use zero values (in the Golang sense, e.g. an
+// empty string) to encode None values
+// Note: pureconfig cannot handle Java Duration, so we use seconds for durations
 package object monitor {
 
   /** YAML-friendly representation of a Maude hook entry. */
@@ -20,18 +20,15 @@ package object monitor {
 
   /** YAML-friendly representation of MaudeMonitor.StateConfig.
     *
-    * Differs from the runtime type in that `shouldIgnoreWindow` is a
-    * fully qualified name of a static method instead of a function value.
+    * Differs from the runtime type in that `shouldIgnoreWindow` is a fully
+    * qualified name of a static method instead of a function value.
     */
   case class StateConfigConfig(
-      // Note: pureconfig cannot handle Java Duration
       ttlSeconds: Long,
-      // Note: pureconfig throws a stackoverflow at build when there are nested Option
-      // so here "" represents None
       shouldIgnoreWindowFqn: String = ""
   )
 
-  // /** YAML-friendly representation of MaudeMonitor.EvaluationConfig. */
+  /** YAML-friendly representation of MaudeMonitor.EvaluationConfig. */
   case class EvaluationConfigConfig(
       messageRewriteBound: Int = 100,
       sessionGapSeconds: Long,
@@ -45,13 +42,21 @@ package object monitor {
 
     def fromPath(path: Path): MaudeMonitor = {
       val config = YamlConfigSource
-         .file(path)
-         .load[MaudeMonitorConfig]
-      ???
+        .file(path)
+        .load[MaudeMonitorConfig]
+        .fold(
+          errors =>
+            throw new RuntimeException(
+              s"Failed to parse MaudeMonitor YAML from $path: ${errors.prettyPrint()}"
+            ),
+          config => config
+        )
+      config.toMaudeMonitor
     }
   }
 
-  /** YAML-friendly representation of MaudeMonitor for PureConfig deserialization.
+  /** YAML-friendly representation of MaudeMonitor for PureConfig
+    * deserialization.
     *
     * All fields are primitive/collection types so `pureconfig.generic.auto._`
     * can derive readers automatically. Functions (hooks, shouldIgnoreWindow)
@@ -99,16 +104,21 @@ package object monitor {
       val className = fqn.substring(0, lastDot)
       val methodName = fqn.substring(lastDot + 1)
       val clazz = Class.forName(className)
-      val method = clazz.getMethod(methodName, classOf[String], classOf[List[_]])
+      val method =
+        clazz.getMethod(methodName, classOf[String], classOf[List[_]])
       (key: String, events: List[LinoleumEvent]) =>
         method.invoke(null, key, events).asInstanceOf[Boolean]
     }
 
     def toMaudeMonitor: MaudeMonitor = {
       val resolvedEqHooks: List[(String, () => MaudeHook)] =
-        eqHooks.map(hc => (hc.operatorName, resolveHookSupplier(hc.hookSupplierFqn)))
+        eqHooks.map(hc =>
+          (hc.operatorName, resolveHookSupplier(hc.hookSupplierFqn))
+        )
       val resolvedRlHooks: List[(String, () => MaudeHook)] =
-        rlHooks.map(hc => (hc.operatorName, resolveHookSupplier(hc.hookSupplierFqn)))
+        rlHooks.map(hc =>
+          (hc.operatorName, resolveHookSupplier(hc.hookSupplierFqn))
+        )
 
       MaudeMonitor(
         name = name,
@@ -123,14 +133,13 @@ package object monitor {
         dependencyStdlibPrograms = dependencyStdlibPrograms,
         eqHooks = resolvedEqHooks,
         rlHooks = resolvedRlHooks,
-        // stateConfig = stateConfig.map { sc =>
-        //   MaudeMonitor.StateConfig(
-        //     ttl = sc.ttl,
-        //     shouldIgnoreWindow = sc.shouldIgnoreWindowFqn
-        //       .map(resolveShouldIgnoreWindow)
-        //       .getOrElse((_, _) => false)
-        //   )
-        // },
+        stateConfig = stateConfig.map { sc =>
+          MaudeMonitor.StateConfig(
+            ttl = Duration.ofSeconds(sc.ttlSeconds),
+            shouldIgnoreWindow =
+              resolveShouldIgnoreWindow(sc.shouldIgnoreWindowFqn)
+          )
+        },
         config = MaudeMonitor.EvaluationConfig(
           messageRewriteBound = config.messageRewriteBound,
           sessionGap = Duration.ofSeconds(config.sessionGapSeconds),
@@ -139,23 +148,4 @@ package object monitor {
       )
     }
   }
-
-  // object MaudeMonitorConfig {
-  //   import pureconfig._
-  //   import pureconfig.generic.auto._
-  //   import pureconfig.module.yaml._
-
-  //   def fromPath(path: java.nio.file.Path): MaudeMonitor = {
-  //     val config = YamlConfigSource
-  //       .file(path)
-  //       .load[MaudeMonitorConfig]
-  //       .fold(
-  //         errors => throw new RuntimeException(
-  //           s"Failed to parse MaudeMonitor YAML from $path: ${errors.prettyPrint()}"
-  //         ),
-  //         config => config
-  //       )
-  //     config.toMaudeMonitor
-  //   }
-  // }
 }
