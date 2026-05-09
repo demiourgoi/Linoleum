@@ -1,20 +1,22 @@
 name: "Test Maude Monitor"
 program: "maude/lotrbot_imagegen_safety.maude"
 module: "LOTRBOT-IMAGE-SAFETY"
-monitorOid: "monitor"
-initialSoup: "< monitor : Monitor | state : initial >"
+monitor-oid: "monitor"
+initial-soup: "< monitor : Monitor | state : initial >"
 property: "safe"
-keyBy:
+key-by:
   type: "by-string-attribute"
   key: "agent.name"
-dependencyPrograms: []
-dependencyStdlibPrograms: []
-eqHooks: []
-rlHooks: []
-stateConfig:
-  ttlSeconds: 3600
-  shouldIgnoreWindowFqn: ""
+dependency-programs: []
+dependency-stdlib-programs: []
+eq-hooks:
+  - operator-name: "testOp"
+    hook-supplier-fqn: "io.github.demiourgoi.linoleum.config.monitor.MaudeMonitorConfigTest.getHook"
+rl-hooks: []
+state-config:
+  ttl-seconds: 3600
+  should-ignore-window-fqn: "io.github.demiourgoi.linoleum.config.monitor.MaudeMonitorConfigTest.shouldIgnoreWindow"
 config:
-  messageRewriteBound: 100
-  sessionGapSeconds: 300
-  allowedLatenessSeconds: 0
+  message-rewrite-bound: 100
+  session-gap-seconds: 300
+  allowed-lateness-seconds: 0

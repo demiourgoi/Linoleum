@@ -144,7 +144,10 @@ package object monitor {
           MaudeMonitor.StateConfig(
             ttl = Duration.ofSeconds(sc.ttlSeconds),
             shouldIgnoreWindow =
-              resolveShouldIgnoreWindow(sc.shouldIgnoreWindowFqn)
+              if (sc.shouldIgnoreWindowFqn.nonEmpty)
+                resolveShouldIgnoreWindow(sc.shouldIgnoreWindowFqn)
+              else
+                (_, _) => false
           )
         },
         config = MaudeMonitor.EvaluationConfig(
