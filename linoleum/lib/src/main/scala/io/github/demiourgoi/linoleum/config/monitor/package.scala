@@ -93,9 +93,12 @@ package object monitor {
         )
       val className = fqn.substring(0, lastDot)
       val methodName = fqn.substring(lastDot + 1)
-      val clazz = Class.forName(className)
-      val method = clazz.getMethod(methodName)
-      () => method.invoke(null).asInstanceOf[MaudeHook]
+      new (() => MaudeHook) with Serializable {
+        @transient private lazy val cachedMethod: java.lang.reflect.Method = {
+          Class.forName(className).getMethod(methodName)
+        }
+        def apply(): MaudeHook = cachedMethod.invoke(null).asInstanceOf[MaudeHook]
+      }
     }
 
     private def resolveShouldIgnoreWindow(
@@ -108,11 +111,13 @@ package object monitor {
         )
       val className = fqn.substring(0, lastDot)
       val methodName = fqn.substring(lastDot + 1)
-      val clazz = Class.forName(className)
-      val method =
-        clazz.getMethod(methodName, classOf[String], classOf[List[_]])
-      (key: String, events: List[LinoleumEvent]) =>
-        method.invoke(null, key, events).asInstanceOf[Boolean]
+      new ((String, List[LinoleumEvent]) => Boolean) with Serializable {
+        @transient private lazy val cachedMethod: java.lang.reflect.Method = {
+          Class.forName(className).getMethod(methodName, classOf[String], classOf[List[_]])
+        }
+        def apply(key: String, events: List[LinoleumEvent]): Boolean =
+          cachedMethod.invoke(null, key, events).asInstanceOf[Boolean]
+      }
     }
 
     def toMaudeMonitor: MaudeMonitor = {
