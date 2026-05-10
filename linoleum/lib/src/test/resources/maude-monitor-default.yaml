@@ -4,7 +4,7 @@ module: "LOTRBOT-IMAGE-SAFETY"
 monitor-oid: "monitor"
 initial-soup: "< monitor : Monitor | state : initial >"
 property: "safe"
-# key-by is omitted, so it defaults to trace-id
+# key-by is omitted, so it defaults to by-trace-id
 dependency-programs: []
 dependency-stdlib-programs: []
 eq-hooks: []

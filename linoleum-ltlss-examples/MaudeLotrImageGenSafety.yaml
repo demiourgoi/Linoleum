@@ -1,0 +1,15 @@
+name: "lotrbot does not spend too much time generating images"
+program: "maude/lotrbot_imagegen_safety.maude"
+module: "IMAGEGEN-SAFETY-PROPS"
+monitor-oid: 'mon("safety")'
+initial-soup: 'initConfig(mon("safety"))'
+property: "imageGenUsageWithinLimits"
+key-by:
+  type: "by-string-span-attribute"
+  key: "lotrbot.chat_id"
+state-config:
+  ttl-seconds: 86400
+config:
+  message-rewrite-bound: 100
+  session-gap-seconds: 5
+  allowed-lateness-seconds: 0

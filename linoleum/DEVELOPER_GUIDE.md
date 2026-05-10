@@ -94,13 +94,10 @@ cd ../linoleum-ltlss-examples
 source ~/.lotrbot.env
 
 ### Maude image generation safety example
-make clean run EXAMPLE=MaudeLotrImageGenSafety 2>&1 | tee run.log
+make clean run EXAMPLE=MaudeLotrImageGenSafety.yaml 2>&1 | tee run.log
 ### Maude bombadil rage liveness example: note we need Mistral credentials to evaluate the politeness of the answers from Maude
 source ~/.lotrbot.env
-make clean run EXAMPLE=MaudeLotrBombadilLiveness 2>&1 | tee run.log
-
-### Sscheck basic liveness example
-make clean run EXAMPLE=SscheckBasicLiveness 2>&1 | tee run.log
+make clean run EXAMPLE=MaudeLotrBombadilLiveness.yaml 2>&1 | tee run.log
 
 # 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes

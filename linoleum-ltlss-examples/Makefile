@@ -50,6 +50,12 @@ build:	### build app (this also runs unit tests)
 	$(GRADLE) build
 	echo "See app jar at $(ROOT_DIR)/app/build/libs/*.jar"
 
+# For code base approach to main set `mainClass = "io.github.demiourgoi.linoleum.examples.Main"`
+# on app/build.gradle
 # Example: make run EXAMPLE=MaudeLotrImageGenSafety
+# run: ### run app with example flags
+# 	$(GRADLE) run --args "$${EXAMPLE}"
+
+# For YAML based approach 
 run: ### run app with example flags
-	$(GRADLE) run --args "$${EXAMPLE}"
+	$(GRADLE) run --args " $$(pwd)/LocalLinoleumConfig.yaml $$(pwd)/$${EXAMPLE}"

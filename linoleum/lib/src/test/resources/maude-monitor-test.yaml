@@ -5,7 +5,7 @@ monitor-oid: "monitor"
 initial-soup: "< monitor : Monitor | state : initial >"
 property: "safe"
 key-by:
-  type: "by-string-attribute"
+  type: "by-string-span-attribute"
   key: "agent.name"
 dependency-programs: []
 dependency-stdlib-programs: []

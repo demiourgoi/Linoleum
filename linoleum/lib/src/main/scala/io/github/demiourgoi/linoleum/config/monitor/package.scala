@@ -31,8 +31,8 @@ package object monitor {
   /** YAML-friendly representation of KeyByCriteria for PureConfig deserialization. */
   sealed trait KeyByCriteriaConfig
   object KeyByCriteriaConfig {
-    case object TraceId extends KeyByCriteriaConfig
-    case class ByStringAttribute(key: String) extends KeyByCriteriaConfig
+    case object ByTraceId extends KeyByCriteriaConfig
+    case class ByStringSpanAttribute(key: String) extends KeyByCriteriaConfig
   }
 
   /** YAML-friendly representation of MaudeMonitor.EvaluationConfig. */
@@ -76,7 +76,7 @@ package object monitor {
       monitorOid: String,
       initialSoup: String,
       property: String,
-      keyBy: KeyByCriteriaConfig = KeyByCriteriaConfig.TraceId,
+      keyBy: KeyByCriteriaConfig = KeyByCriteriaConfig.ByTraceId,
       dependencyPrograms: List[String] = List.empty,
       dependencyStdlibPrograms: List[String] = List.empty,
       eqHooks: List[HookConfig] = List.empty,
@@ -133,8 +133,8 @@ package object monitor {
         initialSoup = initialSoup,
         property = property,
         keyBy = keyBy match {
-          case KeyByCriteriaConfig.TraceId => KeyByTraceId
-          case KeyByCriteriaConfig.ByStringAttribute(key) => KeyByStringSpanAttribute(key)
+          case KeyByCriteriaConfig.ByTraceId => KeyByTraceId
+          case KeyByCriteriaConfig.ByStringSpanAttribute(key) => KeyByStringSpanAttribute(key)
         },
         dependencyPrograms = dependencyPrograms,
         dependencyStdlibPrograms = dependencyStdlibPrograms,
