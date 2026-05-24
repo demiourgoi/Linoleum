@@ -1,0 +1,19 @@
+# https://prometheus.io/docs/prometheus/latest/configuration/configuration/
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Scrape the PushGateway, which receives Flink metrics pushed by the
+  # PrometheusPushGatewayReporter configured in the Scala source code.
+  - job_name: "linoleum-flink-pushgateway"
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["pushgateway:9091"]
+        labels:
+          service: linoleum
+
+  # Scrape the Prometheus itself for its own metrics (optional but useful).
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

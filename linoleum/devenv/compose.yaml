@@ -65,6 +65,27 @@ services:
       - MONGO_HOST=mongodb
     command: bash /usr/share/mongosh/setup_db.sh
 
+  # Prometheus PushGateway — Flink pushes metrics here via the
+  # PrometheusPushGatewayReporter (configured in source/package.scala).
+  # Scraped by Prometheus server below.
+  pushgateway:
+    container_name: pushgateway-local
+    image: prom/pushgateway:v1.11.0
+    ports:
+      - 9091:9091
+
+  # Prometheus server — scrapes the PushGateway and stores metrics.
+  # Web UI at http://localhost:9094
+  prometheus:
+    container_name: prometheus-local
+    image: prom/prometheus:v3.4.0
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - 9094:9090
+    volumes:
+      - ${PWD}/devenv/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:Z
+
   # Note avoiding host ports 4317 and 4318 to avoid collision with OTEL Collector, vs
   # typical values as in https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/
   # https://www.jaegertracing.io/docs/2.3/getting-started/#all-in-one

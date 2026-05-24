@@ -38,6 +38,7 @@ package source {
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
       val config = new Configuration()
       addSerdeOptions(config)
+      addPrometheusReporter(config)
       val env = if (linolenumCfg.localFlinkEnv) {
         // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
         log.warn("Open Flink web UI at http://localhost:8081/#/overview")
@@ -56,6 +57,28 @@ package source {
           s"io.github.demiourgoi.linoleum.messages.SpanInfo: $protoSerdeOption"
         ).asJava
       )
+      config
+    }
+
+    /** Configures the PrometheusPushGateway reporter for Flink metrics.
+      *
+      * This pushes metrics via the PushGateway protocol, which requires the
+      * Prometheus PushGateway service to be running (typically on port 9091).
+      *
+      * See:
+      * https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/deployment/metric_reporters/#prometheuspushgateway
+      * https://nightlies.apache.org/flink/flink-docs-release-1.20/ops/metrics.html#prometheus-orgapacheflinkmetricsprometheusprometheuspushgatewayreporter
+      */
+    private def addPrometheusReporter(config: Configuration): Configuration = {
+      val reporterPrefix = "metrics.reporter.prom"
+      // PushGateway reporter — default port 9091
+      config.setString(s"$reporterPrefix.class", "org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporter")
+      config.setString(s"$reporterPrefix.host", "localhost")
+      config.setString(s"$reporterPrefix.port", "9091")
+      // Use the job name as a grouping key so that different jobs appear as distinct metric families
+      config.setString(s"$reporterPrefix.jobName", "linoleum")
+      // Replace random Kafka group id chars that would create new PushGateway metric groups on each restart
+      config.setString(s"$reporterPrefix.randomJobNameSuffix", "true")
       config
     }
   }

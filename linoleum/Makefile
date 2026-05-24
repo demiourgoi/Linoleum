@@ -87,6 +87,8 @@ compose/start: compose/stop   ### launch all dev containers using the compose fi
 	echo "See Jaeger UI at http://localhost:16686"
 	echo "   - Note traces in Jaeger are different than in OTEL: attributes are tags events are logs"
 	echo "See Kafka UI at  http://localhost:9090"
+	echo "See Prometheus UI at http://localhost:9094"
+	echo "   - Query Flink metrics like linoleum_span_info_input_per_second"
 	echo "Use MongoDB Compass UI to connect to mongoDB at mongodb://localhost:27017"
  
 compose/stop:  ### stop amnd delete all dev containers using the compose file

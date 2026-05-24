@@ -3,6 +3,8 @@ package io.github.demiourgoi.linoleum
 import scala.jdk.CollectionConverters._
 import scala.collection.mutable.ListBuffer
 
+import org.apache.flink.metrics.{Meter, MeterView}
+import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows
@@ -1184,6 +1186,30 @@ package evaluator {
         extends ProcessWindowFunction[SpanInfo, EvaluatedSpans, String, W] {
       import messages._
 
+      // Performance meters - metric names follow Prometheus naming conventions:
+      // _per_second suffix because Meter exposes a rate (events/sec), not a counter
+      // flat snake_case with linoleum_ prefix as namespace
+      // See https://prometheus.io/docs/practices/naming/
+      @transient private var inputMeter: Meter = _
+      @transient private var outputMeter: Meter = _
+
+      override def open(config: Configuration): Unit = {
+        super.open(config)
+        val metricsGroup = getRuntimeContext().getMetricGroup()
+          .addGroup("linoleum")
+          .addGroup("evaluator")
+        // MeterView(60) gives a 1-minute sliding window rate average (events/sec),
+        // smoothing out short spikes for stable throughput trending
+        inputMeter = metricsGroup.meter(
+          "linoleum_span_info_input_per_second",
+          new MeterView(60)
+        )
+        outputMeter = metricsGroup.meter(
+          "linoleum_evaluated_spans_output_per_second",
+          new MeterView(60)
+        )
+      }
+
       override def process(
           key: String,
           context: ProcessWindowsCtx[W],
@@ -1192,7 +1218,8 @@ package evaluator {
       ): Unit = {
         import PropertySyntax.PropertyOps
         val property = params.property
-        val events = collectEvents(spanInfos)
+        val (events, inputCount) = collectEventsWithCount(spanInfos)
+        inputMeter.markEvent(inputCount)
         val orderedEvents = events.sorted(linoleumEventOrdering).toList
 
         if (property.shouldIgnoreWindow(key, orderedEvents)) {
@@ -1219,6 +1246,7 @@ package evaluator {
             key,
             evaluatedSpans
           )
+          outputMeter.markEvent()
           out.collect(evaluatedSpans)
         }
       }
@@ -1247,14 +1275,16 @@ package evaluator {
         orderedEvents
       }
 
-      private[evaluator] def collectEvents(
+      private[evaluator] def collectEventsWithCount(
           spanInfos: jlang.Iterable[SpanInfo]
-      ): ListBuffer[LinoleumEvent] = {
+      ): (ListBuffer[LinoleumEvent], Long) = {
         val events = new ListBuffer[LinoleumEvent]
         val seenSpans = new util.HashSet[ByteString]()
         val eventFactories = List(SpanStart, SpanEnd)
+        var inputCount = 0L
 
         spanInfos.forEach { spanInfo =>
+          inputCount += 1
           val spanId = spanInfo.getSpan.getSpanId
           if (seenSpans.contains(spanId)) {
             log.warn("Skipping duplicate occurrence of span {}", spanInfo)
@@ -1270,7 +1300,7 @@ package evaluator {
             events.addAll(eventFactories.map { _.apply(spanInfo) })
           }
         }
-        events
+        (events, inputCount)
       }
 
       @Deprecated

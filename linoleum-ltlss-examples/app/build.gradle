@@ -98,6 +98,9 @@ dependencies {
     }
     implementation "com.google.protobuf:protobuf-java:3.25.6"
 
+    // Flink Prometheus PushGateway reporter for metrics
+    implementation "org.apache.flink:flink-metrics-prometheus:${flinkVersion}"
+
 
     // --------------------------------------------------------------
     // Compile-time dependencies that should NOT be part of the
