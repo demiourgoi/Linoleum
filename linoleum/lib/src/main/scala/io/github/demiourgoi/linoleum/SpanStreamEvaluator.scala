@@ -395,7 +395,7 @@ package object maude {
           .zipWithIndex
           .map { case (event, index) =>
             val eventId = s"$spanOid/$index"
-            s"""| < event("$eventId") : Event | 
+            s"""| < event("$eventId") : Event |
               | timeUnixNano : ${event.getTimeUnixNano()},
               | name : "${event.getName()}",
               | attributes : ${spanAttributesToMaude(event.getAttributesList())}
@@ -404,15 +404,15 @@ package object maude {
           .mkString(", ")
 
     s"""| < span("$spanOid") : Span |
-              | traceId : "$traceId", 
+              | traceId : "$traceId",
               | spanId : "$spanId",
-              | parentSpanId : "$parentSpanId", 
-              | name : "${span.getName()}", 
+              | parentSpanId : "$parentSpanId",
+              | name : "${span.getName()}",
               | startTimeUnixNano : ${span.getStartTimeUnixNano()},
               | endTimeUnixNano : ${span.getEndTimeUnixNano()},
               | attributes : ${spanAttributesToMaude(
          span.getAttributesList()
-       )}, 
+       )},
               | events : $events
           | > """.stripMargin.replaceAll("[\r\n]", "")
   }
@@ -818,10 +818,10 @@ object PropertyInstances extends Serializable {
       mon.dependencyPrograms.foreach(MaudeModules.loadProgram)
       (mon.dependencyStdlibPrograms.toSet + "model-checker.maude")
         .foreach(MaudeModules.loadStdLibProgram)
-      mon.eqHooks.foreach{case (operatorName, hookThunk) => 
+      mon.eqHooks.foreach{case (operatorName, hookThunk) =>
         MaudeModules.connectEqHook(operatorName, hookThunk())
       }
-      mon.rlHooks.foreach{case (operatorName, hookThunk) => 
+      mon.rlHooks.foreach{case (operatorName, hookThunk) =>
         MaudeModules.connectRlHook(operatorName, hookThunk())
       }
       val monitorModule = MaudeModules.loadModule(mon.program, mon.module)
@@ -1192,6 +1192,7 @@ package evaluator {
       // See https://prometheus.io/docs/practices/naming/
       @transient private var inputMeter: Meter = _
       @transient private var outputMeter: Meter = _
+      @transient private var spansProcessedMeter: Meter = _
 
       override def open(config: Configuration): Unit = {
         super.open(config)
@@ -1206,6 +1207,10 @@ package evaluator {
         )
         outputMeter = metricsGroup.meter(
           "linoleum_evaluated_spans_output_per_second",
+          new MeterView(60)
+        )
+        spansProcessedMeter = metricsGroup.meter(
+          "linoleum_spans_processed_per_second",
           new MeterView(60)
         )
       }
@@ -1247,6 +1252,7 @@ package evaluator {
             evaluatedSpans
           )
           outputMeter.markEvent()
+          spansProcessedMeter.markEvent(inputCount)
           out.collect(evaluatedSpans)
         }
       }
