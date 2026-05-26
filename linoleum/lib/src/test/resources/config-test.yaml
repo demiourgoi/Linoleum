@@ -14,3 +14,7 @@ sink:
     mongo-batch-interval-ms: 500
     mongo-max-retries: 5
   log-maude-terms: true
+prometheus:
+  host: "prometheus.example.com"
+  port: 9099
+  job-name: "test-prometheus-job"

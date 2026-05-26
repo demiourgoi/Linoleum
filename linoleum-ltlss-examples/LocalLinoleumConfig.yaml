@@ -14,3 +14,7 @@ sink:
     mongo-batch-interval-ms: 1000
     mongo-max-retries: 3
   log-maude-terms: true
+prometheus:
+  host: "localhost"
+  port: 9091
+  job-name: "linoleum"

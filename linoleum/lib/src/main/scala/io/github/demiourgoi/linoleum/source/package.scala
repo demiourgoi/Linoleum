@@ -22,7 +22,7 @@ import java.time.Duration
 import scala.jdk.CollectionConverters._
 
 import messages.SpanInfo
-import config.LinoleumConfig
+import config.{LinoleumConfig, PrometheusReporterConfig}
 import io.opentelemetry.proto.trace.v1.Span
 
 package object source {
@@ -38,7 +38,7 @@ package source {
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
       val config = new Configuration()
       addSerdeOptions(config)
-      addPrometheusReporter(config)
+      addPrometheusReporter(linolenumCfg.prometheus, config)
       val env = if (linolenumCfg.localFlinkEnv) {
         // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
         log.warn("Open Flink web UI at http://localhost:8081/#/overview")
@@ -69,14 +69,13 @@ package source {
       * https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/deployment/metric_reporters/#prometheuspushgateway
       * https://nightlies.apache.org/flink/flink-docs-release-1.20/ops/metrics.html#prometheus-orgapacheflinkmetricsprometheusprometheuspushgatewayreporter
       */
-    private def addPrometheusReporter(config: Configuration): Configuration = {
+    private def addPrometheusReporter(promCfg: PrometheusReporterConfig, config: Configuration): Configuration = {
       val reporterPrefix = "metrics.reporter.prom"
-      // PushGateway reporter — default port 9091
       config.setString(s"$reporterPrefix.class", "org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporter")
-      config.setString(s"$reporterPrefix.host", "localhost")
-      config.setString(s"$reporterPrefix.port", "9091")
+      config.setString(s"$reporterPrefix.host", promCfg.host)
+      config.setString(s"$reporterPrefix.port", promCfg.port.toString)
       // Use the job name as a grouping key so that different jobs appear as distinct metric families
-      config.setString(s"$reporterPrefix.jobName", "linoleum")
+      config.setString(s"$reporterPrefix.jobName", promCfg.jobName)
       // Replace random Kafka group id chars that would create new PushGateway metric groups on each restart
       config.setString(s"$reporterPrefix.randomJobNameSuffix", "true")
       config

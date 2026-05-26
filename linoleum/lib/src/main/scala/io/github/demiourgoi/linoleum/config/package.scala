@@ -35,6 +35,12 @@ package object config {
       mongoMaxRetries: Int = 3
   )
 
+  case class PrometheusReporterConfig(
+      host: String = "localhost",
+      port: Int = 9091,
+      jobName: String = "linoleum"
+  )
+
   object LinoleumConfig {
     import pureconfig._
     import pureconfig.generic.auto._
@@ -55,6 +61,7 @@ package object config {
       jobName: String,
       localFlinkEnv: Boolean,
       source: SourceConfig = SourceConfig(),
-      sink: SinkConfig = SinkConfig()
+      sink: SinkConfig = SinkConfig(),
+      prometheus: PrometheusReporterConfig = PrometheusReporterConfig()
   )
 }

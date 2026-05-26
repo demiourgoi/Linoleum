@@ -40,6 +40,11 @@ class LinoleumConfigTest extends Specification {
       config.sink.mongoDb.mongoBatchSize must_== 20
       config.sink.mongoDb.mongoBatchIntervalMs must_== 500L
       config.sink.mongoDb.mongoMaxRetries must_== 5
+
+      // Verify Prometheus configuration
+      config.prometheus.host must_== "prometheus.example.com"
+      config.prometheus.port must_== 9099
+      config.prometheus.jobName must_== "test-prometheus-job"
     }
 
     "apply default values when optional fields are omitted" in {
@@ -72,6 +77,11 @@ class LinoleumConfigTest extends Specification {
       config.sink.mongoDb.mongoBatchSize must_== 10
       config.sink.mongoDb.mongoBatchIntervalMs must_== 1000L
       config.sink.mongoDb.mongoMaxRetries must_== 3
+
+      // Verify Prometheus configuration uses defaults
+      config.prometheus.host must_== "localhost"
+      config.prometheus.port must_== 9091
+      config.prometheus.jobName must_== "linoleum"
     }
 
     "throw an exception for non-existent file" in {
