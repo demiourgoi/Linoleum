@@ -36,9 +36,10 @@ package object config {
   )
 
   case class PrometheusReporterConfig(
-      host: String = "localhost",
-      port: Int = 9091,
-      jobName: String = "linoleum"
+      hostUrl: String = "http://localhost:9091",
+      jobName: String = "linoleum",
+      deleteOnShutdown: Boolean = false,
+      interval: String = "1 SECONDS"
   )
 
   object LinoleumConfig {
@@ -47,7 +48,7 @@ package object config {
     import pureconfig.module.yaml._
 
 
-    def fromPath(path: Path): LinoleumConfig = 
+    def fromPath(path: Path): LinoleumConfig =
       YamlConfigSource.file(path).load[LinoleumConfig]
         .fold(
           errors =>

@@ -14,25 +14,25 @@ class LinoleumConfigTest extends Specification {
       // Get the path to the test resource
       val resourceUrl = getClass.getResource("/config-test.yaml")
       resourceUrl must not beNull
-      
+
       val configPath = Paths.get(resourceUrl.toURI)
-      
+
       // Load the configuration
       val config = LinoleumConfig.fromPath(configPath)
-      
+
       // Verify the main configuration
       config.jobName must_== "test-job"
       config.localFlinkEnv must beTrue
-      
+
       // Verify source configuration
       config.source.kafkaBootstrapServers must_== "kafka:9092"
       config.source.kafkaTopics must_== "test-spans"
       config.source.kafkaGroupIdPrefix must_== "test-cg"
       config.source.eventsMaxOutOfOrderness must_== Duration.ofSeconds(1)
-      
+
       // Verify sink configuration
       config.sink.logMaudeTerms must beTrue
-      
+
       // Verify MongoDB configuration
       config.sink.mongoDb.mongoUri must_== "mongodb://test:27017"
       config.sink.mongoDb.mongoDatabase must_== "test-db"
@@ -42,34 +42,35 @@ class LinoleumConfigTest extends Specification {
       config.sink.mongoDb.mongoMaxRetries must_== 5
 
       // Verify Prometheus configuration
-      config.prometheus.host must_== "prometheus.example.com"
-      config.prometheus.port must_== 9099
+      config.prometheus.hostUrl must_== "http://prometheus.example.com:9099"
       config.prometheus.jobName must_== "test-prometheus-job"
+      config.prometheus.deleteOnShutdown must beFalse
+      config.prometheus.interval must_== "5 SECONDS"
     }
 
     "apply default values when optional fields are omitted" in {
       // Get the path to the minimal test resource
       val resourceUrl = getClass.getResource("/config-minimal.yaml")
       resourceUrl must not beNull
-      
+
       val configPath = Paths.get(resourceUrl.toURI)
-      
+
       // Load the configuration
       val config = LinoleumConfig.fromPath(configPath)
-      
+
       // Verify the main configuration
       config.jobName must_== "minimal-job"
       config.localFlinkEnv must beFalse
-      
+
       // Verify source configuration uses defaults
       config.source.kafkaBootstrapServers must_== "localhost:9092"
       config.source.kafkaTopics must_== "otlp_spans"
       config.source.kafkaGroupIdPrefix must_== "linolenum-cg"
       config.source.eventsMaxOutOfOrderness must_== Duration.ofMillis(500)
-      
+
       // Verify sink configuration uses defaults
       config.sink.logMaudeTerms must beFalse
-      
+
       // Verify MongoDB configuration uses defaults
       config.sink.mongoDb.mongoUri must_== "mongodb://localhost:27017"
       config.sink.mongoDb.mongoDatabase must_== "linoleum"
@@ -79,9 +80,10 @@ class LinoleumConfigTest extends Specification {
       config.sink.mongoDb.mongoMaxRetries must_== 3
 
       // Verify Prometheus configuration uses defaults
-      config.prometheus.host must_== "localhost"
-      config.prometheus.port must_== 9091
+      config.prometheus.hostUrl must_== "http://localhost:9091"
       config.prometheus.jobName must_== "linoleum"
+      config.prometheus.deleteOnShutdown must beFalse
+      config.prometheus.interval must_== "1 SECONDS"
     }
 
     "throw an exception for non-existent file" in {
@@ -92,24 +94,24 @@ class LinoleumConfigTest extends Specification {
     "throw an exception for invalid YAML content" in {
       val tempFile = java.io.File.createTempFile("invalid", ".yaml")
       tempFile.deleteOnExit()
-      
+
       // Write invalid YAML content
       val writer = new java.io.PrintWriter(tempFile)
       writer.write("invalid: yaml: content: [unclosed")
       writer.close()
-      
+
       LinoleumConfig.fromPath(tempFile.toPath) must throwA[Exception]
     }
 
     "throw an exception when required fields are missing" in {
       val tempFile = java.io.File.createTempFile("missing", ".yaml")
       tempFile.deleteOnExit()
-      
+
       // Write YAML without required fields
       val writer = new java.io.PrintWriter(tempFile)
       writer.write("source:\n  kafkaBootstrapServers: \"localhost:9092\"")
       writer.close()
-      
+
       LinoleumConfig.fromPath(tempFile.toPath) must throwA[Exception]
     }
   }

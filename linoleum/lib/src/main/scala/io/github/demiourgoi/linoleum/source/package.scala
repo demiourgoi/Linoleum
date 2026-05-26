@@ -71,13 +71,17 @@ package source {
       */
     private def addPrometheusReporter(promCfg: PrometheusReporterConfig, config: Configuration): Configuration = {
       val reporterPrefix = "metrics.reporter.prom"
-      config.setString(s"$reporterPrefix.class", "org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporter")
-      config.setString(s"$reporterPrefix.host", promCfg.host)
-      config.setString(s"$reporterPrefix.port", promCfg.port.toString)
+      // Flink 1.20 uses factory.class with the reporter factory, not the old-style "class" with the reporter class
+      config.setString(s"$reporterPrefix.factory.class", "org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporterFactory")
+      // hostUrl is the single parameter (scheme + host + port), not separate host/port
+      config.setString(s"$reporterPrefix.hostUrl", promCfg.hostUrl)
       // Use the job name as a grouping key so that different jobs appear as distinct metric families
       config.setString(s"$reporterPrefix.jobName", promCfg.jobName)
-      // Replace random Kafka group id chars that would create new PushGateway metric groups on each restart
-      config.setString(s"$reporterPrefix.randomJobNameSuffix", "true")
+      // Do NOT delete metrics on shutdown so that short-lived local jobs leave metrics for Prometheus to scrape
+      config.setBoolean(s"$reporterPrefix.deleteOnShutdown", promCfg.deleteOnShutdown)
+      // Push metrics frequently so that even short-lived local jobs have a chance to push
+      // before finishing. Default is 10s, which is too long for jobs that complete in seconds.
+      config.setString(s"$reporterPrefix.interval", promCfg.interval)
       config
     }
   }
@@ -242,10 +246,10 @@ package object messages {
 
     def shortToString: String
 
-    /** Return a Maude representation of the corresponding message, 
+    /** Return a Maude representation of the corresponding message,
      * targetting the Oid specified, that should be a string for
      * a valid Maude term
-     * 
+     *
      * FIXME this fits better on a case class
     */
     def toMaude(oid: String): String
