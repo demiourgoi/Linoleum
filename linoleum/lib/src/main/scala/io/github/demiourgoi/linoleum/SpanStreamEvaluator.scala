@@ -3,7 +3,7 @@ package io.github.demiourgoi.linoleum
 import scala.jdk.CollectionConverters._
 import scala.collection.mutable.ListBuffer
 
-import org.apache.flink.metrics.{Meter, MeterView}
+import org.apache.flink.metrics.{Counter, Meter, MeterView}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction
@@ -1192,7 +1192,7 @@ package evaluator {
       // See https://prometheus.io/docs/practices/naming/
       @transient private var inputMeter: Meter = _
       @transient private var outputMeter: Meter = _
-      @transient private var spansProcessedMeter: Meter = _
+      @transient private var spansProcessedCounter: Counter = _
 
       override def open(config: Configuration): Unit = {
         super.open(config)
@@ -1209,9 +1209,8 @@ package evaluator {
           "linoleum_evaluated_spans_output_per_second",
           new MeterView(60)
         )
-        spansProcessedMeter = metricsGroup.meter(
-          "linoleum_spans_processed_per_second",
-          new MeterView(60)
+        spansProcessedCounter = metricsGroup.counter(
+          "linoleum_spans_processed_total"
         )
       }
 
@@ -1252,7 +1251,7 @@ package evaluator {
             evaluatedSpans
           )
           outputMeter.markEvent()
-          spansProcessedMeter.markEvent(inputCount)
+          spansProcessedCounter.inc(inputCount)
           out.collect(evaluatedSpans)
         }
       }
