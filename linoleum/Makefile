@@ -88,9 +88,13 @@ compose/start: compose/stop   ### launch all dev containers using the compose fi
 	echo "   - Note traces in Jaeger are different than in OTEL: attributes are tags events are logs"
 	echo "See Kafka UI at  http://localhost:9090"
 	echo "See Prometheus UI at http://localhost:9094"
-	echo "   - Query Flink metrics like linoleum_span_info_input_per_second"
+	echo "   - Metrics list: http://localhost:9094/api/v1/label/__name__/values"
+	echo '   - Processing rate accross all jobs: sum(rate(flink_taskmanager_job_task_operator_linoleum_evaluator_linoleum_spans_processed_total[1m]))'
+	echo '   - Processing rate per job: sum by (job_name) (rate(flink_taskmanager_job_task_operator_linoleum_evaluator_linoleum_spans_processed_total[1m]))'
+	echo "Note: old Kafka messages replayed are ignored by SourceConfig.eventsMaxOutOfOrderness, so the spans processed metric does not increase"
+	echo "See Flink UI at http://localhost:8081/#/overview"
 	echo "Use MongoDB Compass UI to connect to mongoDB at mongodb://localhost:27017"
- 
+
 compose/stop:  ### stop amnd delete all dev containers using the compose file
 	$(PODMAN_COMPOSE) --file $(ROOT_DIR)/devenv/compose.yaml down --remove-orphans
 
@@ -114,7 +118,7 @@ mongodb/container/bash:  ### Run a bash shell in the MongoDB server container
 
 #  netstat -tulpn | grep 27017
 # NOTE: should be the same as in "mongodb" service on devenv/compose.yaml
-# NOTE: using host networking to be able to connect to the port exposed to the 
+# NOTE: using host networking to be able to connect to the port exposed to the
 # host on the compose file
 MONGO_SERVER_IMG := mongodb/mongodb-community-server:7.0.17-rc1-ubi9
 mongoc/container/bash:  ### Run a bash shell a the MongoDB client container
