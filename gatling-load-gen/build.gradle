@@ -1,0 +1,83 @@
+plugins {
+    // Apply the scala Plugin to add support for Scala.
+    id 'scala'
+    // Apply the application plugin to add support for building a CLI application.
+    id 'application'
+}
+
+// artifact properties
+group = 'io.github.demiourgoi'
+version = '0.1.0-SNAPSHOT'
+description = """Linoleum Kafka load generator"""
+
+ext {
+    scalaBinaryVersion = '_2.13'
+    scalaVersion = '2.13.15'
+    linoleumVersion = '0.2.0-SNAPSHOT'
+    gatlingVersion = '3.9.5'
+    gatlingKafkaPluginVersion = '0.12.1'
+    protobufVersion = '3.25.6'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    // linoleum is published here by `make release` in the linoleum project
+    mavenLocal()
+    mavenCentral()
+    // Confluent repo required by gatling-kafka-plugin transitive deps
+    maven {
+        url = uri("https://packages.confluent.io/maven/")
+    }
+}
+
+dependencies {
+    // Scala
+    implementation "org.scala-lang:scala-library:${scalaVersion}"
+
+    // Protobuf — needed at compile time for ByteString, toByteArray, etc.
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+
+    // Linoleum library — provides OTEL proto classes (ExportTraceServiceRequest,
+    // Span, KeyValue, AnyValue, etc.)
+    // Exclude Flink and unrelated transitive deps; we only need the proto classes.
+    implementation("io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}") {
+        exclude group: 'org.apache.flink'
+        exclude group: 'com.twitter'
+        exclude group: 'org.apache.logging.log4j'
+        exclude group: 'org.slf4j'
+        exclude group: 'com.github.pureconfig'
+        exclude group: 'org.mongodb'
+        exclude group: 'es.ucm.maude'
+        exclude group: 'io.github.demiourgoi', module: 'sscheck-core_2.13'
+        exclude group: 'com.google.guava'
+        exclude group: 'org.apache.commons'
+        exclude group: 'com.google.code.gson'
+        // Don't exclude protobuf — we need it
+    }
+
+    // Gatling Kafka plugin — brings its own Gatling and Kafka transitive deps.
+    implementation("ru.tinkoff:gatling-kafka-plugin_2.13:${gatlingKafkaPluginVersion}") {
+        // Exclude only Confluent-specific Avro serializers we don't use.
+        exclude group: 'io.confluent'
+    }
+    // avro4s is 'provided' scope in the plugin POM, so not transitive. Add explicitly.
+    implementation "com.sksamuel.avro4s:avro4s-core_2.13:4.1.1"
+    // Gatling (artifacts do NOT use Scala version suffix)
+    implementation "io.gatling:gatling-core:${gatlingVersion}"
+    implementation "io.gatling.highcharts:gatling-charts-highcharts:${gatlingVersion}"
+    implementation "io.gatling:gatling-app:${gatlingVersion}"
+}
+
+// Apply a specific Java toolchain for Gatling (requires Java 17+)
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'io.github.demiourgoi.linoleum.loadgen.Main'
+}
