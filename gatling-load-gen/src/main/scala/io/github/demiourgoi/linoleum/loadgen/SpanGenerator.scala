@@ -29,12 +29,9 @@ object SpanGenerator {
     System.currentTimeMillis() / 1000
   )
 
-  // Base timestamp for generated spans (reset on each generateRequest call)
-  private val fakeNowNanos = new AtomicLong(
-    System.currentTimeMillis() * 1_000_000L
-  )
-
-  /** Generate one ExportTraceServiceRequest containing a single realistic trace. */
+  /** Generate one ExportTraceServiceRequest containing a single realistic trace.
+    * Uses the current wall-clock time so Flink's watermark doesn't discard the spans.
+    */
   def generateRequest(): ExportTraceServiceRequest = {
     val traceId = randomBytes(16)
     val rootSpanId = randomBytes(8)
@@ -42,7 +39,9 @@ object SpanGenerator {
     val chatSpanId = randomBytes(8)
     val streamSpanId = randomBytes(8)
 
-    val baseTime = fakeNowNanos.getAndAdd(10_000_000_000L) // +10s per request
+    // Use current time as the base; Flink's bounded out-of-orderness is 0.5s.
+    // Spans need timestamps close to now or the watermark discards them.
+    val baseTime = System.currentTimeMillis() * 1_000_000L
     val chatId = s"lotrbot/${java.util.UUID.randomUUID()}/${chatIdCounter.getAndIncrement()}"
 
     ExportTraceServiceRequest
