@@ -56,6 +56,10 @@ build:	### build app (this also runs unit tests)
 # run: ### run app with example flags
 # 	$(GRADLE) run --args "$${EXAMPLE}"
 
-# For YAML based approach 
+# For YAML based approach
+# Increase JVM heap for the Flink mini-cluster via _JAVA_OPTIONS.
+# Override with: make run EXAMPLE=... JAVA_HEAP=24g
+JAVA_HEAP ?= 16g
 run: ### run app with example flags
+	export _JAVA_OPTIONS="-Xmx$(JAVA_HEAP)" && \
 	$(GRADLE) run --args " $$(pwd)/LocalLinoleumConfig.yaml $$(pwd)/$${EXAMPLE}"
