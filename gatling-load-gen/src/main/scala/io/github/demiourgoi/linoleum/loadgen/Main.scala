@@ -20,7 +20,7 @@ import scala.jdk.CollectionConverters._
   */
 object Main {
   private val TOPIC_NAME = "otlp_spans"
-  private val NUM_PARTITIONS = 16
+  private val NUM_PARTITIONS = 32
   private val REPLICATION_FACTOR = 1.toShort
 
   def main(args: Array[String]): Unit = {
