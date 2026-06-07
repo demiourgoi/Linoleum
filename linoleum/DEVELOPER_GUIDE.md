@@ -77,6 +77,11 @@ make -C ../lotrbot run/simple-canned-chat IMAGE_GEN_MIN_SLEEP_SECS=0.1 IMAGE_GEN
 ## Trigger the Tom Bombadil interaction for the liveness example
 make -C ../lotrbot run/bombadil-chat
 
+## Trigger the gatlin load generator
+make -C ../gatling-load-gen clean build
+make -C ../gatling-load-gen run
+
+
 ## Alternatively, generate and replay some traces
 cd ../maude
 rm -rf json_tmp &&  ./generate.sh 10 json_tmp
