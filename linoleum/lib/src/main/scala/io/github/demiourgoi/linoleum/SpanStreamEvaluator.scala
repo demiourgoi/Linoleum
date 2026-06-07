@@ -833,11 +833,13 @@ object PropertyInstances extends Serializable {
         propertyModule.parseTerm(s"""${soup.toString} |= $maudeProperty""")
       checkNotNull(truthTerm)
       truthTerm.reduce()
-      truthTerm.toString match {
+      val result = truthTerm.toString match {
         case "true"  => True
         case "false" => False
         case _       => Undecided
       }
+      truthTerm.delete()
+      result
     }
 
     /** Loads the trace types module, dependency programs, and finally loads and
@@ -936,10 +938,12 @@ object PropertyInstances extends Serializable {
           soupToTruthValue(monitorModule, mon.property)(s)
 
         orderedEvents.foreach { event =>
-          val nextSoup = s"""${event.toMaude(mon.monitorOid)} $soup""""
+          val nextSoup = s"""${event.toMaude(mon.monitorOid)} $soup"""
           log.debug("nextSoup term: parsing {}", nextSoup)
+          val oldSoup = soup
           soup = monitorModule.parseTerm(nextSoup)
           checkNotNull(soup)
+          oldSoup.delete()
           log.debug(
             "nextSoup term parse success: string {} parsed as {}",
             nextSoup,
@@ -957,7 +961,10 @@ object PropertyInstances extends Serializable {
           }
         }
 
-        (getTruthValue(soup), soup.toString)
+        val soupStr = soup.toString
+        val truthValue = getTruthValue(soup)
+        soup.delete()
+        (truthValue, soupStr)
       }
 
       soupState.update(soupStr)

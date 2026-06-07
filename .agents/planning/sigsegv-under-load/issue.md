@@ -115,3 +115,30 @@ Explicitly delete `Symbol`, `Module`, and `Sort` objects created in the hook's `
 4. In `evaluateWithCallback`: delete previous `soup` before reassignment in the loop.
 5. In `soupToTruthValue`: delete `truthTerm` after extracting the result.
 6. Run tests to verify no regressions.
+
+## Implementation notes
+
+Every `parseTerm` call in `evaluateWithCallback` now has a corresponding explicit `delete()`:
+
+| # | Created at | What | Deleted at |
+|---|-----------|------|-----------|
+| 1 | L923: `parseTerm(initialSoup)` | Initial soup | If events exist: as `oldSoup` in 1st iteration (L946). If no events: L966. |
+| 2 | L944: `parseTerm(nextSoup)` (per event) | Each event's new soup | Next iteration's `oldSoup` (L946), except the last → L966 |
+| 3 | L833: `parseTerm(...)` in `soupToTruthValue` | `truthTerm` | L841, inside the method |
+
+### Loop walkthrough
+
+```
+Event 1:  oldSoup=soup(initial)  →  soup=parseTerm(ev1)  →  oldSoup.delete()  ✓
+Event 2:  oldSoup=soup(ev1)      →  soup=parseTerm(ev2)  →  oldSoup.delete()  ✓
+  ...
+Event N:  oldSoup=soup(evN-1)    →  soup=parseTerm(evN)  →  oldSoup.delete()  ✓
+After loop:  soup.toString; getTruthValue(soup); soup.delete()               ✓
+```
+
+If `orderedEvents` is empty:
+```
+soup(initial).toString; getTruthValue(soup); soup.delete()                   ✓
+```
+
+The only edge case where a Term could leak is if `parseTerm` returns null and `checkNotNull(soup)` throws — but this is an unrecoverable parse failure, not the normal execution path.
