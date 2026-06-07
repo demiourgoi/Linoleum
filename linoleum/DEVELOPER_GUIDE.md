@@ -136,7 +136,11 @@ source ~/.lotrbot.env
 make clean run EXAMPLE=MaudeLotrImageGenSafety.yaml
 ```
 
-- Go to http://localhost:9094/query and check the graph for `sum by (job_name) (rate(flink_taskmanager_job_task_operator_linoleum_evaluator_linoleum_spans_processed_total[1m]))`
+- Go to http://localhost:9094/query and check the graph for `sum by (job_name) (rate(flink_taskmanager_job_task_operator_linoleum_evaluator_linoleum_spans_processed_total[1m]))`. This PromQL query measures the throughput of the Linoleum evaluator operator:
+  - **Counter source**: `spansProcessedCounter.inc(inputCount)` at `SpanStreamEvaluator.scala:1297`, where `inputCount` is the number of `SpanInfo` items in the current session window.
+  - **`rate(...[1m])`**: computes the per-second rate of increase of the counter over a sliding 1‑minute window (extrapolated). A graph value of `4200` means ~4,200 __spans per second being processed__ (evaluated, not just received).
+  - **`sum by (job_name)`**: aggregates across all Flink TaskManagers, grouping by the Flink job name. In a local single‑TaskManager setup this is identical to the raw rate.
+  - **Interpretation**: the peak value is the maximum throughput observed. With typically 4 spans per trace, a peak of 4,200 spans/s ≈ 1,000 traces/s evaluated.
 
 
 If the Flink job running locally crashes for some reason, cleanup with:
