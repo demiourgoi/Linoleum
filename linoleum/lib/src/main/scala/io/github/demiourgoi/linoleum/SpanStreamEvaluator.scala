@@ -27,6 +27,7 @@ import com.google.protobuf.ByteString
 import java.time.Duration
 import java.{lang => jlang, util => jutil}
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import com.google.protobuf.Timestamp
 import org.bson.BsonDocument
 
@@ -283,12 +284,45 @@ package object maude {
       runtime
     }
 
+    /** Cache of Maude modules to prevent creating duplicate Java wrappers for
+      * the same underlying native singleton VisibleModule. This keeps the
+      * Java Module wrapper alive for the JVM lifetime, preventing GC from
+      * calling Module.delete() which would free the shared C++ VisibleModule*
+      * (see .agents/planning/sigsegv-under-load/issue.md).
+      *
+      * Key format: "resourcePath/moduleName" (e.g.
+      * "maude/linoleum/trace.maude/TRACE-CLASS-OBJECTS", or
+      * "maude/stdlib/model-checker.maude/SATISFACTION" for stdlib modules).
+      */
+    private val moduleCache =
+      new ConcurrentHashMap[String, MaudeModule]()
+
+    /** Load a Maude program file (if not already loaded) and return the cached
+      * Module wrapper for the given module name.
+      *
+      * @param fullResourcePath
+      *   full resource path for the .maude file (e.g.
+      *   "maude/linoleum/trace.maude" or
+      *   "maude/stdlib/model-checker.maude")
+      * @param moduleName
+      *   name of the Maude module to retrieve
+      */
+    private def cachedLoadModule(
+        fullResourcePath: String,
+        moduleName: String
+    ): MaudeModule = {
+      val key = s"$fullResourcePath/$moduleName"
+      moduleCache.computeIfAbsent(key, _ => {
+        loadProgram(fullResourcePath)
+        jMaude.getModule(moduleName)
+      })
+    }
+
     def loadModule(
         maudeProgramResourcePath: String,
         moduleName: String
     ): MaudeModule = {
-      loadProgram(maudeProgramResourcePath)
-      jMaude.getModule(moduleName)
+      cachedLoadModule(maudeProgramResourcePath, moduleName)
     }
 
     lazy val traceTypesModule: MaudeModule =
@@ -313,8 +347,10 @@ package object maude {
         maudeProgramFileName: String,
         moduleName: String
     ): MaudeModule = {
-      loadStdLibProgram(maudeProgramFileName)
-      jMaude.getModule(moduleName)
+      cachedLoadModule(
+        MaudeRuntime.MAUDE_STDLIB_RESOURCE_PREFIX + maudeProgramFileName,
+        moduleName
+      )
     }
 
     def loadStdLibProgram(
