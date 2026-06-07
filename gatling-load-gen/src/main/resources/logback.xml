@@ -1,0 +1,24 @@
+<configuration>
+    <!-- Suppress Gatling internal DEBUG noise -->
+    <logger name="io.gatling" level="WARN" />
+
+    <!-- Suppress Gatling Kafka plugin DEBUG noise -->
+    <logger name="ru.tinkoff.gatling" level="WARN" />
+
+    <!-- Suppress Kafka client DEBUG noise -->
+    <logger name="org.apache.kafka" level="WARN" />
+
+    <!-- App-level logger -->
+    <logger name="io.github.demiourgoi.linoleum.loadgen" level="INFO" />
+
+    <!-- Root: only show warnings and errors -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE" />
+    </root>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+</configuration>
