@@ -14,19 +14,20 @@ import scala.concurrent.duration._
   * Kafka with a staircase ramp-up pattern.
   *
   * Plateaus: 100 → 500 → 1000 → 5000 → 10000 messages per second.
-  * Each ramp lasts 30 seconds, each plateau hold lasts 60 seconds.
-  *
-  * Phase schedule (seconds from start):
-  *   [0, 30)    ramp 0→100
-  *   [30, 90)   hold 100
-  *   [90, 120)  ramp 100→500
-  *   [120, 180) hold 500
-  *   [180, 210) ramp 500→1000
-  *   [210, 270) hold 1000
-  *   [270, 300) ramp 1000→5000
-  *   [300, 360) hold 5000
-  *   [360, 390) ramp 5000→10000
-  *   [390, 450) hold 10000
+  * Each ramp lasts 30 seconds, each plateau hold lasts 60 seconds
+   * (90 seconds for the 5000 msg/s plateau, 120 seconds for the 10000 msg/s plateau).
+   *
+   * Phase schedule (seconds from start):
+   *   [0, 30)    ramp 0→100
+   *   [30, 90)   hold 100
+   *   [90, 120)  ramp 100→500
+   *   [120, 180) hold 500
+   *   [180, 210) ramp 500→1000
+   *   [210, 270) hold 1000
+   *   [270, 300) ramp 1000→5000
+   *   [300, 390) hold 5000
+   *   [390, 420) ramp 5000→10000
+   *   [420, 540) hold 10000
   */
 class SpanTrafficSimulation extends Simulation {
 
@@ -54,8 +55,8 @@ class SpanTrafficSimulation extends Simulation {
     (210, "plateau: 1000 msg/s"),
     (270, "ramping to 5000 msg/s"),
     (300, "plateau: 5000 msg/s"),
-    (360, "ramping to 10000 msg/s"),
-    (390, "plateau: 10000 msg/s"),
+    (390, "ramping to 10000 msg/s"),
+    (420, "plateau: 10000 msg/s"),
   )
 
   @volatile private var lastLoggedPhase = -1
@@ -110,9 +111,9 @@ class SpanTrafficSimulation extends Simulation {
       rampUsersPerSec(500).to(1000).during(30.seconds),
       constantUsersPerSec(1000).during(60.seconds),
       rampUsersPerSec(1000).to(5000).during(30.seconds),
-      constantUsersPerSec(5000).during(60.seconds),
+      constantUsersPerSec(5000).during(90.seconds),
       rampUsersPerSec(5000).to(10000).during(30.seconds),
-      constantUsersPerSec(10000).during(60.seconds),
+      constantUsersPerSec(10000).during(120.seconds),
     )
   ).protocols(kafkaProtocol)
 }

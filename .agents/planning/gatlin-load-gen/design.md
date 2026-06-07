@@ -20,15 +20,15 @@ manually run lotrbot chat turns or replay sim files.
 ```
 msg/s
 ^
-|                                    ██████████ 10000
-|                              ██████
-|                        ██████
-|                  ██████
-|            ██████
-|      ██████ 100
+|                                    ████████████████ 10000 (120s)
+|                              █████████████ 5000 (90s)
+|                        ██████ 1000
+|                  ██████ 500
+|            ██████ 100
+|      ██████
 |
 +──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────→ time
-      30s    60s    30s    60s    30s    60s    30s    60s    30s    60s
+      30s    60s    30s    60s    30s    60s    30s    90s    30s   120s
       ramp  hold   ramp   hold   ramp   hold   ramp   hold   ramp   hold
 ```
 
@@ -44,9 +44,9 @@ setUp(
     rampUsersPerSec(500) to (1000) during (30.seconds),
     constantUsersPerSec(1000) during (60.seconds),
     rampUsersPerSec(1000) to (5000) during (30.seconds),
-    constantUsersPerSec(5000) during (60.seconds),
+    constantUsersPerSec(5000) during (90.seconds),
     rampUsersPerSec(5000) to (10000) during (30.seconds),
-    constantUsersPerSec(10000) during (60.seconds),
+    constantUsersPerSec(10000) during (120.seconds),
   )
 )
 ```
@@ -141,27 +141,37 @@ in code rather than reading from files:
 ### 4. Plateau transition logging
 
 Gatling does not natively emit events on injection-phase boundaries. A custom
-`exec` block in the scenario tracks the current plateau with an
-`AtomicInteger` and logs every time it increments:
+`exec` block in the scenario tracks the current plateau and logs transitions.
+
+To prevent Gradle daemon OOM from excessive log buffering under load, a
+`logback.xml` in `src/main/resources` sets `io.gatling`, `ru.tinkoff.gatling`,
+and `org.apache.kafka` loggers to `WARN` level.
 
 ```
-[INFO] Plateau reached: 100 msg/s
-[INFO] Plateau reached: 500 msg/s
-[INFO] Plateau reached: 1000 msg/s
-[INFO] Plateau reached: 5000 msg/s
-[INFO] Plateau reached: 10000 msg/s
+[INFO] ramping to 100 msg/s
+[INFO] plateau: 100 msg/s
+[INFO] ramping to 500 msg/s
+[INFO] plateau: 500 msg/s
+[INFO] ramping to 1000 msg/s
+[INFO] plateau: 1000 msg/s
+[INFO] ramping to 5000 msg/s
+[INFO] plateau: 5000 msg/s
+[INFO] ramping to 10000 msg/s
+[INFO] plateau: 10000 msg/s
 ```
 
-Implementation: a shared `AtomicInteger` phase counter incremented inside an
-`exec` block; each Gatling user checks whether the counter changed since last
-read (using Gatling's `Session` or a thread-safe static).
+### 5. Kafka topic creation
 
-### 5. Kafka configuration
+The topic `otlp_spans` is created programmatically in `Main.ensureTopic()`
+using Kafka's `AdminClient` API with **16 partitions** before the Gatling
+simulation starts. If the topic already exists with a different partition
+count, it is deleted and recreated.
 
 | Parameter | Value | Source |
 |---|---|---|
 | Bootstrap servers | `localhost:9092` | `LocalLinoleumConfig.yaml` |
 | Topic | `otlp_spans` | `otel-collector/config.yaml` |
+| Partitions | 16 | `Main.scala` |
 | Encoding | raw protobuf bytes (`otlp_proto`) | `otel-collector/config.yaml` |
 | Key serializer | `org.apache.kafka.common.serialization.StringSerializer` | — |
 | Value serializer | `org.apache.kafka.common.serialization.ByteArraySerializer` | — |
@@ -323,20 +333,19 @@ fully protect against C++-level issues under load).
 
 | Approach | Effort | Maude instances | Key constraint |
 |---|---|---|---|
-| **A) Single JVM, tuned heap** | None (done) | 1 | `synchronized` lock caps throughput; Maude native crashes at high load |
+| **A) Single JVM, tuned** | Low (done) | 1 | `synchronized` lock caps at ~4,400 spans/s; stable after leak fixes |
 | **B) Multiple `make run` processes** | Medium | N | Requires Kafka partitions >= N; each process is a separate Flink mini-cluster with overhead |
 | **C) Standalone Flink cluster, multi-TM** | Medium | M (= TaskManagers) | Each TM is a separate JVM => separate Maude runtime; proper cluster, single job |
 | **D) Improved locking (TODO)** | High | 1+ per JVM | Per-module or per-key locks would allow true intra-JVM parallelism |
 
 ### Next steps
 
-1. **Single JVM ceiling found**: ~350 spans/s (≈88 traces/s, with 4 spans
-   per trace) before Maude native SIGSEGV. This is per-second (`rate()`
-   normalizes to /s regardless of the `[1m]` window). Not bad for a
-   Maude-based evaluator running on a single JVM with a global lock — and
-   with `JAVA_HEAP=16g`, the JVM itself was not the bottleneck. Measured
-   with `make clean run EXAMPLE=MaudeLotrImageGenSafety.yaml` (default
-   `JAVA_HEAP=16g` from the Makefile).
+1. **Single JVM ceiling**: After fixing native memory leaks (see
+   `../sigsegv-under-load/issue.md`) and increasing Kafka topic partitions
+   to 16, the single-JVM throughput reached **~4,380 spans/s** (~1,100 traces/s
+   with 4 spans per trace) without crashing. This was limited by the global
+   `runWithLock` serializing all Maude operations — CPU usage remained low
+   despite 32 available cores.
 
 2. **Multi-JVM via standalone Flink cluster** (immediate next step): Deploy a local Flink cluster with
    multiple TaskManager JVMs, running a single Linoleum job. This is the
