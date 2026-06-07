@@ -80,6 +80,14 @@ Since `runWithLock` serializes all Maude access, the GC thread calling `delete_M
 
 In `IsPoliteTextOpHook.scala:71-94`, `term.symbol()`, `.getModule()`, `textArg.getSort()` all create owned native wrappers (`Symbol`, `Module`, `Sort`) that are never explicitly deleted.
 
+### 🟡 Issue #5 — Gradle daemon OOM from DEBUG log buffering
+
+The Flink job logs verbose Maude term strings at `DEBUG` level for every `parseTerm`/`rewrite` step. When run via `make clean run EXAMPLE=...` (see `DEVELOPER_GUIDE.md`), Gradle's daemon captures stdout with only `-Xmx512m` heap and `-XX:+HeapDumpOnOutOfMemoryError`. Under load, the daemon's log buffer grows until the heap exhausts (389MB log observed), producing a heap dump and killing the daemon.
+
+This is a Gradle/logging infrastructure issue, not a native memory leak.
+
+**Fix**: set `logger.linoleum.level = INFO` in `log4j2.properties` to suppress term-dumping DEBUG messages in production/long-running runs.
+
 ## Proposed fix
 
 ### 1. Cache Module wrappers in `MaudeModules` (fixes Issue #3)

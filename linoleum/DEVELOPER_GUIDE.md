@@ -113,6 +113,41 @@ tail -f run.log | grep "rewritten to current soup"
 tail -f run.log | grep EvaluatedSpans
 ```
 
+How to run the load test (assuming Linoleum is already built):
+
+- Set `logger.linoleum.level = ERROR` on linoleum-ltlss-examples/app/src/main/resources/log4j2.properties so the gradle daemon does not crash with OOM due to too many logs
+- Run the load generator and the satefy job
+
+```bash
+cd linoleum && make release
+
+## Restart Kafka as the watermark ignores old messages anyway
+make compose/start
+
+## Generate load
+make -C ../gatling-load-gen clean build
+make -C ../gatling-load-gen run
+
+## Process from another shell
+cd ../linoleum-ltlss-examples
+source ~/.lotrbot.env
+make clean run EXAMPLE=MaudeLotrImageGenSafety.yaml
+```
+
+- Go to http://localhost:9094/query and check the graph for `sum by (job_name) (rate(flink_taskmanager_job_task_operator_linoleum_evaluator_linoleum_spans_processed_total[1m]))`
+
+
+If the Flink job running locally crashes for some reason, cleanup with:
+
+```bash
+./gradlew --stop
+job_pid=$(ps aux | grep 'linoleum' | grep -v grep | awk '{print $2}')
+kill $job_pid
+# Validate nothing is there anymore
+netstat -punat | grep 8081
+curl http://localhost:8081
+``
+
 ### Simple local benchmarking
 
 A _crude_ local benchmarking can be run as follows. 
@@ -203,4 +238,3 @@ References
 ### Podman containers fail to start
 
 If you get an error with podman retry restarting the VM with `podman machine stop && podman machine start`.
-
