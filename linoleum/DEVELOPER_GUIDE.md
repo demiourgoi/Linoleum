@@ -107,6 +107,8 @@ make clean run EXAMPLE=MaudeLotrBombadilLiveness.yaml 2>&1 | tee run.log
 # 4. To get all spans found in the input in Maude format, one span per line
 find app/maude_terms -type f -exec cat {} + > maude_terms.maudes
 ## Check the logs
+## Set `logger.linoleum.level = DEBUG` on linoleum-ltlss-examples/app/src/main/resources/log4j2.properties 
+## to get more information
 grep EvaluatedSpans run.log | grep False
 grep "rewritten to current soup" run.log
 tail -f run.log | grep "rewritten to current soup"
