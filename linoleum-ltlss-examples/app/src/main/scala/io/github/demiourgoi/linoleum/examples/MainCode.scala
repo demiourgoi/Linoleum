@@ -4,72 +4,11 @@ import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
 import org.slf4j.LoggerFactory
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 import io.github.demiourgoi.linoleum.Linoleum
 import io.github.demiourgoi.linoleum.config._
-import io.github.demiourgoi.linoleum.formulas._
 import io.github.demiourgoi.linoleum.messages._
-
-package object sscheckBasicLivenessFormula {
-  val log = LoggerFactory.getLogger(
-    "io.github.demiourgoi.linoleum.examples.sscheckBasicLivenessFormula"
-  )
-
-  /** Sscheck version of Maude's
-    *
-    * red modelCheck(init, [] (clientHasTask(task(1)) -> <> dbHasResult(task(1))
-    * )) .
-    */
-  @SerialVersionUID(1L)
-  private class HelloFormula extends SscheckFormulaSupplier with Serializable {
-    import io.github.demiourgoi.sscheck.prop.tl.Formula._
-    import org.specs2.matcher.MustMatchers._
-
-    def apply() = {
-      val clientHasTaskSpanName = "client-taskId-assigned"
-      val workDoneInDBSpanName = "work-done-db"
-
-      always {
-        ifMatches[Letter, SpanInfo] {
-          _.findMatchingSpan {
-            case SpanStart(span) if span.isNamed(clientHasTaskSpanName) => {
-              log.info(
-                "Found span for assigned task with trace id {} and span id {}",
-                span.hexTraceId,
-                span.hexSpanId
-              )
-              span
-            }
-          }
-        } ==> { taskAssignedSpan =>
-          later { events: Letter =>
-            events.findMatchingSpan {
-              case SpanEnd(span) if span.isNamed(workDoneInDBSpanName) => span
-            } must beSome
-          } on 10
-        }
-      } during 5
-    }
-  }
-
-  def run(): Unit = {
-    import Main.localCfg
-
-    val formula = LinoleumFormula(
-      "Luego basic liveness",
-      LinoleumFormula.EvaluationConfig(
-        tickPeriod = Duration.ofMillis(100),
-        sessionGap = Duration.ofSeconds(1)
-      ),
-      new HelloFormula()
-    )
-
-    log.warn("Evaluating traces for formula {}", formula)
-    Linoleum.execute(localCfg.copy(jobName = "hello spans"), formula)
-    log.warn("Ending program")
-  }
-}
 
 package object maudeLotrCommon {
   import io.github.demiourgoi.linoleum.maude._
@@ -121,14 +60,6 @@ package object maudeLotrImageGenSafetyMonitor {
       )
     )
 
-  /*
-  Check with
-  
-  $ grep  "rewritten to current soup" run.log
-
-  and check first occurrence changing from zero.
-  Note we might need two lotrbot runs to push the events
-   */
   def run(): Unit = {
     log.warn("Running maudeLotrImageGenSafetyMonitor example")
     Linoleum.execute(
@@ -195,16 +126,9 @@ object Main {
 
   object ExampleId extends Enumeration {
     type ExampleId = Value
-    val SscheckBasicLiveness, MaudeLotrImageGenSafety, MaudeLotrBombadilLiveness = Value
+    val MaudeLotrImageGenSafety, MaudeLotrBombadilLiveness = Value
   }
 
-  /** Parses the ExampleId from command line arguments.
-    * @param args
-    *   Command line arguments
-    * @return
-    *   The parsed ExampleId, defaults to HelloSscheckFormula if not specified
-    *   or invalid
-    */
   private def parseExampleId(args: Array[String]): Option[ExampleId.Value] = {
     if (args.nonEmpty) {
       ExampleId.values
@@ -216,11 +140,9 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val exampleId = parseExampleId(args)
-    log.info("Running example program with id '{}'", exampleId)
+    log.info("Running example program with id '{}'", Array[AnyRef](exampleId): _*)
     exampleId match {
       case None => log.error("Unknown example program name")
-      case Some(ExampleId.SscheckBasicLiveness) =>
-        sscheckBasicLivenessFormula.run()
       case Some(ExampleId.MaudeLotrImageGenSafety) =>
         maudeLotrImageGenSafetyMonitor.run()
       case Some(ExampleId.MaudeLotrBombadilLiveness) =>

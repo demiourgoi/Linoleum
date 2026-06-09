@@ -120,10 +120,10 @@ flink/stop: ### stop the Flink standalone cluster
 	$(FLINK_HOME)/bin/stop-cluster.sh
 
 flink/build: ### build the fat JAR for Flink standalone submission
-	$(GRADLE) flinkJobJar
+	$(GRADLE) clean flinkJobJar
 	@echo "Flink job JAR: $(ROOT_DIR)/app/build/libs/app-flink-job.jar"
 
-flink/run: flink/build ### build and submit the Linoleum job to the standalone cluster
+flink/run: ### submit the Linoleum job to the standalone cluster
 	$(FLINK_BIN) run \
 		-c io.github.demiourgoi.linoleum.RunMaudeMonitor \
 		$(ROOT_DIR)/app/build/libs/app-flink-job.jar \

@@ -10,7 +10,7 @@ import io.github.demiourgoi.linoleum.maude.MaudeModules
   * affects the following Maude operator
   *
   * op isPoliteText : String ~> Bool [special ( id-hook SpecialHubSymbol )] .
-  * 
+  *
   * - When the provided argument does not have String sort, then this does not rewrite
   *   the term, thus returning a term of type [Bool]
   * - When the provided argument does have String sort, then this always returns
@@ -56,7 +56,7 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
     log.debug("Calling Mistral with prompt '{}'", prompt)
 
     val response = mistral.sendCompletion(prompt).getChoiceContentsString()
-    log.debug("Classified text {} as polite {}", text, response)
+    log.debug("Classified text {} as polite {}", Array[AnyRef](text, response): _*)
     response.contains("yes")
   }
 
@@ -69,7 +69,7 @@ class IsPoliteTextOpHook private () extends Hook with AutoCloseable {
     *   The result of the politeness check as a Maude term
     */
   override def run(term: Term, data: HookData): Term = {
-    log.debug("running for term='{}', data='{}'", term, data.getData())
+    log.debug("running for term='{}', data='{}'", Array[AnyRef](term, data.getData()): _*)
     // as in https://fadoss.github.io/maude-bindings/#custom-special-operators
     val module = term.symbol().getModule()
     val args = term.arguments()

@@ -4,7 +4,7 @@ import java.time.Duration
 
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 import io.opentelemetry.proto.common.v1.{AnyValue, KeyValue}
 import io.opentelemetry.proto.trace.v1.Span
@@ -18,7 +18,6 @@ import Mocks._
 import Stubs._
 import Skips._
 import net.bytebuddy.dynamic.loading.PackageDefinitionStrategy.Definition.Undefined
-import scalaz.std.string
 
 // for i in $(seq 10); do ( echo "run $i" && ./gradlew test --tests "io.github.demiourgoi.linoleum.examples.MaudeLotrBombadilLivenessTest" --rerun-tasks ) || break; done
 @RunWith(classOf[JUnitRunner])

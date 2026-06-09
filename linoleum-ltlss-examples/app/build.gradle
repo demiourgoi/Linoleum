@@ -20,16 +20,20 @@ description = """Linoleum LTLss examples"""
 ext {
     javaVersion = '1.8'
     flinkVersion = '1.20.4'
-    scalaBinaryVersion = '_2.13'
+    scalaBinaryVersion = '_2.12'
     slf4jVersion = '1.7.36'
     log4jVersion = '2.17.1'
-    sscheckVersion = '0.5.2'
     grpcVersion = '1.70.0'
     linoleumVersion = '0.2.0-SNAPSHOT'
 }
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+// Scala 2.12: resolve SLF4J Logger.info(String, Object) vs (String, Object...) ambiguity
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.additionalParameters = ['-Yresolve-term-conflict:package']
 }
 
 
@@ -60,16 +64,19 @@ configurations {
 
 // declare the dependencies for your production and test code
 dependencies {
-    // Use Scala 2.13 in our library project
+    // Use Scala 2.12 in our library project
     implementation libs.scala.library
 
-    // Use Scalatest for testing our library
+    // Test frameworks
     testImplementation libs.junit
-    testImplementation libs.scalatest.v2.v13
-    testImplementation libs.junit.v4.v13.v2.v13
+    testImplementation libs.scalatest.v2.v12
+    testImplementation libs.junit.v4.v12.v2.v12
+    testImplementation libs.specs2.core
+    testImplementation libs.specs2.junit
+    testImplementation libs.specs2.matcher.extra
 
     // Need scala-xml at test runtime
-    testRuntimeOnly libs.scala.xml.v2.v13
+    testRuntimeOnly libs.scala.xml.v2.v12
 
     implementation "io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}"
     implementation ("es.ucm.maude:bindings:3.5.0.0")
@@ -81,9 +88,6 @@ dependencies {
 
     // This dependency is used by the application.
     implementation libs.guava
-    implementation ("io.github.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
-        exclude group : "org.slf4j"
-    }
 
     // NOTE: if needed we can regenerate the proto code without gRPC support to remove some dependency
     // https://github.com/grpc/grpc-java/blob/master/examples/example-opentelemetry/build.gradle
@@ -112,8 +116,8 @@ dependencies {
     // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
     implementation "org.apache.flink:flink-runtime-web:${flinkVersion}"
 
-    implementation("com.github.pureconfig:pureconfig-yaml_2.13:0.17.4")
-    implementation("com.github.pureconfig:pureconfig_2.13:0.17.4")
+    implementation("com.github.pureconfig:pureconfig-yaml${scalaBinaryVersion}:0.17.4")
+    implementation("com.github.pureconfig:pureconfig${scalaBinaryVersion}:0.17.4")
 
     // --------------------------------------------------------------
     // Dependencies that should be part of the shadow jar, e.g.
@@ -121,9 +125,6 @@ dependencies {
     // --------------------------------------------------------------
     flinkShadowJar "org.apache.flink:flink-connector-kafka:3.4.0-1.20"
 
-    // per https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/connectors/datastream/mongodb/
-    // there is no connector for Flink 1.20 but there is some in https://mvnrepository.com/artifact/org.apache.flink/flink-connector-mongodb/2.0.0-1.20
-    // with same maven coordinates as in https://nightlies.apache.org/flink/flink-docs-release-1.19/docs/connectors/datastream/mongodb/
     flinkShadowJar "org.apache.flink:flink-connector-mongodb:2.0.0-1.20"
 
     testImplementation "org.apache.flink:flink-test-utils:${flinkVersion}"
@@ -158,29 +159,13 @@ shadowJar {
 }
 
 // Flink job JAR for submission to a standalone cluster.
-// Includes application code + all non-Flink-provided dependencies.
-// Excludes Flink core, logging, and scala (all provided by the Flink distribution).
+// Parent-first classloading (see flink-conf.yaml) means Flink classes
+// in this JAR won't conflict with the cluster's own copies.
 task flinkJobJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     archiveClassifier = 'flink-job'
+    archiveVersion = ''
     from sourceSets.main.output
     configurations = [project.configurations.runtimeClasspath]
-
-    // Exclude Flink-provided JARs from the fat JAR
-    dependencies {
-        exclude(dependency('org.apache.flink:flink-streaming-java'))
-        exclude(dependency('org.apache.flink:flink-clients'))
-        exclude(dependency('org.apache.flink:flink-runtime-web'))
-        exclude(dependency('org.apache.flink:flink-connector-base'))
-        exclude(dependency('org.apache.flink:force-shading'))
-        // Exclude logging (Flink provides its own)
-        exclude(dependency('org.apache.logging.log4j:log4j-slf4j-impl'))
-        exclude(dependency('org.apache.logging.log4j:log4j-api'))
-        exclude(dependency('org.apache.logging.log4j:log4j-core'))
-        exclude(dependency('org.slf4j:slf4j-api'))
-        // Exclude scala (Flink provides scala 2.13)
-        exclude(dependency('org.scala-lang:scala-library'))
-        exclude(dependency('org.scala-lang:scala-reflect'))
-    }
 
     mergeServiceFiles()
 

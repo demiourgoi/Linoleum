@@ -1,10 +1,13 @@
 ################################################################################
 #  Flink standalone cluster configuration for Linoleum load testing.
 #
-#  Starts 5 TaskManager JVMs (3 GB each) + 1 JobManager on localhost.
+#  Starts 5 TaskManager JVMs (2 GB each) + 1 JobManager on localhost.
 #  Designed to work around the Maude interpreter lock by giving each
 #  parallel subtask its own JVM.
 ################################################################################
+
+# Java runtime — must be Java 8 or 11 for Flink 1.20 compatibility
+env.java.home: /usr/lib64/jvm/java-1.8.0-openjdk
 
 # JobManager
 jobmanager.rpc.address: localhost
@@ -22,9 +25,8 @@ parallelism.default: 5
 # Restart strategy: none (for load testing we want to observe failures directly)
 restart-strategy.type: none
 
-# Disable checkpointing (not needed for stateless-at-least-once load test)
-# Checkpointing is disabled by default; setting to 0 makes it explicit.
-execution.checkpointing.interval: 0
+# Disable checkpointing (disabled by default — not needed for stateless load test)
+# execution.checkpointing.interval is NOT set because 0 is rejected by Flink.
 
 # Web UI (same port as the local mini-cluster so bookmarks still work)
 rest.port: 8081
@@ -33,9 +35,11 @@ rest.bind-address: 0.0.0.0
 # Allow multiple TMs on the same host (let Flink auto-assign ports)
 taskmanager.data.port: 0
 
-# Classloader: parent-first avoids issues with conflicting dependencies
+# Classloader: parent-first (default). Flink and Scala versions match now.
 classloader.resolve-order: parent-first
 
-# JVM options for TaskManagers — ensure Maude native library is found.
-# Adjust maude.lib.path to point to your Maude installation's lib directory.
-# env.java.opts.taskmanager: "-Djava.library.path=/home/juanrh/systems/maude/latest/lib"
+# Protobuf serialization for OTEL span types.
+# Must be in flink-conf.yaml for standalone mode (can't be set programmatically).
+pipeline.serialization-config:
+  - "io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
+  - "io.github.demiourgoi.linoleum.messages.SpanInfo: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"

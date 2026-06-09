@@ -4,7 +4,7 @@ import java.time.Duration
 
 import org.junit.runner.RunWith
 import org.specs2.runner.JUnitRunner
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 import io.opentelemetry.proto.common.v1.{AnyValue, KeyValue}
 import io.opentelemetry.proto.trace.v1.Span
