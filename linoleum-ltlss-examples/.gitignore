@@ -22,3 +22,6 @@ app/maude_terms/
 maude_terms.maudes
 
 .local
+
+# Flink standalone distribution (downloaded by make flink/download)
+.flink/

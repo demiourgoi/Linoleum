@@ -1,0 +1,41 @@
+################################################################################
+#  Flink standalone cluster configuration for Linoleum load testing.
+#
+#  Starts 5 TaskManager JVMs (3 GB each) + 1 JobManager on localhost.
+#  Designed to work around the Maude interpreter lock by giving each
+#  parallel subtask its own JVM.
+################################################################################
+
+# JobManager
+jobmanager.rpc.address: localhost
+jobmanager.rpc.port: 6123
+jobmanager.memory.process.size: 1600m
+
+# TaskManager — each TM gets 2 GB of heap+off-heap (total process memory)
+taskmanager.memory.process.size: 2048m
+# One slot per TM so each Maude interpreter runs in its own JVM
+taskmanager.numberOfTaskSlots: 1
+
+# Default parallelism — distributes work across all 5 TMs
+parallelism.default: 5
+
+# Restart strategy: none (for load testing we want to observe failures directly)
+restart-strategy.type: none
+
+# Disable checkpointing (not needed for stateless-at-least-once load test)
+# Checkpointing is disabled by default; setting to 0 makes it explicit.
+execution.checkpointing.interval: 0
+
+# Web UI (same port as the local mini-cluster so bookmarks still work)
+rest.port: 8081
+rest.bind-address: 0.0.0.0
+
+# Allow multiple TMs on the same host (let Flink auto-assign ports)
+taskmanager.data.port: 0
+
+# Classloader: parent-first avoids issues with conflicting dependencies
+classloader.resolve-order: parent-first
+
+# JVM options for TaskManagers — ensure Maude native library is found.
+# Adjust maude.lib.path to point to your Maude installation's lib directory.
+# env.java.opts.taskmanager: "-Djava.library.path=/home/juanrh/systems/maude/latest/lib"

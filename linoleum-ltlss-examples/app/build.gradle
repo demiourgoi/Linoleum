@@ -19,7 +19,7 @@ description = """Linoleum LTLss examples"""
 
 ext {
     javaVersion = '1.8'
-    flinkVersion = '1.20.1'
+    flinkVersion = '1.20.4'
     scalaBinaryVersion = '_2.13'
     slf4jVersion = '1.7.36'
     log4jVersion = '2.17.1'
@@ -131,7 +131,7 @@ dependencies {
     runtimeOnly "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-api:${log4jVersion}"
     runtimeOnly "org.apache.logging.log4j:log4j-core:${log4jVersion}"
-    
+
     // Add test dependencies here.
     testImplementation "org.mockito:mockito-core:3.12.4"
 }
@@ -157,6 +157,46 @@ shadowJar {
     configurations = [project.configurations.flinkShadowJar]
 }
 
+// Flink job JAR for submission to a standalone cluster.
+// Includes application code + all non-Flink-provided dependencies.
+// Excludes Flink core, logging, and scala (all provided by the Flink distribution).
+task flinkJobJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    archiveClassifier = 'flink-job'
+    from sourceSets.main.output
+    configurations = [project.configurations.runtimeClasspath]
+
+    // Exclude Flink-provided JARs from the fat JAR
+    dependencies {
+        exclude(dependency('org.apache.flink:flink-streaming-java'))
+        exclude(dependency('org.apache.flink:flink-clients'))
+        exclude(dependency('org.apache.flink:flink-runtime-web'))
+        exclude(dependency('org.apache.flink:flink-connector-base'))
+        exclude(dependency('org.apache.flink:force-shading'))
+        // Exclude logging (Flink provides its own)
+        exclude(dependency('org.apache.logging.log4j:log4j-slf4j-impl'))
+        exclude(dependency('org.apache.logging.log4j:log4j-api'))
+        exclude(dependency('org.apache.logging.log4j:log4j-core'))
+        exclude(dependency('org.slf4j:slf4j-api'))
+        // Exclude scala (Flink provides scala 2.13)
+        exclude(dependency('org.scala-lang:scala-library'))
+        exclude(dependency('org.scala-lang:scala-reflect'))
+    }
+
+    mergeServiceFiles()
+
+    // Exclude app logging config (Flink provides its own; see flink-cluster/log4j2.properties)
+    exclude 'log4j2.properties'
+
+    // Avoid signature file conflicts
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+
+    manifest {
+        attributes 'Main-Class': 'io.github.demiourgoi.linoleum.RunMaudeMonitor'
+    }
+}
+
 // Apply a specific Java toolchain to ease working on different environments.
 java {
     toolchain {
@@ -168,7 +208,7 @@ application {
     // Define the main class for the application.
     // To use the code based approach of app/src/main/scala/io/github/demiourgoi/linoleum/examples/MainCode.scala
     // mainClass = "io.github.demiourgoi.linoleum.examples.Main"
-    // 
+    //
     // To use the YAML based approach
     mainClass = "io.github.demiourgoi.linoleum.RunMaudeMonitor"
 

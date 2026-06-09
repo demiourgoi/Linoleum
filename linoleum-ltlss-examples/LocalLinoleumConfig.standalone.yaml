@@ -1,0 +1,21 @@
+job-name: "MaudeMonitor"
+local-flink-env: false
+source:
+    kafka-bootstrap-servers: "localhost:9092"
+    kafka-topics: "otlp_spans"
+    kafka-group-id-prefix: "linolenum-cg"
+    events-max-out-of-orderness: "PT0.5S"
+sink:
+    mongo-db:
+        mongo-uri: "mongodb://localhost:27017"
+        mongo-database: "linoleum"
+        mongo-collection: "evaluatedSpans"
+        mongo-batch-size: 10
+        mongo-batch-interval-ms: 1000
+        mongo-max-retries: 3
+    log-maude-terms: true
+prometheus:
+    host-url: "http://localhost:9091"
+    job-name: "linoleum"
+    delete-on-shutdown: false
+    interval: "1 SECONDS"

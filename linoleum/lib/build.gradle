@@ -7,7 +7,7 @@ plugins {
     // https://gradleup.com/shadow/getting-started/
     // https://gradleup.com/shadow/configuration/
     id("com.gradleup.shadow") version "8.3.6"
-    
+
     // Maven Publish plugin for publishing artifacts
     id 'maven-publish'
     // https://jreleaser.org/guide/latest/quick-start/gradle.html
@@ -21,7 +21,7 @@ description = """Linoleum flink job"""
 
 ext {
     javaVersion = '1.8'
-    flinkVersion = '1.20.1'
+    flinkVersion = '1.20.4'
     scalaBinaryVersion = '_2.13'
     slf4jVersion = '1.7.36'
     log4jVersion = '2.17.1'
@@ -175,9 +175,9 @@ publishing {
             groupId = project.group
             artifactId = "linoleum${scalaBinaryVersion}"
             version = project.version
-            
+
             from components.java
-            
+
             // Add sources and javadoc artifacts
             artifact sourcesJar
             artifact javadocJar
@@ -206,7 +206,7 @@ publishing {
             }
         }
     }
-    
+
     repositories {
         mavenLocal()
         maven {

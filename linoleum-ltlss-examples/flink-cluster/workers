@@ -1,0 +1,7 @@
+# 5 TaskManager JVMs, each with its own Maude interpreter instance.
+# Listing localhost 5 times tells Flink to start 5 separate TM processes.
+localhost
+localhost
+localhost
+localhost
+localhost
