@@ -4,15 +4,19 @@
 [versions]
 guava = "33.2.1-jre"
 junit = "4.13.2"
-junit-v4-v13-v2-v13 = "3.2.2.0"
-scala-library = "2.13.15"
-scala-xml-v2-v13 = "1.2.0"
-scalatest-v2-v13 = "3.2.19"
+junit-v4-v12-v2-v12 = "3.2.2.0"
+scala-library = "2.12.20"
+scala-xml-v2-v12 = "1.2.0"
+scalatest-v2-v12 = "3.2.19"
+specs2 = "4.20.9"
 
 [libraries]
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 junit = { module = "junit:junit", version.ref = "junit" }
-junit-v4-v13-v2-v13 = { module = "org.scalatestplus:junit-4-13_2.13", version.ref = "junit-v4-v13-v2-v13" }
+junit-v4-v12-v2-v12 = { module = "org.scalatestplus:junit-4-12_2.12", version.ref = "junit-v4-v12-v2-v12" }
 scala-library = { module = "org.scala-lang:scala-library", version.ref = "scala-library" }
-scala-xml-v2-v13 = { module = "org.scala-lang.modules:scala-xml_2.13", version.ref = "scala-xml-v2-v13" }
-scalatest-v2-v13 = { module = "org.scalatest:scalatest_2.13", version.ref = "scalatest-v2-v13" }
+scala-xml-v2-v12 = { module = "org.scala-lang.modules:scala-xml_2.12", version.ref = "scala-xml-v2-v12" }
+scalatest-v2-v12 = { module = "org.scalatest:scalatest_2.12", version.ref = "scalatest-v2-v12" }
+specs2-core = { module = "org.specs2:specs2-core_2.12", version.ref = "specs2" }
+specs2-junit = { module = "org.specs2:specs2-junit_2.12", version.ref = "specs2" }
+specs2-matcher-extra = { module = "org.specs2:specs2-matcher-extra_2.12", version.ref = "specs2" }

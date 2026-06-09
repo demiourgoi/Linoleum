@@ -19,7 +19,7 @@ import org.apache.flink.configuration.{Configuration, PipelineOptions}
 import java.{util => jutil}
 import java.time.Duration
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 import messages.SpanInfo
 import config.{LinoleumConfig, PrometheusReporterConfig}
@@ -37,13 +37,17 @@ package source {
     def flinkEnv(linolenumCfg: LinoleumConfig): StreamExecutionEnvironment = {
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
       val config = new Configuration()
-      addSerdeOptions(config)
       addPrometheusReporter(linolenumCfg.prometheus, config)
       val env = if (linolenumCfg.localFlinkEnv) {
+        // Programmatic serde config works in local mode
+        addSerdeOptions(config)
         // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
         log.warn("Open Flink web UI at http://localhost:8081/#/overview")
         StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(config)
-      } else StreamExecutionEnvironment.getExecutionEnvironment(config)
+      } else {
+        // In standalone mode, pipeline.serialization-config must come from flink-conf.yaml
+        StreamExecutionEnvironment.getExecutionEnvironment(config)
+      }
       // Event time is now the default
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/api/java/org/apache/flink/streaming/api/environment/StreamExecutionEnvironment.html#setStreamTimeCharacteristic-org.apache.flink.streaming.api.TimeCharacteristic-
       env
@@ -146,8 +150,7 @@ package source {
           val scope = scopeSpan.getScope
           log.debug(
             "Received {} spans for instrumentation scope with name {}",
-            spanList.size(),
-            scope.getName
+            Array[AnyRef](spanList.size(): java.lang.Integer, scope.getName): _*
           )
           spanList.forEach { span =>
             val spanInfo = SpanInfo
@@ -160,8 +163,7 @@ package source {
               .build()
             log.debug(
               "Received span with trace id {} and span id {}",
-              spanInfo.hexTraceId,
-              spanInfo.hexSpanId
+              Array[AnyRef](spanInfo.hexTraceId, spanInfo.hexSpanId): _*
             )
             out.collect(spanInfo)
           }

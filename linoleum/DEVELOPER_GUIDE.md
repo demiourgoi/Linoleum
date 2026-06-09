@@ -155,17 +155,37 @@ netstat -punat | grep 8081
 curl http://localhost:8081
 ```
 
-To __run the load test with multiple JVMs__, first [download the Flink distribution](https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/deployment/resource-providers/standalone/overview/#component-management-scripts) for Flink 1.20.4 and untar it to ~/systems/flink/flink-1.20.4. Then:
+To __run the load test with multiple JVMs__, first [download the Flink distribution](https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/deployment/resource-providers/standalone/overview/#component-management-scripts) for Flink 1.20.4 and untar it to ~/systems/flink/flink-1.20.4.  
+Also install Java 8 at /usr/lib64/jvm/java-1.8.0-openjdk.  
+Then:
 
 ```bash
 cd linoleum && make release
 
-## Reset Kafka as the watermark ignores old messages anyway
+# Reset Kafka as the watermark ignores old messages anyway
 make compose/start
 
 cd ../linoleum-ltlss-examples
-make flink/config     # applies config, backs up original
-make flink/start      # starts 1 JobManager + 5 TaskManagers
+# applies config, backs up original
+make flink/config
+# starts 1 JobManager + 5 TaskManagers . See http://localhost:8081/#/job-manager/metrics
+make flink/start
+# Build fat jar for the cluster
+make flink/build
+
+## Generate load
+make -C ../gatling-load-gen clean build
+make -C ../gatling-load-gen run
+
+cd linoleum-ltlss-examples
+source ~/.lotrbot.env
+# builds fat JAR + submits to the cluster
+make flink/run EXAMPLE=MaudeLotrBombadilLiveness.yaml
+# Cleanup
+## stop the cluster
+make flink/stop
+## Optionally restore your original Flink config:
+make flink/restore-config
 ```
 
 

@@ -1,6 +1,6 @@
 package io.github.demiourgoi.linoleum
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 import org.apache.flink.metrics.{Counter, Meter, MeterView}
@@ -34,11 +34,6 @@ import org.bson.BsonDocument
 import io.opentelemetry.proto.common.v1.{AnyValue, KeyValue}
 import io.opentelemetry.proto.trace.v1.Span
 
-import io.github.demiourgoi.sscheck.prop.tl.{
-  Formula,
-  NextFormula,
-  Time => SscheckTime
-}
 import es.ucm.maude.bindings.{
   maude => jMaude,
   Hook => MaudeHook,
@@ -54,7 +49,6 @@ object Linoleum {
   import source._
   import sink._
   import evaluator._
-  import formulas._
   import maude._
 
   private val log = LoggerFactory.getLogger(Linoleum.getClass.getName)
@@ -62,11 +56,6 @@ object Linoleum {
       propInstance: Property[P]
   ): Unit = {
     setupFlinkJob(cfg, property).execute(cfg.jobName)
-  }
-
-  def execute(cfg: LinoleumConfig, formula: LinoleumFormula): Unit = {
-    import PropertyInstances.formulaProperty
-    execute(cfg)(formula)
   }
 
   def execute(cfg: LinoleumConfig, mon: MaudeMonitor): Unit = {
@@ -516,109 +505,6 @@ package object maude {
     // ) // use perc scape for single quotes as in json/json.maude
   }
 }
-package object formulas {
-  import messages._
-
-  /** Formulas use a list of LinoleumEvent ordered by linoleumEventOrdering */
-  type Letter = List[LinoleumEvent]
-
-  implicit class LetterOps(self: Letter) {
-    def findMatchingSpan(
-        matching: PartialFunction[LinoleumEvent, SpanInfo]
-    ): Option[SpanInfo] =
-      self.collectFirst(matching)
-  }
-
-  type TimedLetter = (SscheckTime, Letter)
-
-  type SscheckFormula = Formula[Letter]
-
-  type SscheckFormulaSupplier = () => SscheckFormula
-
-  /** Example
-    *
-    * ```scala
-    * val formulaSupplier = linoleumFormula {
-    *   always { x: Letter => x.length > 0 } during 2
-    * }
-    * ```
-    *
-    * or to directly create a LinoleumFormula:
-    *
-    * ```scala
-    * val formula = LinoleumFormula(
-    *   "test",
-    *   linoleumFormula {
-    *     always { x: Letter => x.length > 0 } during 2
-    *   }
-    * )
-    * ```
-    */
-  def linoleumFormula(formula: SscheckFormula): SscheckFormulaSupplier =
-    new SscheckFormulaSupplier {
-      def apply(): SscheckFormula = formula
-    }
-
-  object LinoleumFormula {
-
-    /** Nice way of defining a LinoleumFormula without having to create an
-      * intermediate class, e.g. as:
-      *
-      * \``` val formula = LinoleumFormula("test"){ always { x : Letter =>
-      * x.length > 0 } during 2 }```
-      *
-      * However, in practice that can only we used in unit tests, because Flink
-      * tends to throw org.apache.flink.api.common.InvalidProgramException while
-      * calling org.apache.flink.api.java.ClosureCleaner.clean at runtime, when
-      * usign this method to define a formula inline. A simple fix is just
-      * defining the formula in a separate class that extends
-      * SscheckFormulaSupplier, and also explicitly Serializable
-      */
-    def apply(name: String, config: EvaluationConfig)(
-        formula: SscheckFormula
-    ): LinoleumFormula =
-      LinoleumFormula(name, config, linoleumFormula(formula))
-
-    /** @param tickPeriod
-      *   \- The size of the tumbling windows we use to split the sequence of
-      *   span events.
-      */
-    case class EvaluationConfig(
-        tickPeriod: Duration,
-        sessionGap: Duration,
-        allowedLateness: Duration = Duration.ofMillis(0)
-    )
-  }
-
-  // Note: trying to avoid serializing sscheck formulas by requiring a formula supplier
-  // that should be a stateless class that is trivial to serialize
-  /** A Linoleum property based on a LTLss formula
-    *
-    * Limitations: it evaluates each trace separately, and for each trace it
-    * only considers the spans up to the first session gap as specified in
-    * config. For the session windows concept see
-    * https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/operators/windows/#session-windows
-    *
-    *   - Grouping spans by arbitrary keys is not supported, spans are always
-    *     grouped by trace id
-    *   - No window state support: it only handles the first session window for
-    *     a trace, characterized by containing the root span. It ignores all
-    *     subsequent windows
-    *
-    * @param name
-    *   human-readable description for the formula
-    * @param config
-    *   formula evaluation configuration
-    * @param formula
-    *   supplier for the sscheck formula to evaluate. The formula must not
-    *   perform any side effect when evaluated.
-    */
-  case class LinoleumFormula(
-      name: String,
-      config: LinoleumFormula.EvaluationConfig,
-      formula: SscheckFormulaSupplier
-  )
-}
 
 // https://alvinalexander.com/scala/fp-book/type-classes-101-introduction/
 // https://www.baeldung.com/scala/type-classes
@@ -688,130 +574,7 @@ object PropertySyntax {
 
 @SerialVersionUID(1L)
 object PropertyInstances extends Serializable {
-  import formulas._
   import maude._
-
-  @SerialVersionUID(1L)
-  object FormulaProperty extends Serializable {
-    import System.lineSeparator
-    import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
-    import messages._
-    import TimeUtils._
-
-    val log = LoggerFactory.getLogger(FormulaProperty.getClass.getName)
-
-    /** Organizes the events in the trace as a set of discrete letters, that
-      * split the sequence of events in tumbling windows of tickPeriod duration.
-      * The first letter always starts with `SpanStart(rootSpan)` and events
-      * before that are discarded as errors.
-      *
-      * Precondition: events for rootSpan are NOT added to events
-      */
-    def buildLetters(formula: LinoleumFormula)(
-        traceId: String,
-        orderedEvents: List[LinoleumEvent]
-    ): Iterator[TimedLetter] = {
-      val startEvent = orderedEvents.head
-      log.debug(
-        "Building letters for traceId {} and abridged orderedEvents {}",
-        traceId,
-        orderedEvents.map { _.shortToString }.mkString(lineSeparator)
-      )
-      log.debug(
-        "Building letters for traceId {} and orderedEvents {}",
-        traceId,
-        orderedEvents.map { _.toString() }.mkString(lineSeparator)
-      )
-
-      val startTimestampNanos = startEvent.epochUnixNano
-      val endTimestampNanos = orderedEvents.last.epochUnixNano
-      val tickPeriod = formula.config.tickPeriod
-      def tumblingWindowIndex(timestampNanos: Long): Int = {
-        val timeOffset = timestampNanos - startTimestampNanos
-        (timeOffset / tickPeriod.toNanos()).toInt
-      }
-      val endingWindowIndex = tumblingWindowIndex(endTimestampNanos)
-      Iterator.range(0, endingWindowIndex + 1).map { windowIndex =>
-        val windowEvents = orderedEvents.filter { event =>
-          tumblingWindowIndex(event.epochUnixNano) == windowIndex
-        }
-        val letterTime = SscheckTime(
-          nanosToMs(startTimestampNanos + windowIndex * tickPeriod.toNanos())
-        )
-        (letterTime, windowEvents)
-      }
-    }
-
-    def evaluateLetters(formula: LinoleumFormula)(
-        traceId: String,
-        letters: Iterator[TimedLetter]
-    ): TruthValue = {
-      val initialFormula = formula.formula().nextFormula
-      val finalFormula = initialFormula.evaluate(
-        letters,
-        (timedLetter: TimedLetter, currentFormula: NextFormula[Letter]) => {
-          val (letterTime, letter) = timedLetter
-          log.debug(
-            "Current formula for traceId {} at time {} is {}",
-            traceId,
-            letterTime,
-            currentFormula
-          )
-        }
-      )
-      formulaToTruthValue(finalFormula)
-    }
-
-    /** Builds a TruthValue for the current evaluation state of Formula */
-    def formulaToTruthValue[T](formula: NextFormula[T]): TruthValue = {
-      import org.scalacheck.Prop
-      formula.result match {
-        case Some(Prop.True)  => True
-        case Some(Prop.False) => False
-        case _                => Undecided
-      }
-    }
-  }
-
-  implicit val formulaProperty: Property[LinoleumFormula] =
-    new Property[LinoleumFormula] with Serializable {
-      import FormulaProperty._
-
-      override def propertyName(formula: LinoleumFormula): String = formula.name
-
-      override def streamEvaluatorParams(
-          formula: LinoleumFormula
-      ): SpanStreamEvaluatorParams[LinoleumFormula] =
-        SpanStreamEvaluatorParams[LinoleumFormula](
-          property = formula,
-          sessionGap = formula.config.sessionGap,
-          allowedLateness = formula.config.allowedLateness
-        )
-
-      override def evaluate(formula: LinoleumFormula)(
-          key: String,
-          globalStateStore: KeyedStateStore,
-          orderedEvents: List[LinoleumEvent]
-      ): TruthValue = {
-        // Note this Property does not override `keyBy` so it keys
-        // by traceID
-        val traceId = key
-        val letters = buildLetters(formula)(traceId, orderedEvents)
-        val truthValue =
-          evaluateLetters(formula)(traceId, letters.iterator)
-        truthValue
-      }
-
-      /** Only take into account the first window, as we do not have state. This
-        * is characterized by containing the root span. Per
-        * https://opentelemetry.io/docs/concepts/signals/traces/ there is always
-        * a single root span on every trace
-        */
-      override def shouldIgnoreWindow(
-          formula: LinoleumFormula
-      )(windowKey: String, orderedEvents: List[LinoleumEvent]): Boolean =
-        !orderedEvents.exists { _.span.isRoot }
-    }
 
   @SerialVersionUID(1L)
   object MaudeMonitorProperty extends Serializable {
@@ -910,8 +673,7 @@ object PropertyInstances extends Serializable {
           if (stateValue != null) {
             log.debug(
               "Restoring soup from Flink state for key {} as {}",
-              key,
-              stateValue
+              Array[AnyRef](key, stateValue): _*
             )
           }
           stateValue
@@ -924,14 +686,11 @@ object PropertyInstances extends Serializable {
         checkNotNull(soup)
         log.debug(
           "initialSoup term parse success: string {} parsed as {}",
-          initialSoup,
-          soup.toString
+          Array[AnyRef](initialSoup, soup.toString): _*
         )
         log.debug(
           "Evaluating monitor {} for key {}: initial soup [{}]",
-          mon,
-          key,
-          soup
+          Array[AnyRef](mon, key, soup): _*
         )
 
         def getTruthValue(s: Term) =
@@ -946,15 +705,12 @@ object PropertyInstances extends Serializable {
           oldSoup.delete()
           log.debug(
             "nextSoup term parse success: string {} parsed as {}",
-            nextSoup,
-            soup.toString
+            Array[AnyRef](nextSoup, soup.toString): _*
           )
           soup.rewrite(mon.config.messageRewriteBound)
           log.debug(
             "Evaluating monitor {}:\n\tnext soup {} \n\trewritten to current soup {}",
-            mon.name,
-            nextSoup,
-            soup
+            Array[AnyRef](mon.name, nextSoup, soup): _*
           )
           onEvaluationStep.foreach { cb =>
             cb(event, soup, getTruthValue(soup))
@@ -968,7 +724,7 @@ object PropertyInstances extends Serializable {
       }
 
       soupState.update(soupStr)
-      log.debug("Saved soup on Flink state for key {} as {}", key, soupStr)
+      log.debug("Saved soup on Flink state for key {} as {}", Array[AnyRef](key, soupStr): _*)
       truthValue
     }
 
@@ -989,7 +745,7 @@ object PropertyInstances extends Serializable {
         globalStateStore,
         orderedEvents,
         Some((event, soup, truthVal) => {
-          soups.addOne((soup.toString, truthVal))
+          soups += ((soup.toString, truthVal))
         })
       )
 
@@ -1129,7 +885,6 @@ package object evaluator {
   type VerifiedSpansStream = DataStream[EvaluatedSpans]
 }
 package evaluator {
-  import io.github.demiourgoi.sscheck.prop.tl.Formula.defaultFormulaParallelism
   import org.apache.flink.streaming.api.windowing.windows.TimeWindow
   import org.apache.flink.util.Collector
 
@@ -1274,8 +1029,7 @@ package evaluator {
           if (someEvents.nonEmpty) {
             log.warn(
               "Ignoring window for key {} with events {}, ... ",
-              key,
-              someEvents.mkString(", ")
+              Array[AnyRef](key, someEvents.mkString(", ")): _*
             )
           }
         } else {
@@ -1290,8 +1044,7 @@ package evaluator {
           )
           log.info(
             s"Evaluated window with key {} to {}",
-            key,
-            evaluatedSpans
+            Array[AnyRef](key, evaluatedSpans): _*
           )
           outputMeter.markEvent()
           spansProcessedCounter.inc(inputCount)
@@ -1304,15 +1057,14 @@ package evaluator {
           rootSpan: SpanInfo,
           events: ListBuffer[LinoleumEvent]
       ): List[LinoleumEvent] = {
-        events.addOne(SpanEnd(rootSpan))
+        events += SpanEnd(rootSpan)
         val startEvent = SpanStart(rootSpan)
         val eventsOnTime = events.flatMap { event =>
           if (event.epochUnixNano < startEvent.epochUnixNano) {
             // TODO side output for warning and recoverable errors; stream main output for formula evaluation errors
             log.error(
               "Dropping event {} happening before root letter start {}",
-              event,
-              startEvent.epochUnixNano
+              Array[AnyRef](event, startEvent.epochUnixNano: java.lang.Long): _*
             )
             List.empty
           } else List(event)
@@ -1341,11 +1093,10 @@ package evaluator {
             if (spanInfo.isRoot) {
               log.info(
                 "Found root span with span id {}, for trace with id {}",
-                spanInfo.hexSpanId,
-                spanInfo.hexTraceId
+                Array[AnyRef](spanInfo.hexSpanId, spanInfo.hexTraceId): _*
               )
             }
-            events.addAll(eventFactories.map { _.apply(spanInfo) })
+            events ++= eventFactories.map { _.apply(spanInfo) }
           }
         }
         (events, inputCount)
@@ -1374,13 +1125,12 @@ package evaluator {
               case (true, None) =>
                 log.info(
                   "Found root span with span id {}, for trace with id {}",
-                  spanInfo.hexSpanId,
-                  spanInfo.hexTraceId
+                  Array[AnyRef](spanInfo.hexSpanId, spanInfo.hexTraceId): _*
                 )
                 rootSpanOpt = Some(spanInfo)
 
               case (true, Some(rootSpanInfo)) =>
-                failures.addOne(
+                failures += (
                   Failure(
                     new EventCollectionMultipleRootSpansError(
                       rootSpanInfo,
@@ -1390,7 +1140,7 @@ package evaluator {
                 )
 
               case _ =>
-                events.addAll(eventFactories.map { _.apply(spanInfo) })
+                events ++= eventFactories.map { _.apply(spanInfo) }
             }
           }
         }

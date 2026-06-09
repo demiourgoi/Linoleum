@@ -23,39 +23,34 @@ object RunMaudeMonitor {
     val monitorConfigPath = Paths.get(args(1))
     log.info(
       "Loading configurations for linoleumConfigPath=[{}], monitorConfigPath=[{}]",
-      linoleumConfigPath,
-      monitorConfigPath
+      Array[AnyRef](linoleumConfigPath, monitorConfigPath): _*
     )
+
+    import scala.util.{Try, Success, Failure}
 
     Try {
       val linoleumConfig = LinoleumConfig.fromPath(linoleumConfigPath)
       log.info(
         "Linoleum configuration loaded with success from path {}: {}",
-        linoleumConfigPath,
-        linoleumConfig
+        Array[AnyRef](linoleumConfigPath, linoleumConfig): _*
       )
       val monitorConfig = MaudeMonitorConfig.fromPath(monitorConfigPath)
       log.info(
         "Maude monitor configuration loaded with success from path {}: {}",
-        monitorConfigPath,
-        monitorConfig
+        Array[AnyRef](monitorConfigPath, monitorConfig): _*
       )
       (linoleumConfig, monitorConfig)
-    }.fold(
-      { t =>
+    } match {
+      case Failure(t) =>
         log.error(
           "Failure loading config from paths {} and {}",
-          linoleumConfigPath,
-          monitorConfigPath,
-          t
+          Array[AnyRef](linoleumConfigPath, monitorConfigPath, t): _*
         )
         System.exit(3)
-      },
-      { case (linoleumConfig, monitorConfig) =>
+      case Success((linoleumConfig, monitorConfig)) =>
         log.info("Running Linoleum job {}", linoleumConfig.jobName)
 
         Linoleum.execute(linoleumConfig, monitorConfig)
-      }
-    )
+    }
   }
 }

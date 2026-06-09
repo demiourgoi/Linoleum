@@ -22,15 +22,19 @@ description = """Linoleum flink job"""
 ext {
     javaVersion = '1.8'
     flinkVersion = '1.20.4'
-    scalaBinaryVersion = '_2.13'
+    scalaBinaryVersion = '_2.12'
     slf4jVersion = '1.7.36'
     log4jVersion = '2.17.1'
-    sscheckVersion = '0.5.2'
     grpcVersion = '1.70.0'
 }
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+// Scala 2.12: resolve SLF4J Logger.info(String, Object) vs (String, Object...) ambiguity
+tasks.withType(ScalaCompile) {
+    scalaCompileOptions.additionalParameters = ['-Yresolve-term-conflict:package']
 }
 
 
@@ -61,23 +65,22 @@ configurations {
 
 // declare the dependencies for your production and test code
 dependencies {
-    // Use Scala 2.13 in our library project
+    // Use Scala 2.12 in our library project (matches Flink 1.20.x)
     implementation libs.scala.library
 
-    // Use Scalatest for testing our library
+    // Test frameworks
     testImplementation libs.junit
-    testImplementation libs.scalatest.v2.v13
-    testImplementation libs.junit.v4.v13.v2.v13
+    testImplementation libs.scalatest.v2.v12
+    testImplementation libs.junit.v4.v12.v2.v12
+    testImplementation libs.specs2.core
+    testImplementation libs.specs2.junit
+    testImplementation libs.specs2.matcher.extra
 
     // Need scala-xml at test runtime
-    testRuntimeOnly libs.scala.xml.v2.v13
+    testRuntimeOnly libs.scala.xml.v2.v12
 
     // This dependency is used by the application.
     implementation libs.guava
-    // https://central.sonatype.com/artifact/io.github.demiourgoi/sscheck-core_2.13
-    implementation ("io.github.demiourgoi:sscheck-core${scalaBinaryVersion}:${sscheckVersion}") {
-        exclude group : "org.slf4j"
-    }
 
     // NOTE: do not shade and include the dependency, instead require the user to add it
     // That way this project does distribute Maude, and there is no issue with licenses
@@ -114,8 +117,8 @@ dependencies {
     // https://stackoverflow.com/questions/46988499/flink-webui-when-running-from-ide
     implementation "org.apache.flink:flink-runtime-web:${flinkVersion}"
 
-    implementation("com.github.pureconfig:pureconfig-yaml_2.13:0.17.4")
-    implementation("com.github.pureconfig:pureconfig_2.13:0.17.4")
+    implementation("com.github.pureconfig:pureconfig-yaml${scalaBinaryVersion}:0.17.4")
+    implementation("com.github.pureconfig:pureconfig${scalaBinaryVersion}:0.17.4")
 
     // --------------------------------------------------------------
     // Dependencies that should be part of the shadow jar, e.g.
