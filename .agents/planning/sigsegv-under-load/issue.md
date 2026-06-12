@@ -150,3 +150,143 @@ soup(initial).toString; getTruthValue(soup); soup.delete()                   ✓
 ```
 
 The only edge case where a Term could leak is if `parseTerm` returns null and `checkNotNull(soup)` throws — but this is an unrecoverable parse failure, not the normal execution path.
+
+---
+
+# Throughput degradation and job failure under load
+
+## Symptoms
+
+At ~8,800 spans/sec, the Flink job starts to slow down and eventually fails. Source operators show **HIGH backpressure** on 4/5 subtasks, while the window/sink operator reports `OK`. TaskManager slots become free as tasks fail.
+
+```
+Source: exportTracesRequests  → 4/5 subtasks HIGH backpressure, busy 18-44%, idle 0%
+Window/Sink                  → 5/5 subtasks OK backpressure
+```
+
+## Root causes (non-SIGSEGV)
+
+### 1. `evaluatedSpans.print()` — stdout sink bottleneck
+
+`SpanStreamEvaluator.scala:91` calls `.print()` on the evaluated stream, which adds a `PrintSinkFunction` that writes **every single record to stdout**:
+
+```scala
+val evaluatedSpans = spamEvaluator(spanInfos)
+evaluatedSpans.print()  // ← serial bottleneck
+val linoleumSink = new LinoleumSink(linolenumCfg)
+linoleumSink(evaluatedSpans)
+```
+
+At 8.8K spans/sec, writing to stdout is a significant serial bottleneck. In standalone mode with 5 TMs, stdout writes are per-TM but still slower than direct binary sinks.
+
+### 2. Log level mismatch
+
+`log4j2.properties` sets `io.github.demiourgoi.linoleum` to `ERROR` for load testing, but the TMs log at **INFO** level. Every Maude evaluation produces 2+ log lines (`Evaluated window...`, `Writing evaluated trace...`). At 8.8K spans/sec this generates enormous I/O pressure.
+
+### 3. Single-threaded Maude interpreter lock
+
+Each TaskManager runs 1 slot → 1 JVM → 1 Maude interpreter instance. The Maude C++ library has a global interpreter lock, so each TM can only process **one Maude evaluation at a time**. With `message-rewrite-bound: 100`, each window evaluation requires up to 100 sequential Maude rewrite steps.
+
+### 4. 5-second session gap triggers many windows
+
+Each trace has spans within a 5-second window gap. At high throughput, many traces close simultaneously, flooding the window/sink operator with evaluations. Each evaluation requires Maude rewriting, which is single-threaded per TM.
+
+### 5. Memory pressure under sustained load
+
+The `state-config.ttl-seconds: 86400` keeps Maude soup state for 24 hours. Under sustained load, state accumulates, increasing GC pressure and memory footprint. With 2 GB per TM and large Maude terms, this can lead to OOM or GC stalls.
+
+## Proposed fixes
+
+### A. Remove `evaluatedSpans.print()` in production
+
+Make the print sink conditional or remove it entirely:
+
+```scala
+val evaluatedSpans = spamEvaluator(spanInfos)
+// Only print in local/dev mode
+if (linolenumCfg.localFlinkEnv) {
+  evaluatedSpans.print()
+}
+val linoleumSink = new LinoleumSink(linolenumCfg)
+linoleumSink(evaluatedSpans)
+```
+
+**Impact**: Eliminates stdout serialization bottleneck. Easy to implement.
+
+### B. Fix log level for load tests
+
+Ensure `log4j2.properties` is actually applied to TMs. Verify that `linoleum` logger is at ERROR or WARN level during load tests. Consider reducing per-evaluation log lines or making them DEBUG-only.
+
+**Impact**: Reduces I/O pressure from log writes. Easy to implement.
+
+### C. Increase parallelism / TaskManagers
+
+With 32 GB physical RAM and 2 GB per TM, the host can support up to ~14 TMs (accounting for OS overhead). Increasing from 5 to 10 TMs would double Maude processing capacity:
+
+```yaml
+# flink-conf.yaml
+parallelism.default: 10
+
+# workers file — 10 entries
+localhost
+...
+```
+
+**Impact**: More parallel Maude instances. Requires more memory and JVM overhead per TM.
+
+### D. Increase slots per TaskManager
+
+Instead of more JVMs, increase slots per TM to reduce JVM overhead while keeping parallelism:
+
+```yaml
+taskmanager.numberOfTaskSlots: 2
+parallelism.default: 10
+# 5 TMs × 2 slots = 10 parallel subtasks
+```
+
+**Caveat**: Multiple slots per TM share the same Maude interpreter lock (same JVM), so this only helps if the bottleneck is NOT the Maude lock but other processing (like I/O, deserialization, MongoDB writes).
+
+### E. Reduce session gap
+
+Increase `session-gap-seconds` to coalesce more spans into fewer windows, reducing evaluation frequency:
+
+```yaml
+config:
+  session-gap-seconds: 30  # was 5
+```
+
+**Impact**: Fewer windows → fewer Maude evaluations → lower CPU load. Trade-off: higher latency before results appear.
+
+### F. Reduce state TTL
+
+Lower `ttl-seconds` to reduce memory pressure from accumulated state:
+
+```yaml
+state-config:
+  ttl-seconds: 3600  # 1 hour instead of 24
+```
+
+**Impact**: Less memory pressure, but state may be evicted for long-running traces.
+
+### G. Disable stdout sink via operator chaining
+
+Chain the MongoDB sink directly without the intermediate print:
+
+```scala
+val evaluatedSpans = spamEvaluator(spanInfos)
+// Remove: evaluatedSpans.print()
+val linoleumSink = new LinoleumSink(linolenumCfg)
+linoleumSink(evaluatedSpans)
+```
+
+The print sink adds an extra operator that serializes every record to text, copies it, and writes to stdout — all before the MongoDB sink. Removing it eliminates one full serialization round-trip per record.
+
+## Quick wins (in priority order)
+
+| Priority | Fix | Effort | Expected impact |
+|----------|-----|--------|-----------------|
+| 1 | Remove `.print()` | 1 line | High — eliminates stdout bottleneck |
+| 2 | Fix log level to ERROR | Verify config | Medium — reduces I/O |
+| 3 | Increase TMs 5→10 | Config change | High — doubles Maude parallelism |
+| 4 | Increase session gap 5s→30s | Config change | Medium — fewer evaluations |
+| 5 | Reduce state TTL 24h→4h | Config change | Low — less memory pressure |
