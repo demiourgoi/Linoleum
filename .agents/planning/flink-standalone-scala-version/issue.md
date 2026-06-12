@@ -108,3 +108,56 @@ As a prerequisite, the **`sscheck-core`** dependency must be removed because it 
 | `linoleum/lib/src/test/scala/.../LinoleumSpanInfoTest.scala` | Remove sscheck import |
 | `linoleum-ltlss-examples/flink-cluster/flink-conf.yaml` | Simplify classloader config |
 | `linoleum-ltlss-examples/app/src/main/resources/log4j2.properties` | No change (ERROR level already set) |
+
+## Collateral: gatling-load-gen build broken by Scala downgrade
+
+### Problem
+
+`gatling-load-gen` depends on `linoleum_2.13` to obtain compiled OTEL protobuf Java classes (`ExportTraceServiceRequest`, `Span`, `KeyValue`, etc.) used by `SpanGenerator.scala`. After the Scala 2.13 → 2.12 downgrade, `linoleum` is published as `linoleum_2.12`, so `gatling-load-gen` can no longer resolve `linoleum_2.13`:
+
+```
+Could not find io.github.demiourgoi:linoleum_2.13:0.2.0-SNAPSHOT.
+```
+
+`gatling-load-gen` cannot simply switch to Scala 2.12 because its Kafka plugin (`ru.tinkoff:gatling-kafka-plugin`) only publishes artifacts for Scala 2.13 — there is no `_2.12` variant.
+
+### Analysis
+
+`gatling-load-gen` only uses protobuf-generated Java classes from linoleum — no Scala code, no Flink, no Maude. The linoleum dependency in `build.gradle` already excludes all non-protobuf transitive dependencies:
+
+```groovy
+implementation("io.github.demiourgoi:linoleum_2.13:...") {
+    exclude group: 'org.apache.flink'
+    exclude group: 'com.twitter'
+    // ... excludes everything except protobuf classes
+}
+```
+
+The protobuf Java sources live at `linoleum/lib/src/main/java/io/` (93 files, auto-generated from `.proto` definitions by protoc). They are pure Java with no Scala or Flink dependencies, depending only on `protobuf-java` (already declared in `gatling-load-gen/build.gradle`) and each other.
+
+### Hack (implemented)
+
+Instead of depending on the linoleum library artifact, copy the protobuf Java source files directly into the `gatling-load-gen` project:
+
+1. **Remove** the `linoleum` dependency from `gatling-load-gen/build.gradle`
+2. **Copy** protobuf Java sources from `linoleum/lib/src/main/java/io/` to `gatling-load-gen/src/main/java/io/` before each build
+3. **`.gitignore`** the copied directory so it is not tracked in version control
+4. `gatling-load-gen` stays on **Scala 2.13** (no conflict with `gatling-kafka-plugin`)
+
+This is a build-time preprocessing step, similar to how Gradle's protobuf plugin would generate Java sources from `.proto` files — except we copy pre-generated sources instead of running protoc.
+
+### Limitations
+
+- If the `.proto` definitions change, the copied Java sources must be regenerated and recopied.
+- 93 files introduces some maintenance overhead, but changes to OTEL proto definitions are infrequent.
+
+### Long-term solution (not tackling now)
+
+Reimplement Linoleum in **Java** and migrate to **Flink 2**. This would:
+
+- Eliminate the Scala version coupling entirely (no `_2.12` / `_2.13` artifact suffixes)
+- Remove the classloader mismatch issues that forced the 2.13 → 2.12 downgrade
+- Allow `gatling-load-gen` to depend on a plain Java artifact without version suffix concerns
+- Align with Flink's long-term direction (Flink 2.0 drops the Scala API in favor of Java)
+
+This is future work and is not part of the current load-testing effort.
