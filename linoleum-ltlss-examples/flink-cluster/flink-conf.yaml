@@ -19,8 +19,8 @@ taskmanager.memory.process.size: 2048m
 # One slot per TM so each Maude interpreter runs in its own JVM
 taskmanager.numberOfTaskSlots: 1
 
-# Default parallelism — distributes work across all 5 TMs
-parallelism.default: 5
+# Default parallelism — distributes work across all 10 TMs
+parallelism.default: 10
 
 # Restart strategy: none (for load testing we want to observe failures directly)
 restart-strategy.type: none

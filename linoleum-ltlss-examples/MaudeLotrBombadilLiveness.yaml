@@ -5,18 +5,18 @@ monitor-oid: 'mon("liveness")'
 initial-soup: 'initConfig(mon("liveness"))'
 property: "bombadilSafeSatisfied"
 key-by:
-  type: "by-string-span-attribute"
-  key: "lotrbot.chat_id"
+    type: "by-string-span-attribute"
+    key: "lotrbot.chat_id"
 dependency-programs:
-  - "maude/json/date.maude"
-  - "maude/json/value.maude"
-  - "maude/json/json.maude"
+    - "maude/json/date.maude"
+    - "maude/json/value.maude"
+    - "maude/json/json.maude"
 rl-hooks:
-  - operator-name: "isPoliteText"
-    hook-supplier-fqn: "io.github.demiourgoi.linoleum.examples.IsPoliteTextOpHook.apply"
+    - operator-name: "isPoliteText"
+      hook-supplier-fqn: "io.github.demiourgoi.linoleum.examples.IsPoliteTextOpHook.apply"
 state-config:
-  ttl-seconds: 86400
+    ttl-seconds: 60
 config:
-  message-rewrite-bound: 100
-  session-gap-seconds: 5
-  allowed-lateness-seconds: 0
+    message-rewrite-bound: 100
+    session-gap-seconds: 5
+    allowed-lateness-seconds: 0

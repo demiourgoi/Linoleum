@@ -88,7 +88,10 @@ object Linoleum {
     )
     val evaluatedSpans = spamEvaluator(spanInfos)
 
-    evaluatedSpans.print()
+    // Only print to stdout in local/dev mode — in standalone this is a bottleneck
+    if (linolenumCfg.localFlinkEnv) {
+      evaluatedSpans.print()
+    }
 
     val linoleumSink = new LinoleumSink(linolenumCfg)
     linoleumSink(evaluatedSpans)
