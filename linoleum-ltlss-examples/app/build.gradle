@@ -31,11 +31,6 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-// Scala 2.12: resolve SLF4J Logger.info(String, Object) vs (String, Object...) ambiguity
-tasks.withType(ScalaCompile) {
-    scalaCompileOptions.additionalParameters = ['-Yresolve-term-conflict:package']
-}
-
 
 // declare where to find the dependencies of your project
 repositories {
@@ -165,7 +160,10 @@ task flinkJobJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJa
     archiveClassifier = 'flink-job'
     archiveVersion = ''
     from sourceSets.main.output
-    configurations = [project.configurations.runtimeClasspath]
+    configurations = [
+        project.configurations.runtimeClasspath,
+        project.configurations.flinkShadowJar
+    ]
 
     mergeServiceFiles()
 

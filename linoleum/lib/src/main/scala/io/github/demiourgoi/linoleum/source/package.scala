@@ -33,7 +33,6 @@ package source {
     private val log = LoggerFactory.getLogger(LinoleumSrc.getClass.getName)
     private val protoSerdeOption =
       "{type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
-
     def flinkEnv(linolenumCfg: LinoleumConfig): StreamExecutionEnvironment = {
       // https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/fault-tolerance/serialization/third_party_serializers/
       val config = new Configuration()
@@ -58,6 +57,13 @@ package source {
         PipelineOptions.SERIALIZATION_CONFIG,
         List(
           s"io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: $protoSerdeOption",
+          s"io.opentelemetry.proto.trace.v1.ResourceSpans: $protoSerdeOption",
+          s"io.opentelemetry.proto.trace.v1.ScopeSpans: $protoSerdeOption",
+          s"io.opentelemetry.proto.trace.v1.Span: $protoSerdeOption",
+          s"io.opentelemetry.proto.resource.v1.Resource: $protoSerdeOption",
+          s"io.opentelemetry.proto.common.v1.KeyValue: $protoSerdeOption",
+          s"io.opentelemetry.proto.common.v1.AnyValue: $protoSerdeOption",
+          s"io.opentelemetry.proto.common.v1.InstrumentationScope: $protoSerdeOption",
           s"io.github.demiourgoi.linoleum.messages.SpanInfo: $protoSerdeOption"
         ).asJava
       )

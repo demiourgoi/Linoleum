@@ -64,7 +64,7 @@ clean/maude/copysrc:
 
 publish/local: build	### publish this library to the local maven repo
 	$(GRADLE) publishToMavenLocal
-	echo "Library published to ~/.m2/repository/io/github/demiourgoi/linoleum_2.13"
+	echo "Library published to ~/.m2/repository/io/github/demiourgoi"
 
 # Stage first with gradle publish
 # https://jreleaser.org/guide/latest/examples/maven/maven-central.html#_gradle

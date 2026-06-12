@@ -10,7 +10,7 @@
 env.java.home: /usr/lib64/jvm/java-1.8.0-openjdk
 
 # JobManager
-jobmanager.rpc.address: localhost
+jobmanager.rpc.address: kymera
 jobmanager.rpc.port: 6123
 jobmanager.memory.process.size: 1600m
 
@@ -38,8 +38,9 @@ taskmanager.data.port: 0
 # Classloader: parent-first (default). Flink and Scala versions match now.
 classloader.resolve-order: parent-first
 
+# Protobuf compatibility flag (see app/build.gradle FIXME)
+env.java.opts: -Dcom.google.protobuf.use_unsafe_pre22_gencode
+
 # Protobuf serialization for OTEL span types.
-# Must be in flink-conf.yaml for standalone mode (can't be set programmatically).
-pipeline.serialization-config:
-  - "io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
-  - "io.github.demiourgoi.linoleum.messages.SpanInfo: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}"
+# Per Flink docs: uses bracket-delimited string format for List<String> config.
+pipeline.serialization-config: "[io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.trace.v1.ResourceSpans: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.trace.v1.ScopeSpans: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.trace.v1.Span: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.resource.v1.Resource: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.common.v1.KeyValue: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.common.v1.AnyValue: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.opentelemetry.proto.common.v1.InstrumentationScope: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}, io.github.demiourgoi.linoleum.messages.SpanInfo: {type: kryo, kryo-type: registered, class: com.twitter.chill.protobuf.ProtobufSerializer}]"

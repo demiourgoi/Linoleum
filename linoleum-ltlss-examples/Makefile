@@ -94,7 +94,8 @@ flink/config: ### apply Linoleum cluster config to FLINK_HOME (backs up original
 		cp -r $(FLINK_HOME)/conf $(FLINK_CONF_BAK); \
 	fi
 	@echo "Applying Linoleum cluster configuration to $(FLINK_HOME)/conf..."
-	cp $(ROOT_DIR)/flink-cluster/flink-conf.yaml $(FLINK_HOME)/conf/
+	cp $(ROOT_DIR)/flink-cluster/flink-conf.yaml $(FLINK_HOME)/conf/config.yaml
+	rm -f $(FLINK_HOME)/conf/flink-conf.yaml
 	cp $(ROOT_DIR)/flink-cluster/workers $(FLINK_HOME)/conf/
 	cp $(ROOT_DIR)/flink-cluster/masters $(FLINK_HOME)/conf/
 	cp $(ROOT_DIR)/flink-cluster/log4j2.properties $(FLINK_HOME)/conf/
