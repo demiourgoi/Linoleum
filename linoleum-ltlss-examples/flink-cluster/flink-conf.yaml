@@ -38,6 +38,13 @@ taskmanager.data.port: 0
 # Classloader: parent-first (default). Flink and Scala versions match now.
 classloader.resolve-order: parent-first
 
+# Prometheus PushGateway metrics reporter
+metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusPushGatewayReporterFactory
+metrics.reporter.prom.hostUrl: http://localhost:9091
+metrics.reporter.prom.jobName: linoleum
+metrics.reporter.prom.deleteOnShutdown: false
+metrics.reporter.prom.interval: 1 SECONDS
+
 # Protobuf compatibility flag (see app/build.gradle FIXME)
 env.java.opts: -Dcom.google.protobuf.use_unsafe_pre22_gencode
 
