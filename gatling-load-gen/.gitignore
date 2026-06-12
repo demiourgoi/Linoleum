@@ -18,3 +18,6 @@ build/
 Thumbs.db
 
 bin/
+
+# Copied protobuf Java sources (see linoleum/.agents/planning/flink-standalone-scala-version/issue.md)
+src/main/java/io/

@@ -40,23 +40,9 @@ dependencies {
     // Protobuf — needed at compile time for ByteString, toByteArray, etc.
     implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
 
-    // Linoleum library — provides OTEL proto classes (ExportTraceServiceRequest,
-    // Span, KeyValue, AnyValue, etc.)
-    // Exclude Flink and unrelated transitive deps; we only need the proto classes.
-    implementation("io.github.demiourgoi:linoleum${scalaBinaryVersion}:${linoleumVersion}") {
-        exclude group: 'org.apache.flink'
-        exclude group: 'com.twitter'
-        exclude group: 'org.apache.logging.log4j'
-        exclude group: 'org.slf4j'
-        exclude group: 'com.github.pureconfig'
-        exclude group: 'org.mongodb'
-        exclude group: 'es.ucm.maude'
-        exclude group: 'io.github.demiourgoi', module: 'sscheck-core_2.13'
-        exclude group: 'com.google.guava'
-        exclude group: 'org.apache.commons'
-        exclude group: 'com.google.code.gson'
-        // Don't exclude protobuf — we need it
-    }
+    // OTEL protobuf classes are copied from linoleum/lib/src/main/java/io/ by
+    // the Makefile before each build. See linoleum/.gitignore.
+    // This avoids a Scala-versioned dependency on linoleum_2.12/2.13.
 
     // Gatling Kafka plugin — brings Gatling, Kafka, Avro, Confluent transitive deps.
     // NOTE: Avro/Confluent classes are referenced at class-init time (KafkaSerdesImplicits),
