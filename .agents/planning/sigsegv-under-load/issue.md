@@ -290,3 +290,68 @@ The print sink adds an extra operator that serializes every record to text, copi
 | 3 | Increase TMs 5→10 | Config change | High — doubles Maude parallelism |
 | 4 | Increase session gap 5s→30s | Config change | Medium — fewer evaluations |
 | 5 | Reduce state TTL 24h→4h | Config change | Low — less memory pressure |
+
+---
+
+# Experiment results (2026-06-12)
+
+## Setup
+
+- 10 TaskManagers, 1 slot each, 2 GB per TM
+- `parallelism.default: 10`
+- `ttl-seconds: 60` (reduced from 86400)
+- `.print()` sink disabled in standalone mode
+- Maude `message-rewrite-bound: 100`, `session-gap-seconds: 5`
+- Gatling load generator with staircase ramp: 100 → 500 → 1000 → 5000 → 10000 msg/s
+
+## Throughput scaling
+
+| Spans/sec | Sink busy (%) | Source bp | Source bp time (ms) | Notes |
+|-----------|---------------|-----------|---------------------|-------|
+| 2,200 | 12.5 | OK | 0 | Comfortable |
+| 3,500 | 16 | OK | 0 | Linear scaling |
+| 4,500 | 37 | OK | 0 | Transient spike, recovered |
+| 14,000 | 72 | OK | 0 | Still linear |
+| 20,000 | 76–84 | OK | 0 | Near ceiling |
+| ~22,000 | 79–87 | LOW (6/10) | 78K | Saturation begins |
+| **~25,000** | **91–96** | **HIGH (8/10)** | **347K** | **Peak: 19,997.6 spans/sec. Full collapse imminent** |
+
+## Key findings
+
+1. **2.3x throughput improvement** over baseline (8.8K with 5 TMs + print sink → 20K with 10 TMs, no print, 60s TTL)
+2. **Peak: 19,997.6 spans/sec** — essentially 20K
+3. **Linear scaling up to ~20K** — Maude lock per TM scales with parallelism
+4. **Saturation at ~25K** — sink subtasks reach 91-96% busy, source backpressure goes HIGH on 8/10 subtasks
+5. **Uneven partition distribution** — hottest sink subtask at 96.5% while coolest at 57%, suggesting Kafka partition or chat_id key skew
+6. **No SIGSEGV crashes** — the 60s TTL kept native memory pressure low enough to avoid the use-after-free / heap exhaustion scenario
+
+## Comparison: before vs after
+
+| Metric | Before (5 TMs) | After (10 TMs) |
+|--------|----------------|-----------------|
+| Print sink | Yes | No (standalone) |
+| State TTL | 24h | 60s |
+| Sustained throughput | ~8.8K spans/s | ~20K spans/s |
+| Peak throughput | — | 19,997.6 spans/s |
+| Ceiling | ~8.8K (collapsed) | ~25K (saturated) |
+
+## Further tuning: log level
+
+### Problem
+
+The TMs were still logging at **INFO** level despite `log4j2.properties` setting `ERROR` for `io.github.demiourgoi.linoleum`. Investigation revealed the TMs use `log4j.properties` (log4j 1.x format via the `log4j-1.2-api` bridge), **not** `log4j2.properties`:
+
+```
+-Dlog4j.configurationFile=file:.../conf/log4j.properties
+```
+
+### Fix
+
+Created `flink-cluster/log4j.properties` with the Flink defaults plus:
+
+```properties
+logger.linoleum.name = io.github.demiourgoi.linoleum
+logger.linoleum.level = ERROR
+```
+
+Updated the Makefile to copy both files to the conf directory. Will take effect on next cluster restart.

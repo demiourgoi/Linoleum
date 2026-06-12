@@ -99,6 +99,7 @@ flink/config: ### apply Linoleum cluster config to FLINK_HOME (backs up original
 	cp $(ROOT_DIR)/flink-cluster/workers $(FLINK_HOME)/conf/
 	cp $(ROOT_DIR)/flink-cluster/masters $(FLINK_HOME)/conf/
 	cp $(ROOT_DIR)/flink-cluster/log4j2.properties $(FLINK_HOME)/conf/
+	cp $(ROOT_DIR)/flink-cluster/log4j.properties $(FLINK_HOME)/conf/
 
 flink/restore-config: ### restore original Flink config from backup
 	@if [ -d "$(FLINK_CONF_BAK)" ]; then \
