@@ -15,7 +15,7 @@ rl-hooks:
     - operator-name: "isPoliteText"
       hook-supplier-fqn: "io.github.demiourgoi.linoleum.examples.IsPoliteTextOpHook.apply"
 state-config:
-    ttl-seconds: 60
+    ttl-seconds: 30
 config:
     message-rewrite-bound: 100
     session-gap-seconds: 5

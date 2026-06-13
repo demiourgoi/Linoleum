@@ -169,7 +169,7 @@ cd ../linoleum-ltlss-examples
 # applies config, backs up original
 # starts 1 JobManager + 5 TaskManagers . See http://localhost:8081/#/job-manager/metrics
 # Build fat jar for the cluster
-make flink/config flink/start flink/build
+make flink/config flink/stop flink/start flink/build
 
 ## Generate load
 make -C ../gatling-load-gen clean build
