@@ -1,12 +1,12 @@
-fmod KEY-EVENT is
+fmod KEY-VALUE is
  pr STRING .
 
- sort KeyEvent .
- op [_,_] : String String -> KeyEvent [ctor] .
+ sort KeyValue .
+ op [_,_] : String String -> KeyValue [ctor] .
 endfm
 
-view KeyEvent from TRIV to KEY-EVENT is
- sort Elt to KeyEvent .
+view KeyValue from TRIV to KEY-VALUE is
+ sort Elt to KeyValue .
 endv
 
 omod OBJECT-NAMES is
@@ -28,12 +28,12 @@ endv
 
 omod TRACE-CLASS-DECLS is
  pr (LIST * (op __ to _`,_)){EventObject} * (sort List{EventObject} to EventObjectList) .
- pr LIST{KeyEvent} * (sort List{KeyEvent} to KeyEventList) .
+ pr LIST{KeyValue} * (sort List{KeyValue} to KeyValueList) .
 
- class Event | timeUnixNano : Nat, name : String, attributes : KeyEventList .
+ class Event | timeUnixNano : Nat, name : String, attributes : KeyValueList .
 
  class Span | traceId : String, spanId : String, parentSpanId : String, name : String,
-              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : KeyEventList,
+              startTimeUnixNano : Nat, endTimeUnixNano : Nat, attributes : KeyValueList,
               events : EventObjectList .
 
  *** Messages that wrap Span objects: these are LinoleumEvent
@@ -44,7 +44,7 @@ omod TRACE-CLASS-DECLS is
  var Events : EventObjectList .
  var Event : EventObject .
  vars EventName AttKey AttKey' AttValue : String .
- var Atts : KeyEventList .
+ var Atts : KeyValueList .
 
  op isRootSpan : Object -> Bool .
  eq isRootSpan(< O:Oid : Span | parentSpanId : "" >) = true .
@@ -77,11 +77,11 @@ omod TRACE-CLASS-DECLS is
  ceq eventForName(EventName, < O:Oid : Span | events : Events >) = Event
   if Event := lookupEventByName(EventName, Events) .
 
- --- Returns the value of the first attribute in the KeyEventList
+ --- Returns the value of the first attribute in the KeyValueList
  --- with the specified key
  --- Lookup failure marked by reducing to term without a sort
  --- See more in `lookupEventByName`
- op lookupAttribute : String KeyEventList ~> String .
+ op lookupAttribute : String KeyValueList ~> String .
  ceq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = AttValue
   if AttKey == AttKey' .
  eq lookupAttribute(AttKey, [AttKey', AttValue] Atts) = 
