@@ -1,3 +1,5 @@
+load ../json/json.maude
+
 omod DATA-STRUCTURES is
  pr JSON-OPS .
 
@@ -10,9 +12,10 @@ omod DATA-STRUCTURES is
  op subscriber : Nat -> SubscriberId [ctor] .
 
  sort ExpirationPolicy .
- subsort Nat < ExpirationPolicy .
 
  op never : -> ExpirationPolicy [ctor] .
+ op immediateRedelivery : -> ExpirationPolicy [ctor] .
+ op exponentialBackoff : -> ExpirationPolicy [ctor] .
 endom
 
 view SubscriptionName from TRIV to DATA-STRUCTURES is
@@ -32,7 +35,7 @@ omod PUBSUB-SYNTAX is
  pr LIST{SubscriptionName} .
 
  class Publisher | topicName : TopicName, msgs : JL, orderingKey : String,
-                   publishTime : Nat, retryPolicy : Nat .
+                   publishTime : Nat, retryPolicy : ExpirationPolicy .
 
  class Topic | subscriptions : List{SubscriptionName},
                messageStoragePolicy : JSON, labels : JSON,
@@ -143,8 +146,10 @@ mod TEST is
             ) .
 
  ops publisher0 publisher1 : -> Object .
- eq publisher0 = < publisher(0) : Publisher | topicName : topic(0), msgs : msg0 $ msg1 > .
- eq publisher1 = < publisher(1) : Publisher | topicName : topic(0), msgs : msg2 $ msg3 > .
+ eq publisher0 = < publisher(0) : Publisher | topicName : topic(0), msgs : msg0 $ msg1,
+                                              retryPolicy : never > .
+ eq publisher1 = < publisher(1) : Publisher | topicName : topic(0), msgs : msg2 $ msg3,
+                                              retryPolicy : never  > .
 
  op topic : -> Object .
  eq topic = < topic(0) : Topic | subscriptions : subscription(0) subscription(1) > .
