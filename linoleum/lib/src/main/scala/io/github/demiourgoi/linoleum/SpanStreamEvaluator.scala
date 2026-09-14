@@ -456,7 +456,7 @@ package object maude {
     s"""["${kv.getKey()}", "${anyValueToMaude(kv.getValue())}"]"""
 
   private def anyValueToMaude(anyValue: AnyValue): String =
-    // Note in ../maude/linoleum/trace.maude we have `op [_,_] : String String -> KeyEvent [ctor] .`
+    // Note in ../maude/linoleum/trace.maude we have `op [_,_] : String String -> KeyValue [ctor] .`
     // so this should always return a string representation of a Maude term of `String` sort.
     anyValue match {
       case av if av.hasStringValue() => stringValueToMaude(av.getStringValue())

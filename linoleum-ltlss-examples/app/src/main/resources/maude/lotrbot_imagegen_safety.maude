@@ -17,7 +17,7 @@ omod IMAGEGEN-SAFETY is
   vars M O : Oid .
   vars Obj S : Object .
   vars StartTimeUnixNano EndTimeUnixNano TimeSpentOnImageGenNanos T : Nat .
-  var Atts : KeyEventList .
+  var Atts : KeyValueList .
   var monitorName : String .
 
   --- The monitor extends the system specification to react to span events 
