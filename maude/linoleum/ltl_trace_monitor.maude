@@ -1,0 +1,252 @@
+***(
+    ltl_trace_monitor.maude
+
+    Model-based trace checking for Linoleum, in the style of
+    linoleum/docs/design.md.  It checks an LTL formula over a stream of
+    spanStart / spanEnd messages (as defined in maude/linoleum/trace.maude)
+    using the LTL machinery of model-checker.maude.
+
+    ============================================================================
+    Design
+    ============================================================================
+
+    The unit of observation is one message ("one message = one letter").  A
+    trace is therefore a finite/infinite sequence of messages, and the LTL
+    atoms are named boolean predicates over a single message.
+
+    Instead of re-runing a whole-system model check for every prefix, the
+    monitor keeps the *residual* of the formula:
+
+        residual(eps, f)      = f                      (eps = empty trace)
+        residual(w . m, f)    = progress(m, residual(w, f))
+
+    where progress advances the formula by one message (the classic LTL
+    "formula progression" / derivative):
+
+        progress(m, True)     = True
+        progress(m, False)    = False
+        progress(m, ~ f)      = not(progress(m, f))
+        progress(m, f /\ g)   = progress(m, f) /\ progress(m, g)
+        progress(m, f \/ g)   = progress(m, f) \/ progress(m, g)
+        progress(m, a)        = True   if a holds in m, else False   (a atomic)
+        progress(m, O f)      = f
+        progress(m, f U g)    = progress(m, g) \/ (progress(m, f) /\ (f U g))
+        progress(m, f R g)    = progress(m, g) /\ (progress(m, f) \/ (f R g))
+
+    Note there is no O around the recursive (f U g) / (f R g).  This is the
+    one-step derivative D_m(f), defined by: for every trace u,
+
+        m . u |= f   iff   u |= D_m(f)
+
+    so the residual is exactly what the (unknown) continuation must satisfy.
+    (Wrapping the recursion in O would shift the obligation by one message and
+    lose the current position whenever the until is discharged there.)
+
+    The residual r describes exactly the set of infinite continuations that
+    satisfy the original formula.  Its three-valued verdict is decided with
+    the LTL validity engine of model-checker.maude (SAT-SOLVER / tautCheck):
+
+        r is valid (tautology)          => satisfied
+        r is unsatisfiable (~r valid)   => violated
+        otherwise                       => undecided
+
+    This is why model checking reduces to a decision over the residual:
+    tautCheck decides LTL validity over infinite words, so a valid residual is
+    satisfied by *every* future, an unsatisfiable one by *no* future, and
+    anything else still depends on the unobserved future.
+
+    The state is small (a formula) and each message only advances it, so a
+    potentially unbounded event stream is handled with constant memory and
+    without ever re-exploring past events.
+
+    ============================================================================
+    Usage
+    ============================================================================
+
+    The expected environment is the Linoleum one: model-checker.maude and
+    maude/linoleum/trace.maude are already loaded before this program (see
+    maude/DEVELOPER_GUIDE.md and the lotrbot_*.maude examples).
+
+        reduce init(isSpanEnd U isRootSpanStart) .                  *** monitor
+        reduce verdict(consume(Msg1, consume(Msg2, init(F)))) .    *** Verdict
+        reduce verdict(run(Msg1 ;; Msg2 ;; Msg3 ;; mt, init(F))) .  *** same
+        reduce finalize(run(Msgs ;; mt, init(F))) .                 *** closed trace
+
+    New atomic propositions are added by importing this module and declaring
+    atoms plus equations for _holds_:
+
+        op isImageGenEnd : -> Atom [ctor] .
+        eq isImageGenEnd holds spanEnd(M, S) = isImageGenerationSpan(S) .
+
+    The formula may use the whole LTL syntax of model-checker.maude: ~, /\,
+    \/, O_, _U_, _R_, plus the derived ->, <>, [], W, |->, =>, <=>.
+)
+
+*** Everything is in a system module because trace.maude is an object module.
+mod LTL-TRACE-MONITOR is
+  *** Message/span/event data model and the LinoleumEvent messages.
+  pr TRACE-CLASS-OBJECTS .
+  *** LTL syntax, negative normal form, and derived temporal operators.
+  pr LTL-SIMPLIFIER .
+  *** tautCheck : Formula ~> TautCheckResult, backed by the native LTL solver.
+  pr SAT-SOLVER .
+
+  *** ------------------------------------------------------------------ ***
+  *** Alphabet: named boolean predicates over a single message.
+  *** ------------------------------------------------------------------ ***
+
+  sort Atom .
+  subsort Atom < Formula .
+
+  *** Built-in atoms.  Extend with more constructors in an importing module.
+  op isSpanStart : -> Atom [ctor] .
+  op isSpanEnd : -> Atom [ctor] .
+  op isRootSpanStart : -> Atom [ctor] .
+  op isRootSpanEnd : -> Atom [ctor] .
+  op startNamed : String -> Atom [ctor] .
+  op endNamed : String -> Atom [ctor] .
+
+  *** Satisfaction of an atom by a message.  The runtime hook for adding new
+  *** atomic propositions is to add more equations for this operator.
+  *** frozen: a message is a value, it must not be rewritten while inspected.
+  op _holds_ : Atom Msg -> Bool [frozen] .
+
+  vars M O : Oid .
+  var S : Object .
+  var N : String .
+
+  eq isSpanStart holds spanStart(M, S) = true .
+  eq isSpanStart holds spanEnd(M, S) = false .
+  eq isSpanEnd holds spanStart(M, S) = false .
+  eq isSpanEnd holds spanEnd(M, S) = true .
+
+  eq isRootSpanStart holds spanStart(M, S) = isRootSpan(S) .
+  eq isRootSpanStart holds spanEnd(M, S) = false .
+  eq isRootSpanEnd holds spanEnd(M, S) = isRootSpan(S) .
+  eq isRootSpanEnd holds spanStart(M, S) = false .
+
+  eq startNamed(N) holds spanStart(M, < O : Span | name : N >) = true .
+  eq startNamed(N) holds spanStart(M, S) = false [owise] .
+  eq startNamed(N) holds spanEnd(M, S) = false .
+  eq endNamed(N) holds spanEnd(M, < O : Span | name : N >) = true .
+  eq endNamed(N) holds spanEnd(M, S) = false [owise] .
+  eq endNamed(N) holds spanStart(M, S) = false .
+
+  *** ------------------------------------------------------------------ ***
+  *** The monitor.
+  *** ------------------------------------------------------------------ ***
+
+  sort Verdict .
+  ops satisfied violated undecided : -> Verdict [ctor] .
+
+  *** A monitor is just the current residual formula.
+  sort Monitor .
+  op monitor : Formula -> Monitor [ctor] .
+  op formula : Monitor -> Formula .
+
+  op init : Formula -> Monitor .
+  op consume : Msg Monitor -> Monitor .
+  op verdict : Monitor -> Verdict .
+  op finalize : Monitor -> Verdict .
+
+  *** Progression (derivative) of a formula by a message.
+  op progress : Msg Formula -> Formula .
+  op notF : Formula -> Formula .
+  op atomF : Bool -> Formula .
+
+  *** Verdict helpers around tautCheck.
+  op eval : Formula -> Verdict .
+  op isTaut : Formula -> Bool .
+  op isTrue : TautCheckResult -> Bool .
+
+  vars f g : Formula .
+  var m : Msg .
+  var a : Atom .
+  vars L C : FormulaList .
+
+  --- coercion of boolean atom values into formulas
+  eq atomF(true) = True .
+  eq atomF(false) = False .
+
+  --- negation of a (necessarily boolean) residual
+  eq notF(True) = False .
+  eq notF(False) = True .
+  eq notF(f) = ~ f [owise] .
+
+  --- progression.  The LTL equations (incl. LTL-SIMPLIFIER) normalise the
+  --- residual to negative normal form, pushing ~ down to the atoms.
+  eq progress(m, True) = True .
+  eq progress(m, False) = False .
+  eq progress(m, ~ f) = notF(progress(m, f)) .
+  eq progress(m, f /\ g) = progress(m, f) /\ progress(m, g) .
+  eq progress(m, f \/ g) = progress(m, f) \/ progress(m, g) .
+  eq progress(m, O f) = f .
+  eq progress(m, f U g) = progress(m, g) \/ (progress(m, f) /\ (f U g)) .
+  eq progress(m, f R g) = progress(m, g) /\ (progress(m, f) \/ (f R g)) .
+  eq progress(m, a) = atomF(a holds m) .
+
+  --- tautCheck returns either the Bool true, or a counterexample term.
+  eq isTrue(true) = true .
+  eq isTrue(counterexample(L, C)) = false .
+  eq isTaut(f) = isTrue(tautCheck(f)) .
+
+  eq eval(f) =
+    if isTaut(f) then satisfied
+    else if isTaut(~ f) then violated
+    else undecided
+    fi fi .
+
+  --- monitor API.  Normalisation of the formula happens automatically
+  --- because constructor arguments are reduced before equations are tried.
+  eq init(f) = monitor(f) .
+  eq consume(m, monitor(f)) = monitor(progress(m, f)) .
+  eq formula(monitor(f)) = f .
+  eq verdict(monitor(f)) = eval(f) .
+
+  *** ------------------------------------------------------------------ ***
+  *** Closing a finite trace.
+  ***
+  *** verdict/1 above is the open-future (infinite trace) question: it can
+  *** report "violated" as soon as an obligation is broken, but it reports
+  *** "satisfied" only when the residual itself is valid, so a liveness under
+  *** an always (e.g. [] (start -> <> end)) stays "undecided" until the trace
+  *** is closed.  finalize/1 answers the finite-trace question by assuming
+  *** that no further events occur (every atom is false from now on) and
+  *** evaluating the residual on that constant suffix.
+  ***
+  *** On a constant all-false suffix, f U g and f R g both reduce to g (a
+  *** state that fails once fails forever), which is the "once the window is
+  *** closed, what is left of the obligation" semantics.
+  *** ------------------------------------------------------------------ ***
+
+  op wk : Formula -> Bool .
+
+  eq wk(True) = true .
+  eq wk(False) = false .
+  eq wk(~ f) = not wk(f) .
+  eq wk(f /\ g) = wk(f) and wk(g) .
+  eq wk(f \/ g) = wk(f) or wk(g) .
+  eq wk(O f) = wk(f) .
+  eq wk(f U g) = wk(g) .
+  eq wk(f R g) = wk(g) .
+  eq wk(a) = false .
+
+  eq finalize(monitor(f)) = if wk(f) then satisfied else violated fi .
+
+  *** ------------------------------------------------------------------ ***
+  *** Convenience: replay a whole list of messages.
+  *** ------------------------------------------------------------------ ***
+
+  sort MsgList .
+  subsort Msg < MsgList .
+  op mt : -> MsgList [ctor] .
+  op _;;_ : MsgList MsgList -> MsgList [ctor assoc id: mt] .
+
+  op run : MsgList Monitor -> Monitor .
+
+  var Ms : Msg .
+  var Rest : MsgList .
+  var Mon : Monitor .
+  eq run(mt, Mon) = Mon .
+  eq run(Ms ;; Rest, Mon) = run(Rest, consume(Ms, Mon)) .
+endm

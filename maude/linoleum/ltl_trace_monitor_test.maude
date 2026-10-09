@@ -1,0 +1,135 @@
+***(
+    ltl_trace_monitor_test.maude
+
+    Runnable examples / smoke tests for ltl_trace_monitor.maude.
+
+    Run from this directory (where model-checker.maude lives):
+
+        maude < ltl_trace_monitor_test.maude
+
+    It also doubles as a Harold diagnostics harness, because it loads the
+    standard library and trace.maude before the monitor.
+)
+
+load model-checker.maude .
+load /home/juanrh/git/Linoleum/maude/linoleum/trace.maude .
+load ltl_trace_monitor.maude .
+
+*** A sample property module that extends the alphabet with a proposition
+*** over a span attribute, and names a couple of formulas.
+mod LTL-TRACE-MONITOR-EXAMPLES is
+  pr LTL-TRACE-MONITOR .
+  pr STRING .
+
+  *** atomic proposition: the span's gen_ai.operation.name attribute is N
+  op opNamed : String -> Atom [ctor] .
+
+  vars M O : Oid .
+  var S : Object .
+  var N : String .
+  ceq opNamed(N) holds spanStart(M, S) = true
+    if attributeForKey("gen_ai.operation.name", S) == N .
+  eq opNamed(N) holds spanStart(M, S) = false [owise] .
+  eq opNamed(N) holds spanEnd(M, S) = false .
+
+  *** every span start is eventually followed by a span end
+  op everyStartHasEnd : -> Formula .
+  eq everyStartHasEnd = [] (isSpanStart -> <> isSpanEnd) .
+
+  *** no two consecutive span ends
+  op noTwoConsecutiveEnds : -> Formula .
+  eq noTwoConsecutiveEnds = [] ~ (isSpanEnd /\ O isSpanEnd) .
+
+  *** a name-specific liveness property
+  op chatStartEnds : -> Formula .
+  eq chatStartEnds = [] (startNamed("chat") -> <> endNamed("chat")) .
+
+  *** message constructors and a generated trace, for stress tests
+  op startMsg : -> Msg .
+  op endMsg : -> Msg .
+  eq startMsg = spanStart(span("chat"), < span("chat") : Span | name : "chat" >) .
+  eq endMsg = spanEnd(span("chat"), < span("chat") : Span | name : "chat" >) .
+
+  op pairs : Nat -> MsgList .
+  var K : Nat .
+  eq pairs(0) = mt .
+  eq pairs(s(K)) = startMsg ;; endMsg ;; pairs(K) .
+endm
+
+*** ------------------------------------------------------------------ ***
+*** 1. Open-future verdicts (infinite-trace LTL semantics).
+***    A finite prefix can only ever refute a safety-like obligation; a
+***    liveness under an always stays undecided until the trace is closed.
+*** ------------------------------------------------------------------ ***
+
+*** start;end  ->  undecided (always part still constrains the future)
+red verdict(run(spanStart(span("mon"), < span("s1") : Span | name : "chat" >)
+             ;; spanEnd(span("mon"), < span("s1") : Span | name : "chat" >) ;; mt,
+             init(everyStartHasEnd))) .
+
+*** end;end  ->  violated (no two consecutive ends)
+red verdict(run(spanEnd(span("mon"), < span("s1") : Span | name : "chat" >)
+             ;; spanEnd(span("mon"), < span("s2") : Span | name : "chat" >) ;; mt,
+             init(noTwoConsecutiveEnds))) .
+
+*** one end  ->  undecided (the next message might be an end)
+red verdict(run(spanEnd(span("mon"), < span("s1") : Span | name : "chat" >) ;; mt,
+             init(noTwoConsecutiveEnds))) .
+
+*** ------------------------------------------------------------------ ***
+*** 2. Closed-trace verdicts (finalize/1 assumes no further events).
+*** ------------------------------------------------------------------ ***
+
+*** start;end observes the end, so the liveness is discharged  ->  satisfied
+red finalize(run(spanStart(span("mon"), < span("s1") : Span | name : "chat" >)
+             ;; spanEnd(span("mon"), < span("s1") : Span | name : "chat" >) ;; mt,
+             init(everyStartHasEnd))) .
+
+*** start with no end and the window closes                 ->  violated
+red finalize(run(spanStart(span("mon"), < span("s1") : Span | name : "chat" >) ;; mt,
+             init(everyStartHasEnd))) .
+
+*** end;end still closes as violated
+red finalize(run(spanEnd(span("mon"), < span("s1") : Span | name : "chat" >)
+             ;; spanEnd(span("mon"), < span("s2") : Span | name : "chat" >) ;; mt,
+             init(noTwoConsecutiveEnds))) .
+
+*** ------------------------------------------------------------------ ***
+*** 3. Extending the alphabet with an attribute-based proposition.
+*** ------------------------------------------------------------------ ***
+
+red opNamed("chat") holds spanStart(span("mon"), < span("s1") : Span |
+      name : "x", attributes : ["gen_ai.operation.name", "chat"] >) .
+red opNamed("tool") holds spanStart(span("mon"), < span("s1") : Span |
+      name : "x", attributes : ["gen_ai.operation.name", "chat"] >) .
+
+*** every chat-operation start must eventually be followed by any span end
+red finalize(run(spanStart(span("mon"), < span("s1") : Span |
+                 name : "x", attributes : ["gen_ai.operation.name", "chat"] >)
+             ;; spanEnd(span("mon"), < span("s2") : Span | name : "y" >) ;; mt,
+             init([] (opNamed("chat") -> <> isSpanEnd)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 4. Incrementality: inspect the residual after a single message.
+*** ------------------------------------------------------------------ ***
+
+red formula(consume(spanStart(span("mon"), < span("s1") : Span | name : "chat" >),
+      init(everyStartHasEnd))) .
+
+red formula(consume(spanStart(span("mon"), < span("s1") : Span | name : "chat" >),
+      init(chatStartEnds))) .
+
+*** ------------------------------------------------------------------ ***
+*** 5. Closed trace with a single end (satisfies the no-two-ends property).
+*** ------------------------------------------------------------------ ***
+
+red finalize(run(spanEnd(span("mon"), < span("s1") : Span | name : "chat" >) ;; mt,
+             init(noTwoConsecutiveEnds))) .
+
+*** ------------------------------------------------------------------ ***
+*** 6. Longer trace: residual stays constant-sized over many messages.
+*** ------------------------------------------------------------------ ***
+
+red finalize(run(pairs(10), init(everyStartHasEnd))) .
+red verdict(run(pairs(10), init(everyStartHasEnd))) .
+quit .
