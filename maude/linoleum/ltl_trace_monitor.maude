@@ -83,7 +83,10 @@
 )
 
 *** Everything is in a system module because trace.maude is an object module.
-mod LTL-TRACE-MONITOR is
+*** It must be an object module so that object patterns such as
+*** < O : Span | startTimeUnixNano : T > match spans that carry extra
+*** attributes (a plain mod only matches the exact attribute set).
+omod LTL-TRACE-MONITOR is
   *** Message/span/event data model and the LinoleumEvent messages.
   pr TRACE-CLASS-OBJECTS .
   *** LTL syntax, negative normal form, and derived temporal operators.
@@ -249,4 +252,4 @@ mod LTL-TRACE-MONITOR is
   var Mon : Monitor .
   eq run(mt, Mon) = Mon .
   eq run(Ms ;; Rest, Mon) = run(Rest, consume(Ms, Mon)) .
-endm
+endom

@@ -1,0 +1,205 @@
+***(
+    ltl_timed_trace_monitor.maude
+
+    Timed variant of ltl_trace_monitor.maude.  It adds a bounded eventually
+    operator
+
+        within(d, f)          *** f must happen within d nanoseconds
+
+    so properties of the form
+
+        [] (P -> within(N, Q))
+
+    ("always, when P then Q within N ns") can be monitored, which is what the
+    hand-written Linoleum monitors express with a "number of turns" countdown
+    (see lotrbot_bombadil_liveness.maude).
+
+    It imports ltl_trace_monitor.maude and reuses its alphabet (Atom, _holds_,
+    the built-in atoms), its Verdict type, and its helpers (atomF, notF,
+    isTaut).  Only the state and the time-aware progression are new.
+
+    ============================================================================
+    Time model
+    ============================================================================
+
+    Every message carries an absolute time in nanoseconds:
+
+        time(spanStart(M, S))  = startTimeUnixNano of the Span wrapped by S
+        time(spanEnd(M, S))    = endTimeUnixNano   of the Span wrapped by S
+
+    and the stream is assumed to arrive ordered by that time (non-decreasing).
+    Nothing else about time is needed: a timed obligation is stored with an
+    absolute deadline, so the monitor needs no extra clock.
+
+    ============================================================================
+    Timed progression
+    ============================================================================
+
+    tprogress(now, m, f) is the one-step derivative at time now = time(m):
+
+        tprogress(now, m, within(d, p))
+            = True              if p holds at m
+            = ev(now + d, p)    otherwise       (start a clock, deadline now+d)
+
+        tprogress(now, m, ev(deadline, p))
+            = False             if deadline < now       (missed: too late)
+            = True              if p holds at m         (discharged)
+            = ev(deadline, p)   otherwise               (still pending)
+
+    The internal ev(deadline, p) is an ordinary Formula atom as far as the LTL
+    validity engine is concerned, so the verdict is decided exactly as in the
+    untimed monitor:
+
+        tverdict(tmonitor(r)) = satisfied    if r is valid
+                                violated     if ~r is valid
+                                undecided    otherwise
+
+    Because pending ev atoms are free in that decision, the monitor never
+    reports a violation before a deadline has actually passed, and only
+    reports "satisfied" when the residual is valid regardless of how pending
+    obligations resolve.
+
+    p (the argument of within) must be a *state* formula: a boolean combination
+    of atoms with no temporal operators, e.g. isSpanEnd or (isRootSpanEnd /\
+    endNamed("chat")).  nowHolds/2 evaluates exactly those.
+
+    ============================================================================
+    Usage
+    ============================================================================
+
+        reduce tinit([] (isSpanStart -> within(1000000000, isSpanEnd))) .
+        reduce tverdict(tconsume(Msg, tinit(F))) .
+        reduce tfinalize(trun(Msg1 ;; Msg2 ;; mt, tinit(F))) .
+
+    tverdict is the open-future question (as in the untimed monitor) and
+    tfinalize closes the trace assuming no further events occur, which turns an
+    unmet pending obligation into a violation.
+)
+
+*** Object module so that the msgTime object patterns match spans with extra
+*** attributes (see ltl_trace_monitor.maude).
+omod LTL-TIMED-TRACE-MONITOR is
+  *** Untimed monitor: alphabet, Verdict, notF, atomF, isTaut, MsgList.
+  inc LTL-TRACE-MONITOR .
+  pr NAT .
+
+  *** ------------------------------------------------------------------ ***
+  *** Time of a message.
+  *** ------------------------------------------------------------------ ***
+
+  op msgTime : Msg -> Nat .
+
+  var M O : Oid .
+  var S : Object .
+  var T : Nat .
+
+  eq msgTime(spanStart(M, < O : Span | startTimeUnixNano : T >)) = T .
+  eq msgTime(spanEnd(M, < O : Span | endTimeUnixNano : T >)) = T .
+
+  *** ------------------------------------------------------------------ ***
+  *** Timed eventually and the internal pending obligation.
+  *** ------------------------------------------------------------------ ***
+
+  *** f must hold at some position at or before d nanoseconds from now
+  op within : Nat Formula -> Formula [ctor] .
+
+  *** pending obligation: p must hold at some position with time <= deadline
+  op ev : Nat Formula -> Formula [ctor] .
+
+  *** Evaluation of a state formula at the current message.
+  op nowHolds : Msg Formula -> Bool .
+
+  var f g : Formula .
+  var a : Atom .
+
+  eq nowHolds(m:Msg, True) = true .
+  eq nowHolds(m:Msg, False) = false .
+  eq nowHolds(m:Msg, ~ f) = not nowHolds(m:Msg, f) .
+  eq nowHolds(m:Msg, f /\ g) = nowHolds(m:Msg, f) and nowHolds(m:Msg, g) .
+  eq nowHolds(m:Msg, f \/ g) = nowHolds(m:Msg, f) or nowHolds(m:Msg, g) .
+  eq nowHolds(m:Msg, a) = a holds m:Msg .
+
+  *** ------------------------------------------------------------------ ***
+  *** Time-aware progression.
+  *** ------------------------------------------------------------------ ***
+
+  op tprogress : Nat Msg Formula -> Formula .
+
+  var m : Msg .  var now deadline d : Nat .  var p : Formula .
+
+  eq tprogress(now, m, True) = True .
+  eq tprogress(now, m, False) = False .
+  eq tprogress(now, m, ~ f) = notF(tprogress(now, m, f)) .
+  eq tprogress(now, m, f /\ g) = tprogress(now, m, f) /\ tprogress(now, m, g) .
+  eq tprogress(now, m, f \/ g) = tprogress(now, m, f) \/ tprogress(now, m, g) .
+  eq tprogress(now, m, O f) = f .
+  eq tprogress(now, m, f U g) =
+    tprogress(now, m, g) \/ (tprogress(now, m, f) /\ (f U g)) .
+  eq tprogress(now, m, f R g) =
+    tprogress(now, m, g) /\ (tprogress(now, m, f) \/ (f R g)) .
+
+  *** start a clock when the timed eventually is reached
+  eq tprogress(now, m, within(d, p)) =
+    if nowHolds(m, p) then True else ev(now + d, p) fi .
+
+  *** age a pending obligation
+  eq tprogress(now, m, ev(deadline, p)) =
+    if deadline < now then False
+    else if nowHolds(m, p) then True
+    else ev(deadline, p)
+    fi fi .
+
+  eq tprogress(now, m, a) = atomF(a holds m) .
+
+  *** ------------------------------------------------------------------ ***
+  *** Timed monitor API.
+  *** ------------------------------------------------------------------ ***
+
+  sort TMonitor .
+  op tmonitor : Formula -> TMonitor [ctor] .
+  op tformula : TMonitor -> Formula .
+  op tinit : Formula -> TMonitor .
+  op tconsume : Msg TMonitor -> TMonitor .
+  op tverdict : TMonitor -> Verdict .
+  op tfinalize : TMonitor -> Verdict .
+
+  op twk : Formula -> Bool .
+
+  eq tinit(f) = tmonitor(f) .
+  eq tconsume(m, tmonitor(f)) = tmonitor(tprogress(msgTime(m), m, f)) .
+  eq tformula(tmonitor(f)) = f .
+
+  eq tverdict(tmonitor(f)) =
+    if isTaut(f) then satisfied
+    else if isTaut(~ f) then violated
+    else undecided
+    fi fi .
+
+  *** Closing a finite trace: with no further events, a state atom is false
+  *** and every pending or not-yet-started obligation is missed.
+  eq twk(True) = true .
+  eq twk(False) = false .
+  eq twk(~ f) = not twk(f) .
+  eq twk(f /\ g) = twk(f) and twk(g) .
+  eq twk(f \/ g) = twk(f) or twk(g) .
+  eq twk(O f) = twk(f) .
+  eq twk(f U g) = twk(g) .
+  eq twk(f R g) = twk(g) .
+  eq twk(within(d, p)) = false .
+  eq twk(ev(deadline, p)) = false .
+  eq twk(a) = false .
+
+  eq tfinalize(tmonitor(f)) = if twk(f) then satisfied else violated fi .
+
+  *** ------------------------------------------------------------------ ***
+  *** Convenience: replay a whole list of messages.
+  *** ------------------------------------------------------------------ ***
+
+  op trun : MsgList TMonitor -> TMonitor .
+
+  var Ms : Msg .
+  var Rest : MsgList .
+  var TM : TMonitor .
+  eq trun(mt, TM) = TM .
+  eq trun(Ms ;; Rest, TM) = trun(Rest, tconsume(Ms, TM)) .
+endom

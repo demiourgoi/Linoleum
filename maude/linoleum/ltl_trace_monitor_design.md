@@ -183,16 +183,110 @@ the natural next step (see alternatives).
   work. The residual monitor is the half-way point that reuses the model
   checker's solver directly.
 
+## Timed variant: bounded eventually
+
+The hand-written Linoleum monitors express an obligation with a timeout — e.g.
+`lotrbot_bombadil_liveness.maude` says "always, when the user mentions Tom
+Bombadil then the bot rages within N turns", where a turn is the end of a trace.
+The timestamp-based counterpart is implemented in
+`ltl_timed_trace_monitor.maude`, which adds a bounded eventually
+
+```
+within(N, Q)        *** Q must happen within N nanoseconds
+```
+
+so that `[] (P -> within(N, Q))` can be monitored. It imports
+`ltl_trace_monitor.maude` and reuses its alphabet, `Verdict`, and helpers; only
+the state and the time-aware progression are new.
+
+### Time model
+
+Every message carries an absolute time in nanoseconds:
+
+```
+msgTime(spanStart(M, S))  = startTimeUnixNano of the Span wrapped by S
+msgTime(spanEnd(M, S))    = endTimeUnixNano   of the Span wrapped by S
+```
+
+and the stream is assumed ordered by that time (non-decreasing). No separate
+clock is needed: a timed obligation is stored with an **absolute deadline**, so
+the next `tconsume` can compare `msgTime(m)` with it.
+
+### Timed progression
+
+`tprogress(now, m, f)` is the one-step derivative at `now = msgTime(m)`; the
+untimed rules are unchanged and the new cases are:
+
+```
+tprogress(now, m, within(d, p))
+    = True              if p holds at m
+    = ev(now + d, p)    otherwise        (start a clock; deadline = now + d)
+
+tprogress(now, m, ev(deadline, p))
+    = False             if deadline < now   (missed: too late)
+    = True              if p holds at m     (discharged)
+    = ev(deadline, p)   otherwise           (still pending)
+```
+
+`ev(deadline, p)` is an ordinary `Formula` atom as far as the LTL validity
+engine is concerned, so the verdict is decided exactly as in the untimed
+monitor (`isTaut` on the residual). Because **pending `ev` atoms are free** in
+that decision, the monitor never reports a violation before a deadline has
+actually passed, and reports `satisfied` only when the residual is valid no
+matter how pending obligations resolve. Multiple obligations are tracked
+independently, so `[] (P -> within(N, Q))` starts a fresh clock each time `P`
+holds.
+
+`p` (the argument of `within`) must be a **state formula** — a boolean
+combination of atoms with no temporal operators (e.g. `isSpanEnd`,
+`(isRootSpanEnd /\ endNamed("chat"))`). `nowHolds/2` evaluates exactly those.
+
+### API
+
+| Operator | Type | Meaning |
+|---|---|---|
+| `within` | `Nat Formula ~> Formula` | bounded eventually (user-facing) |
+| `msgTime` | `Msg ~> Nat` | absolute time of a message |
+| `tinit` | `Formula ~> TMonitor` | build the timed monitor |
+| `tconsume` | `Msg TMonitor ~> TMonitor` | advance by one message (reads its time) |
+| `tformula` | `TMonitor ~> Formula` | inspect the residual |
+| `tverdict` | `TMonitor ~> Verdict` | open-future 3-valued result |
+| `tfinalize` | `TMonitor ~> Verdict` | closed-trace result (pending/never-started obligations become violations) |
+| `trun` | `MsgList TMonitor ~> TMonitor` | replay a whole list |
+
+Example:
+
+```maude
+reduce tinit([] (isSpanStart -> within(1000000000, isSpanEnd))) .
+reduce tverdict(tconsume(Msg, tinit(F))) .
+reduce tfinalize(trun(Msg1 ;; Msg2 ;; mt, tinit(F))) .
+```
+
+### Limits
+
+- `within`'s argument must be a state formula (no nested temporal operators).
+- A violation is only reported once a deadline has passed (sound for
+  monitoring); as with the untimed monitor, `tverdict` cannot confirm a liveness
+  on an open stream — use `tfinalize` at window close.
+- Deadlines are absolute nanosecond values, so the semantics follow the span
+  clock; if events can arrive with equal timestamps, the deadline comparison is
+  inclusive (`deadline < now` is the expiry test).
+
 ## Files
 
-- `ltl_trace_monitor.maude` — the library (`mod LTL-TRACE-MONITOR`).
-- `ltl_trace_monitor_test.maude` — runnable examples and smoke tests; also a
-  Harold diagnostics harness because it loads the dependencies first.
+- `ltl_trace_monitor.maude` — the untimed library (`omod LTL-TRACE-MONITOR`).
+- `ltl_timed_trace_monitor.maude` — the timed library
+  (`omod LTL-TIMED-TRACE-MONITOR`, imports the untimed one).
+- `ltl_trace_monitor_test.maude` — untimed examples / smoke tests.
+- `ltl_timed_trace_monitor_test.maude` — timed examples / smoke tests. Both test
+  files also double as Harold diagnostics harnesses because they load the
+  dependencies first.
 
 Run from this directory (the one containing `model-checker.maude`):
 
 ```
 maude < ltl_trace_monitor_test.maude
+maude < ltl_timed_trace_monitor_test.maude
 ```
 
 The expected environment is the Linoleum one: `model-checker.maude` and
@@ -205,8 +299,10 @@ both, see `maude/DEVELOPER_GUIDE.md`).
 
 | File | Purpose |
 |---|---|
-| `ltl_trace_monitor.maude` | The monitor library (`mod LTL-TRACE-MONITOR`) |
-| `ltl_trace_monitor_test.maude` | Runnable examples / smoke tests; doubles as the Harold harness (it loads the deps first) |
+| `ltl_trace_monitor.maude` | The untimed monitor library (`omod LTL-TRACE-MONITOR`) |
+| `ltl_timed_trace_monitor.maude` | The timed monitor library (`omod LTL-TIMED-TRACE-MONITOR`) |
+| `ltl_trace_monitor_test.maude` | Untimed examples / smoke tests; Harold harness |
+| `ltl_timed_trace_monitor_test.maude` | Timed examples / smoke tests; Harold harness |
 | `ltl_trace_monitor_design.md` | This design document |
 
 ### Shape of the implementation
@@ -231,6 +327,17 @@ correct one-step derivative carries the original `f U g` (no `O`) and the same
 for `R`; this is what the library implements, and `ltl_trace_monitor_test.maude`
 contains a regression for `start;end` discharging a liveness.
 
+### Object-module gotcha
+
+Both libraries declare object patterns such as `< O : Span | startTimeUnixNano
+: T >` (and the untimed `startNamed`/`endNamed` patterns). These only match
+spans that carry *extra* attributes if the module is an **object module**
+(`omod`): a plain `mod` matches the exact attribute set only. The libraries are
+therefore `omod`s (closing with `endom`). This surfaced with `msgTime` in the
+timed monitor, which silently failed to reduce for real spans that also carry
+`name`, `traceId`, etc. (trace.maude's own accessors work because they live in
+an `omod`.)
+
 ### Semantic caveat (worth reviewing)
 
 Under infinite-trace (Büchi) semantics a finite prefix can only **refute**
@@ -248,9 +355,17 @@ decision to confirm for production use.
   - `end;end` → `violated`
   - the attribute atom `opNamed("chat")` behaves correctly
   - a generated 20-message trace stays linear (~850 rewrites)
-- Harold diagnostics: `ltl_trace_monitor_test.maude` is clean (0/0/0). Checking
-  `ltl_trace_monitor.maude` **alone** reports only import-resolution artifacts,
-  because Harold loads just that one file; use the test file as the harness.
+- `maude < ltl_timed_trace_monitor_test.maude` runs clean (0 warnings /
+  0 errors), all results correct:
+  - `start@0; end@100`, `within(1000, ...)` → `satisfied`
+  - `start@0; end@2000` → `violated` (late)
+  - `start@0`, no end → `violated`
+  - `start@0; end@999` and `start@0; end@1000` → `satisfied` (deadline inclusive)
+  - `start@0; start@1500; end@1600` → `violated` (first clock timed out) even
+    though an end arrives later
+- Harold diagnostics: both test files are clean (0/0/0). Checking a library file
+  **alone** reports only import-resolution artifacts, because Harold loads just
+  that one file; use the test files as the harness.
 
 ### Runtime integration
 
@@ -258,6 +373,8 @@ Reuse the existing `MaudeMonitorProperty` plumbing (`SpanStreamEvaluator.scala`)
 `initialSoup = init(F)`, replace the per-event "rewrite the soup" with
 `consume(<toMaude message>, soup)`, persist the resulting `Monitor` term in
 Flink keyed state (with the existing TTL option), and evaluate with `verdict`
-(streaming) or `finalize` (window close). Only the advance and evaluate operators
-change; windowing, keying, TTL, and the sink stay as they are.
+(streaming) or `finalize` (window close). For bounded-eventually properties use
+the timed operators `tinit` / `tconsume` / `tverdict` / `tfinalize` instead.
+Only the advance and evaluate operators change; windowing, keying, TTL, and the
+sink stay as they are.
 

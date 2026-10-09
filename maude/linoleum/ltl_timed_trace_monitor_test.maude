@@ -1,0 +1,116 @@
+***(
+    ltl_timed_trace_monitor_test.maude
+
+    Runnable examples / smoke tests for ltl_timed_trace_monitor.maude.
+
+    Run from this directory (where model-checker.maude lives):
+
+        maude < ltl_timed_trace_monitor_test.maude
+
+    It also doubles as a Harold diagnostics harness, because it loads the
+    standard library and trace.maude before the monitor.
+)
+
+load model-checker.maude .
+load /home/juanrh/git/Linoleum/maude/linoleum/trace.maude .
+load ltl_trace_monitor.maude .
+load ltl_timed_trace_monitor.maude .
+
+mod LTL-TIMED-TRACE-MONITOR-EXAMPLES is
+  pr LTL-TIMED-TRACE-MONITOR .
+
+  var S : String .
+  vars T0 T1 D : Nat .
+
+  *** message builders that set the span time fields
+  ops timedStart timedEnd : String Nat -> Msg .
+  eq timedStart(S, T0) =
+    spanStart(span(S), < span(S) : Span | name : "chat",
+              startTimeUnixNano : T0, endTimeUnixNano : T0 >) .
+  eq timedEnd(S, T1) =
+    spanEnd(span(S), < span(S) : Span | name : "chat",
+            startTimeUnixNano : 0, endTimeUnixNano : T1 >) .
+
+  *** always, a start is followed by an end within D nanoseconds
+  op respondWithin : Nat -> Formula .
+  eq respondWithin(D) = [] (isSpanStart -> within(D, isSpanEnd)) .
+
+  *** named variant
+  op chatRespondWithin : Nat -> Formula .
+  eq chatRespondWithin(D) = [] (startNamed("chat") -> within(D, endNamed("chat"))) .
+endm
+
+*** ------------------------------------------------------------------ ***
+*** 0. Time is read from the wrapped span's start/end time.
+*** ------------------------------------------------------------------ ***
+
+red msgTime(timedStart("s", 42)) .
+red msgTime(timedEnd("s", 100)) .
+
+*** ------------------------------------------------------------------ ***
+*** 1. Closed-trace verdicts for [] (start -> within(D, end)).
+*** ------------------------------------------------------------------ ***
+
+*** start@0, end@100, D=1000        -> satisfied (in time)
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 100) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** start@0, end@2000, D=1000       -> violated (too late)
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 2000) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** start@0, no end, D=1000         -> violated (obligation never met)
+red tfinalize(trun(timedStart("s", 0) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** start@0, end@999, D=1000        -> satisfied (just in time)
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 999) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** start@0, end@1000, D=1000       -> satisfied (deadline inclusive)
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 1000) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 2. A timeout is detected even if the end arrives later: the first
+***    obligation expires when the *next* message passes its deadline.
+*** ------------------------------------------------------------------ ***
+
+*** start@0, start@1500, end@1600, D=1000  -> violated (first start timed out)
+red tfinalize(trun(timedStart("s", 0) ;; timedStart("s", 1500)
+             ;; timedEnd("s", 1600) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 3. Open-future verdict (infinite-trace semantics): while an obligation
+***    is pending the property is undecided; it is never confirmed early.
+*** ------------------------------------------------------------------ ***
+
+red tverdict(trun(timedStart("s", 0) ;; mt, tinit(respondWithin(1000)))) .
+red tverdict(trun(timedStart("s", 0) ;; timedEnd("s", 100) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 4. Nested within: a start must be followed by an end, and that end must
+***    itself be followed by another start within the window.
+*** ------------------------------------------------------------------ ***
+
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 10)
+             ;; timedStart("s", 20) ;; timedEnd("s", 30) ;; mt,
+             tinit(respondWithin(1000)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 5. Bare timed eventually at the top level.
+*** ------------------------------------------------------------------ ***
+
+red tfinalize(trun(timedEnd("s", 500) ;; mt, tinit(within(1000, isSpanEnd)))) .
+red tfinalize(trun(timedEnd("s", 1500) ;; mt, tinit(within(1000, isSpanEnd)))) .
+
+*** ------------------------------------------------------------------ ***
+*** 6. Named variant and incremental residual inspection.
+*** ------------------------------------------------------------------ ***
+
+red tformula(tconsume(timedStart("s", 0), tinit(chatRespondWithin(1000)))) .
+red tfinalize(trun(timedStart("s", 0) ;; timedEnd("s", 100) ;; mt,
+             tinit(chatRespondWithin(1000)))) .
+quit .
