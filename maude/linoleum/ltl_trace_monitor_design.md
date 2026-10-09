@@ -272,6 +272,53 @@ reduce tfinalize(trun(Msg1 ;; Msg2 ;; mt, tinit(F))) .
   clock; if events can arrive with equal timestamps, the deadline comparison is
   inclusive (`deadline < now` is the expiry test).
 
+### Finite streams, pulses, and what is (not) decided
+
+An infinite stream cannot be decided in finite time. `[] (P -> within(N, Q))` is
+a **safety** property: a violation has a finite witness (a `P` with no `Q` within
+`N`), but satisfaction does not — any finite prefix can be extended by one more
+`P` with no `Q`. Concretely, after `start@0; end@100` the residual is still
+`[] (~start \/ within(N, end))`: no open obligation, yet `undecided`, because the
+future is open.
+
+What the system decides, precisely:
+
+- **Ongoing stream (`tverdict`)**: a *sound partial* decision. It returns
+  `violated` only when the observed prefix is a genuine counterexample, and
+  `undecided` otherwise; it never claims satisfaction of a `[]`-property before
+  the stream is closed.
+- **Closed finite stream (`tfinalize`)**: a *decision procedure*. Given any
+  finite stream, `tfinalize` evaluates the residual under the end-of-stream
+  assumption (no further events; every atom is false from now on) and returns
+  `satisfied`/`violated`. For a response property this is exactly "every `P` in
+  the stream had its `Q` within `N`".
+
+So the system is a **checker of arbitrarily long finite event streams**, not a
+decision procedure for infinite streams. That is strictly weaker than
+infinite-trace verification (model checking / Büchi acceptance), but it is
+exactly what runtime verification needs, and it has real engineering value: the
+stream may be arbitrarily long, it is processed incrementally with a bounded
+state, and counterexamples are found with bounded latency.
+
+A pulse (an event at least every `T`) does **not** move the confirmability
+boundary: it guarantees *bounded refutation latency* — at most about `N + T`
+plus processing delay — not bounded-time confirmation. What the pulse does
+justify is reporting an operational "healthy / no open obligation" status
+between violations (the `tholdsSoFar` idea), which is a weaker, engineering-level
+signal distinct from the LTL `satisfied`.
+
+#### TL;DR
+
+1. __"Finite streams of arbitrary length" = `tfinalize`__. That is a genuine decision procedure for the formula on a finite stream, under an explicit end-of-stream convention (no further events; all future atoms false). For response/safety properties it coincides with the intuitive reading ("every P in the stream had its Q within N"). On a still-open stream, tverdict is only a sound partial decision (it can say violated, otherwise undecided).
+2. __It is not an infinite-stream verifier__. It can refute `[]`-liveness in bounded time (with a pulse, latency ≈ `N + T`), but cannot confirm it on an open stream. That's a hard boundary, not a gap to be closed.
+
+Therefore, "checker of arbitrarily long finite event streams" is accurate, appropriately modest, and genuinely valuable for runtime verification. _What would make it overstating_ is saying the monitor "verifies" or "proves" the property, or that a pulse lets it confirm liveness — which is exactly what the remark rules out. To summarize: 
+
+- Infinite streams can't be decided in finite time; `[] (P -> within(N,Q))` is safety — finitely refutable, not finitely confirmable (with the `start@0; end@100` residual example showing undecided even with no open obligation).
+- The precise split: `tverdict` = sound partial decision (refutation only); `tfinalize` = decision procedure for closed finite streams.
+- The "checker of arbitrarily long finite event streams" characterization: strictly weaker than infinite-trace verification, but exactly what runtime verification needs (incremental, bounded state, bounded-latency counterexamples).
+- The pulse does not move the confirmability boundary; it only bounds refutation latency and justifies an operational "healthy / no open obligation" signal (`tholdsSoFar`, distinct from LTL `satisfied`).
+
 ## Files
 
 - `ltl_trace_monitor.maude` — the untimed library (`omod LTL-TRACE-MONITOR`).
@@ -345,7 +392,8 @@ safety-like obligations; a liveness under an always such as
 `[] (start -> <> end)` stays `undecided` on an open stream because the
 unobserved future could still violate it. `finalize` supplies the closed-trace
 answer under the "no further events" assumption. This is the main semantic
-decision to confirm for production use.
+decision to confirm for production use. The timed section's "Finite streams,
+pulses, and what is (not) decided" spells out the same boundary with timeouts.
 
 ### Verification performed
 
@@ -377,4 +425,3 @@ Flink keyed state (with the existing TTL option), and evaluate with `verdict`
 the timed operators `tinit` / `tconsume` / `tverdict` / `tfinalize` instead.
 Only the advance and evaluate operators change; windowing, keying, TTL, and the
 sink stay as they are.
-
